@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { ArrowLeft, Plus, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,16 +11,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { CharacterFormFields } from '@/components/CharacterFormFields';
 import { PresetTaskPicker } from '@/components/PresetTaskPicker';
 import { PresetTaskPreview } from '@/components/PresetTaskPreview';
@@ -37,8 +27,6 @@ export function CharacterTabs() {
   const activeCharacterId = useCharacterStore((s) => s.activeCharacterId);
   const setActiveCharacter = useCharacterStore((s) => s.setActiveCharacter);
   const addCharacter = useCharacterStore((s) => s.addCharacter);
-  const removeCharacter = useCharacterStore((s) => s.removeCharacter);
-  const removeTasksForCharacter = useTaskStore((s) => s.removeTasksForCharacter);
   const addPresetTasks = useTaskStore((s) => s.addPresetTasks);
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -50,8 +38,48 @@ export function CharacterTabs() {
   const [job, setJob] = useState<string | undefined>(undefined);
   const [selectedPresetIds, setSelectedPresetIds] = useState<Set<string>>(new Set());
   const [resolvedPresetTasks, setResolvedPresetTasks] = useState<PresetTask[]>([]);
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
-  const pendingDeleteCharacter = characters.find((c) => c.id === pendingDeleteId);
+
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+
+    function updateScrollEdges() {
+      if (!track) return;
+      setCanScrollLeft(track.scrollLeft > 2);
+      setCanScrollRight(track.scrollLeft < track.scrollWidth - track.clientWidth - 2);
+    }
+
+    function handleWheel(e: WheelEvent) {
+      if (!track || Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+      track.scrollLeft += e.deltaY;
+      e.preventDefault();
+    }
+
+    updateScrollEdges();
+    track.addEventListener('wheel', handleWheel, { passive: false });
+    track.addEventListener('scroll', updateScrollEdges);
+    window.addEventListener('resize', updateScrollEdges);
+    return () => {
+      track.removeEventListener('wheel', handleWheel);
+      track.removeEventListener('scroll', updateScrollEdges);
+      window.removeEventListener('resize', updateScrollEdges);
+    };
+  }, []);
+
+  useEffect(() => {
+    const el = trackRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 2);
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 2);
+  }, [characters.length]);
+
+  function scrollTrackBy(amount: number) {
+    trackRef.current?.scrollBy({ left: amount, behavior: 'smooth' });
+  }
 
   function togglePreset(id: string) {
     setSelectedPresetIds((prev) => {
@@ -63,13 +91,6 @@ export function CharacterTabs() {
       }
       return next;
     });
-  }
-
-  function confirmDelete() {
-    if (!pendingDeleteId) return;
-    removeTasksForCharacter(pendingDeleteId);
-    removeCharacter(pendingDeleteId);
-    setPendingDeleteId(null);
   }
 
   function resetForm() {
@@ -111,32 +132,53 @@ export function CharacterTabs() {
 
   return (
     <div className="flex items-center gap-2">
-      <Tabs
-        value={activeCharacterId ?? undefined}
-        onValueChange={setActiveCharacter}
-        className="min-w-0 flex-1"
-      >
-        <TabsList className="h-auto flex-wrap justify-start gap-1 bg-transparent p-0">
-          {characters.map((character) => (
-            <div key={character.id} className="group/tab relative">
-              <TabsTrigger
-                value={character.id}
-                className="rounded-lg border border-transparent py-2 pr-7 pl-4 text-sm font-medium data-[state=active]:border-border data-[state=active]:bg-card data-[state=active]:shadow-sm"
-              >
-                {character.name}
-              </TabsTrigger>
-              <button
-                type="button"
-                aria-label={`刪除角色 ${character.name}`}
-                onClick={() => setPendingDeleteId(character.id)}
-                className="absolute top-1/2 right-1.5 inline-flex size-4 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/20 hover:text-destructive focus-visible:opacity-100 group-hover/tab:opacity-100"
-              >
-                <X className="size-3" />
-              </button>
-            </div>
-          ))}
-        </TabsList>
-      </Tabs>
+      <div className="relative min-w-0 flex-1">
+        {canScrollLeft && (
+          <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 rounded-l-xl bg-gradient-to-r from-background to-transparent" />
+        )}
+        {canScrollRight && (
+          <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 rounded-r-xl bg-gradient-to-l from-background to-transparent" />
+        )}
+        {canScrollLeft && (
+          <button
+            type="button"
+            aria-label="向左捲動角色分頁"
+            onClick={() => scrollTrackBy(-160)}
+            className="absolute top-1/2 left-1 z-20 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-sm"
+          >
+            <ChevronLeft className="size-3.5" />
+          </button>
+        )}
+        {canScrollRight && (
+          <button
+            type="button"
+            aria-label="向右捲動角色分頁"
+            onClick={() => scrollTrackBy(160)}
+            className="absolute top-1/2 right-1 z-20 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-sm"
+          >
+            <ChevronRight className="size-3.5" />
+          </button>
+        )}
+
+        <div
+          ref={trackRef}
+          className="flex flex-nowrap items-center gap-1 overflow-x-auto rounded-xl bg-muted p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          <Tabs value={activeCharacterId ?? undefined} onValueChange={setActiveCharacter} className="contents">
+            <TabsList className="contents">
+              {characters.map((character) => (
+                <TabsTrigger
+                  key={character.id}
+                  value={character.id}
+                  className="shrink-0 rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+                >
+                  {character.name}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        </div>
+      </div>
 
       <Dialog
         open={dialogOpen}
@@ -241,23 +283,6 @@ export function CharacterTabs() {
           )}
         </DialogContent>
       </Dialog>
-
-      <AlertDialog open={pendingDeleteId !== null} onOpenChange={(next) => !next && setPendingDeleteId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>刪除角色「{pendingDeleteCharacter?.name}」?</AlertDialogTitle>
-            <AlertDialogDescription>
-              此動作無法還原,將會刪除此角色以及底下所有任務的進度紀錄。
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={confirmDelete}>
-              刪除角色
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

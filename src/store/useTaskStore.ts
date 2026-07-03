@@ -23,6 +23,8 @@ interface TaskState {
   removeTask: (id: string) => void;
   /** 還原被刪除的任務(用於刪除後的 toast 還原按鈕) */
   restoreTask: (task: CharacterTask) => void;
+  /** 刪除指定角色底下某分類的所有任務,回傳被刪除的任務清單以供還原 */
+  removeCategoryTasks: (characterId: string, category: string) => CharacterTask[];
   removeTasksForCharacter: (characterId: string) => void;
   runResetCheck: (settings: Settings) => void;
 }
@@ -93,6 +95,13 @@ export const useTaskStore = create<TaskState>()(
       },
       restoreTask: (task) => {
         set((state) => (state.tasks.some((t) => t.id === task.id) ? state : { tasks: [...state.tasks, task] }));
+      },
+      removeCategoryTasks: (characterId, category) => {
+        const removed = get().tasks.filter((t) => t.characterId === characterId && t.category === category);
+        set((state) => ({
+          tasks: state.tasks.filter((t) => !(t.characterId === characterId && t.category === category)),
+        }));
+        return removed;
       },
       removeTasksForCharacter: (characterId) => {
         set((state) => ({ tasks: state.tasks.filter((t) => t.characterId !== characterId) }));
