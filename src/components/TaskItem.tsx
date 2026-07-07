@@ -85,7 +85,7 @@ export function TaskItem({ task }: { task: CharacterTask }) {
             <Button
               variant="ghost"
               size="icon"
-              className="size-7 shrink-0 text-muted-foreground opacity-0 hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
+              className="size-7 shrink-0 text-muted-foreground opacity-40 transition-opacity hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
               aria-label={`刪除任務:${task.name}`}
               onClick={(e) => {
                 e.stopPropagation();
