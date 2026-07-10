@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import type { CharacterBossTrackList, CharacterTask, Settings } from '@/types';
 import { needsMonthlyReset, needsReset } from '@/lib/reset';
 import { findBossCatalogEntry, findDifficultyOption, type BossSelection } from '@/lib/bossCatalog';
+import { trackLocalChange } from '@/lib/trackLocalChange';
 
 interface BossState {
   bosses: CharacterBossTrackList[];
@@ -104,3 +105,5 @@ export const useBossStore = create<BossState>()(
     { name: 'maplestory-todolist-bosses' },
   ),
 );
+
+trackLocalChange(useBossStore, (s) => s.bosses);

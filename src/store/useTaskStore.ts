@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import type { CharacterTask, ResetCycle, Settings } from '@/types';
 import { needsReset } from '@/lib/reset';
 import type { PresetTask } from '@/lib/presetTasks';
+import { trackLocalChange } from '@/lib/trackLocalChange';
 
 export interface NewTaskInput {
   characterId: string;
@@ -125,3 +126,5 @@ export const useTaskStore = create<TaskState>()(
     { name: 'maplestory-todolist-tasks' },
   ),
 );
+
+trackLocalChange(useTaskStore, (s) => s.tasks);

@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
-import { ArrowLeft, Moon, Sun, UserPlus } from 'lucide-react';
+import { lazy, Suspense, useEffect, useState } from 'react';
+import { ArrowLeft, Cloud, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Header } from '@/components/Header';
 import { CharacterTabs } from '@/components/CharacterTabs';
 import { CharacterHeader } from '@/components/CharacterHeader';
 import { CharacterFormFields } from '@/components/CharacterFormFields';
@@ -11,42 +12,26 @@ import { BossSelectionPreview } from '@/components/BossSelectionPreview';
 import { TaskList } from '@/components/TaskList';
 import { BossList } from '@/components/BossList';
 import { DashboardSummary } from '@/components/DashboardSummary';
+import { BackupStatusBar } from '@/components/BackupStatusBar';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useCharacterStore } from '@/store/useCharacterStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useBossStore } from '@/store/useBossStore';
-import { useTheme } from '@/components/theme-provider';
 import { resolveSelectedPresetTasks, type PresetTask } from '@/lib/presetTasks';
 import { flattenBossSelections, type BossSelection } from '@/lib/bossCatalog';
 import { SERVERS, type Server } from '@/lib/servers';
 import type { JobGroup } from '@/lib/jobs';
 import { CHARACTER_NAME_MAX_LENGTH, type BossDifficulty } from '@/types';
 
+const DataManagementPage = lazy(() => import('@/components/DataManagementPage'));
+
 const RESET_CHECK_INTERVAL_MS = 60_000;
 
 type OnboardingStep = 'info' | 'presets' | 'bosses' | 'confirm';
 
-function ThemeToggle() {
-  const { theme, setTheme } = useTheme();
-  const isDark =
-    theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-
-  return (
-    <Button
-      variant="ghost"
-      size="icon"
-      className="rounded-full"
-      aria-label={isDark ? '切換為淺色主題' : '切換為深色主題'}
-      onClick={() => setTheme(isDark ? 'light' : 'dark')}
-    >
-      {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
-    </Button>
-  );
-}
-
-function FirstCharacterOnboarding() {
+function FirstCharacterOnboarding({ onImport }: { onImport: () => void }) {
   const addCharacter = useCharacterStore((s) => s.addCharacter);
   const addPresetTasks = useTaskStore((s) => s.addPresetTasks);
   const addBosses = useBossStore((s) => s.addBosses);
@@ -133,32 +118,42 @@ function FirstCharacterOnboarding() {
       <div className="space-y-1.5">
         <h2 className="text-lg font-semibold text-foreground">建立第一個角色</h2>
         <p className="max-w-sm text-sm text-muted-foreground">
-          每個角色會獨立管理自己的每日/每週任務進度,先建立一個角色開始追蹤吧。
+          每個角色會獨立管理自己的每日/每週任務進度，先建立一個角色開始追蹤吧。
         </p>
       </div>
 
       {step === 'info' ? (
-        <form onSubmit={handleInfoSubmit} className="flex w-full max-w-xs flex-col gap-4">
-          <CharacterFormFields
-            idPrefix="onboarding"
-            name={name}
-            onNameChange={setName}
-            server={server}
-            onServerChange={setServer}
-            level={level}
-            onLevelChange={setLevel}
-            jobGroup={jobGroup}
-            job={job}
-            onJobChange={(g, j) => {
-              setJobGroup(g);
-              setJob(j);
-            }}
-            autoFocusName
-          />
-          <Button type="submit" disabled={!canSubmit}>
-            下一步
-          </Button>
-        </form>
+        <>
+          <form onSubmit={handleInfoSubmit} className="flex w-full max-w-xs flex-col gap-4">
+            <CharacterFormFields
+              idPrefix="onboarding"
+              name={name}
+              onNameChange={setName}
+              server={server}
+              onServerChange={setServer}
+              level={level}
+              onLevelChange={setLevel}
+              jobGroup={jobGroup}
+              job={job}
+              onJobChange={(g, j) => {
+                setJobGroup(g);
+                setJob(j);
+              }}
+              autoFocusName
+            />
+            <Button type="submit" disabled={!canSubmit}>
+              下一步
+            </Button>
+          </form>
+
+          <div className="flex w-full max-w-xs flex-col items-center gap-2 border-t border-border pt-4">
+            <p className="text-xs text-muted-foreground">有已建立的角色紀錄嗎？</p>
+            <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={onImport}>
+              <Cloud className="size-3.5" />
+              從檔案或 Google Drive 匯入
+            </Button>
+          </div>
+        </>
       ) : step === 'presets' ? (
         <div className="flex w-full max-w-sm flex-col gap-4 text-left">
           <Button
@@ -183,7 +178,7 @@ function FirstCharacterOnboarding() {
               套用所選並前往下一步({selectedPresetIds.size})
             </Button>
             <Button type="button" variant="outline" onClick={() => continueFromPresets([])}>
-              跳過,前往下一步
+              跳過，前往下一步
             </Button>
           </div>
         </div>
@@ -211,7 +206,7 @@ function FirstCharacterOnboarding() {
               套用所選並前往下一步({flattenBossSelections(bossSelections).length})
             </Button>
             <Button type="button" variant="outline" onClick={() => continueFromBosses([])}>
-              跳過,前往確認
+              跳過，前往確認
             </Button>
           </div>
         </div>
@@ -258,6 +253,7 @@ export function App() {
   const settings = useSettingsStore((s) => s.settings);
   const runTaskResetCheck = useTaskStore((s) => s.runResetCheck);
   const runBossResetCheck = useBossStore((s) => s.runResetCheck);
+  const [showBackupPage, setShowBackupPage] = useState(false);
 
   const activeCharacter = characters.find((c) => c.id === activeCharacterId);
 
@@ -274,17 +270,19 @@ export function App() {
   return (
     <TooltipProvider>
       <div className="flex min-h-svh flex-col bg-background">
-        <header className="flex items-center justify-between border-b border-border px-4 py-3 sm:px-6">
-          <h1 className="text-base font-semibold tracking-tight text-foreground">任務追蹤</h1>
-          <ThemeToggle />
-        </header>
+        <Header onGoHome={() => setShowBackupPage(false)} onOpenDataManagement={() => setShowBackupPage(true)} />
 
-        {characters.length === 0 || !activeCharacter ? (
-          <FirstCharacterOnboarding />
+        {showBackupPage ? (
+          <Suspense fallback={<div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">載入中…</div>}>
+            <DataManagementPage onBack={() => setShowBackupPage(false)} />
+          </Suspense>
+        ) : characters.length === 0 || !activeCharacter ? (
+          <FirstCharacterOnboarding onImport={() => setShowBackupPage(true)} />
         ) : (
           <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6">
             <CharacterTabs />
             <CharacterHeader character={activeCharacter} />
+            <BackupStatusBar onOpenBackupPage={() => setShowBackupPage(true)} />
             <DashboardSummary character={activeCharacter} />
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
               <TaskList character={activeCharacter} />
@@ -293,7 +291,7 @@ export function App() {
           </main>
         )}
       </div>
-      <Toaster />
+      <Toaster position="bottom-center" />
     </TooltipProvider>
   );
 }

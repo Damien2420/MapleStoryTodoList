@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import type { Character } from '@/types';
 import type { JobGroup } from '@/lib/jobs';
 import type { Server } from '@/lib/servers';
+import { trackLocalChange } from '@/lib/trackLocalChange';
 
 export interface NewCharacterInput {
   name: string;
@@ -57,3 +58,5 @@ export const useCharacterStore = create<CharacterState>()(
     { name: 'maplestory-todolist-characters' },
   ),
 );
+
+trackLocalChange(useCharacterStore, (s) => s.characters);
