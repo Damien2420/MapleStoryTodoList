@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Character, JobGroup, Server } from '@/types';
+import type { Character } from '@/types';
+import type { JobGroup } from '@/lib/jobs';
+import type { Server } from '@/lib/servers';
 
 export interface NewCharacterInput {
   name: string;

@@ -2,7 +2,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { JobPickerDialog } from '@/components/JobPickerDialog';
-import { CHARACTER_NAME_MAX_LENGTH, SERVERS, type JobGroup, type Server } from '@/types';
+import { CHARACTER_NAME_MAX_LENGTH } from '@/types';
+import { SERVERS, type Server } from '@/lib/servers';
+import type { JobGroup } from '@/lib/jobs';
 
 interface CharacterFormFieldsProps {
   idPrefix: string;

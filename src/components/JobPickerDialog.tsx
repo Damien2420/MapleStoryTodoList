@@ -12,7 +12,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { JOB_GROUPS, type JobGroup } from '@/types';
+import { JOB_GROUPS, type JobGroup } from '@/lib/jobs';
 
 interface JobPickerDialogProps {
   jobGroup: JobGroup | undefined;
