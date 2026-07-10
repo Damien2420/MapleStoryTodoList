@@ -97,34 +97,34 @@ export function DashboardSummary({ character }: { character: Character }) {
           )}
         >
           {dailyBosses.length > 0 && (
-            <div className="flex min-w-0 flex-col items-center gap-1 min-[350px]:flex-1">
-              <p className="flex w-full items-center justify-center gap-1 truncate text-xs text-muted-foreground sm:text-sm">
+            <div className="flex min-w-0 items-center justify-between gap-2 min-[350px]:flex-1 min-[350px]:flex-col min-[350px]:justify-normal min-[350px]:gap-1">
+              <p className="flex min-w-0 items-center gap-1 truncate text-xs text-muted-foreground sm:text-sm min-[350px]:w-full min-[350px]:justify-center">
                 <img src="/Intense_Power_Crystal_(Daily).png" alt="" className="size-4 shrink-0" />
                 <span className="truncate">本日預估收益</span>
               </p>
-              <p className="w-full truncate text-center text-sm font-semibold tabular-nums text-foreground">
+              <p className="shrink-0 text-sm font-semibold tabular-nums text-foreground min-[350px]:w-full min-[350px]:truncate min-[350px]:text-center">
                 ${formatCrystalTotal(dailyTotal)}
               </p>
             </div>
           )}
           {weeklyBosses.length > 0 && (
-            <div className="flex min-w-0 flex-col items-center gap-1 min-[350px]:flex-1">
-              <p className="flex w-full items-center justify-center gap-1 truncate text-xs text-muted-foreground sm:text-sm">
+            <div className="flex min-w-0 items-center justify-between gap-2 min-[350px]:flex-1 min-[350px]:flex-col min-[350px]:justify-normal min-[350px]:gap-1">
+              <p className="flex min-w-0 items-center gap-1 truncate text-xs text-muted-foreground sm:text-sm min-[350px]:w-full min-[350px]:justify-center">
                 <img src="/Intense_Power_Crystal_(Weekly).png" alt="" className="size-4 shrink-0" />
                 <span className="truncate">本週預估收益</span>
               </p>
-              <p className="w-full truncate text-center text-sm font-semibold tabular-nums text-foreground">
+              <p className="shrink-0 text-sm font-semibold tabular-nums text-foreground min-[350px]:w-full min-[350px]:truncate min-[350px]:text-center">
                 ${formatCrystalTotal(weeklyTotal)}
               </p>
             </div>
           )}
           {monthlyBosses.length > 0 && (
-            <div className="flex min-w-0 flex-col items-center gap-1 min-[350px]:flex-1">
-              <p className="flex w-full items-center justify-center gap-1 truncate text-xs text-muted-foreground sm:text-sm">
+            <div className="flex min-w-0 items-center justify-between gap-2 min-[350px]:flex-1 min-[350px]:flex-col min-[350px]:justify-normal min-[350px]:gap-1">
+              <p className="flex min-w-0 items-center gap-1 truncate text-xs text-muted-foreground sm:text-sm min-[350px]:w-full min-[350px]:justify-center">
                 <img src="/Intense_Power_Crystal_(Monthly).png" alt="" className="size-4 shrink-0" />
                 <span className="truncate">本月預估收益</span>
               </p>
-              <p className="w-full truncate text-center text-sm font-semibold tabular-nums text-foreground">
+              <p className="shrink-0 text-sm font-semibold tabular-nums text-foreground min-[350px]:w-full min-[350px]:truncate min-[350px]:text-center">
                 ${formatCrystalTotal(monthlyTotal)}
               </p>
             </div>
