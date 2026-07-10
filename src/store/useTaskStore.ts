@@ -60,6 +60,7 @@ export const useTaskStore = create<TaskState>()(
           const newTasks: CharacterTask[] = presets.map((preset) => ({
             id: crypto.randomUUID(),
             characterId,
+            presetId: preset.sourceId ?? preset.id,
             name: preset.name,
             category: preset.category,
             resetCycle: preset.resetCycle,

@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Marker, MarkerContent } from '@/components/ui/marker';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { PRESET_TASKS, PRESET_TASK_GROUPS, isPresetGroupUnlocked, sortByCategoryOrder } from '@/lib/presetTasks';
+import { PRESET_TASKS, PRESET_TASK_GROUPS, isPresetExpired, isPresetGroupUnlocked, sortByCategoryOrder } from '@/lib/presetTasks';
 
 interface PresetTaskPickerProps {
   selectedIds: Set<string>;
@@ -33,6 +33,7 @@ export function PresetTaskPicker({ selectedIds, onToggle, characterLevel }: Pres
     };
 
     for (const group of PRESET_TASK_GROUPS) {
+      if (isPresetExpired(group.id)) continue;
       const unlocked = isPresetGroupUnlocked(group, characterLevel);
       pushItem(group.pickerCategory, {
         id: group.id,
@@ -43,6 +44,7 @@ export function PresetTaskPicker({ selectedIds, onToggle, characterLevel }: Pres
     }
 
     for (const task of PRESET_TASKS) {
+      if (isPresetExpired(task.id)) continue;
       pushItem(task.category, {
         id: task.id,
         name: task.name,

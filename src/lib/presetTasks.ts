@@ -7,6 +7,12 @@ export interface PresetTask {
   resetCycle: ResetCycle;
   /** 每週任務的重置星期幾(0=日 ~ 6=六),未設定則沿用全域設定 */
   weeklyResetDay?: number;
+  /** 是否仍可在「新增任務」流程中選取,預設 true;設為 false 代表已下架但保留歷史資料 */
+  active?: boolean;
+  /** 活動/限時任務的最後一天(YYYY-MM-DD),當天結束後自動視為已下架;未設定代表無期限 */
+  expiresAt?: string;
+  /** 來源 id,用於建立任務時回填 CharacterTask.presetId;群組展開出的任務會設成群組 id,未設定則視為自己的 id */
+  sourceId?: string;
 }
 
 /** 奧術之河/格蘭蒂斯等地區內的單一區域,依角色等級決定是否解鎖 */
@@ -31,6 +37,10 @@ export interface PresetTaskGroup {
   weeklyResetDay?: number;
   /** 依所需等級由低到高排序的區域列表 */
   zones: PresetZone[];
+  /** 是否仍可在「新增任務」流程中選取,預設 true;設為 false 代表整個群組(所有區域)已下架但保留歷史資料 */
+  active?: boolean;
+  /** 活動/限時群組的最後一天(YYYY-MM-DD),當天結束後自動視為已下架;未設定代表無期限 */
+  expiresAt?: string;
 }
 
 /**
@@ -50,6 +60,7 @@ export const PRESET_TASKS: PresetTask[] = [
     name: '挑戰者伺服器 - 狩獵任務',
     category: '挑戰者伺服器S3活動',
     resetCycle: 'daily',
+    expiresAt: '2026-10-20',
   },
   {
     id: 'challenger-s3-happy-day-checkin',
@@ -62,12 +73,14 @@ export const PRESET_TASKS: PresetTask[] = [
     name: '可疑結界 - 解除結界',
     category: '挑戰者伺服器S3活動',
     resetCycle: 'daily',
+    expiresAt: '2026-10-20',
   },
   {
     id: 'challenger-s3-burning-express',
     name: '燃燒特快車 - 簽到',
     category: '燃燒活動',
     resetCycle: 'daily',
+    expiresAt: '2026-09-08',
   },
   {
     id: 'challenger-s3-mentor-rank-reward',
@@ -80,12 +93,14 @@ export const PRESET_TASKS: PresetTask[] = [
     name: 'CROWN升級任務',
     category: 'CROWN活動',
     resetCycle: 'weekly',
+    expiresAt: '2026-10-20',
   },
   {
     id: 'challenger-s3-momentum-pass',
     name: '動量通行證 - 每週任務',
     category: '燃燒活動',
     resetCycle: 'weekly',
+    expiresAt: '2026-09-08',
   },
   {
     id: 'challenger-s3-mentor-weekly-progress',
@@ -94,13 +109,20 @@ export const PRESET_TASKS: PresetTask[] = [
     resetCycle: 'weekly',
     weeklyResetDay: 4,
   },
-  { id: 'phantom-night-trace-collect', name: '幻影的痕跡收集', category: '幻影降臨之夜', resetCycle: 'daily' },
+  {
+    id: 'phantom-night-trace-collect',
+    name: '幻影的痕跡收集',
+    category: '幻影降臨之夜',
+    resetCycle: 'daily',
+    expiresAt: '2026-09-08',
+  },
   {
     id: 'phantom-night-elanos-chronicle',
     name: '艾拉諾斯編年史 - 調查任務',
     category: '幻影降臨之夜',
     resetCycle: 'weekly',
     weeklyResetDay: 3,
+    expiresAt: '2026-09-08',
   },
   {
     id: 'phantom-night-trace',
@@ -108,6 +130,7 @@ export const PRESET_TASKS: PresetTask[] = [
     category: '幻影降臨之夜',
     resetCycle: 'weekly',
     weeklyResetDay: 4,
+    expiresAt: '2026-09-08',
   },
 ];
 
@@ -123,6 +146,7 @@ export const PRESET_TASK_GROUPS: PresetTaskGroup[] = [
       { name: '原始直覺 - 凱內西斯', minLevel: 1 },
       { name: '原始直覺 - 狂豹獵人', minLevel: 1 },
     ],
+    expiresAt: '2026-09-08',
   },
   {
     id: 'arcane-river-daily',
@@ -226,6 +250,7 @@ export function expandPresetGroup(group: PresetTaskGroup, characterLevel: number
     category: group.taskCategory,
     resetCycle: group.resetCycle,
     weeklyResetDay: group.weeklyResetDay,
+    sourceId: group.id,
   }));
 }
 
@@ -238,4 +263,29 @@ export function resolveSelectedPresetTasks(selectedIds: Set<string>, characterLe
     }
   }
   return tasks;
+}
+
+/** 判斷 expiresAt(YYYY-MM-DD)是否已超過當天結束(23:59:59.999) */
+function isDateExpired(expiresAt: string, now: Date): boolean {
+  const end = new Date(expiresAt);
+  end.setHours(23, 59, 59, 999);
+  return now.getTime() > end.getTime();
+}
+
+/** 依 presetId(單筆任務或群組的 id)查找對應來源是否已過期(下架):手動 active === false,或已超過 expiresAt 當天;查無來源視為未過期 */
+export function isPresetExpired(presetId: string, now: Date = new Date()): boolean {
+  const task = PRESET_TASKS.find((t) => t.id === presetId);
+  if (task) return task.active === false || (task.expiresAt !== undefined && isDateExpired(task.expiresAt, now));
+  const group = PRESET_TASK_GROUPS.find((g) => g.id === presetId);
+  if (group) return group.active === false || (group.expiresAt !== undefined && isDateExpired(group.expiresAt, now));
+  return false;
+}
+
+/** 依 presetId(單筆任務或群組的 id)查找對應來源的 expiresAt;查無來源或未設定回傳 undefined */
+export function findPresetExpiresAt(presetId: string): string | undefined {
+  const task = PRESET_TASKS.find((t) => t.id === presetId);
+  if (task) return task.expiresAt;
+  const group = PRESET_TASK_GROUPS.find((g) => g.id === presetId);
+  if (group) return group.expiresAt;
+  return undefined;
 }

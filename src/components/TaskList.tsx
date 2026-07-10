@@ -19,7 +19,13 @@ import {
 import { cn } from '@/lib/utils';
 import { useCharacterStore } from '@/store/useCharacterStore';
 import { useTaskStore } from '@/store/useTaskStore';
+import { isPresetExpired } from '@/lib/presetTasks';
 import type { Character, CharacterTask } from '@/types';
+
+/** 任務對應的預設範本是否已下架(沒有 presetId 的任務視為未下架) */
+function isTaskExpired(task: CharacterTask): boolean {
+  return task.presetId ? isPresetExpired(task.presetId) : false;
+}
 
 function groupByCategory(tasks: CharacterTask[]): Map<string, CharacterTask[]> {
   const groups = new Map<string, CharacterTask[]>();
@@ -115,7 +121,10 @@ export function TaskList({ character }: { character: Character }) {
   }
 
   const tasks = useMemo(
-    () => allTasks.filter((t) => t.characterId === character.id).sort((a, b) => a.order - b.order),
+    () =>
+      allTasks
+        .filter((t) => t.characterId === character.id && !isTaskExpired(t))
+        .sort((a, b) => a.order - b.order),
     [allTasks, character.id],
   );
   const grouped = useMemo(() => groupByCategory(tasks), [tasks]);

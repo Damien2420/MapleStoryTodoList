@@ -88,3 +88,32 @@ export function formatTimeUntilReset(
   if (hours > 0) return `剩餘 ${hours} 小時`;
   return `剩餘 ${minutes} 分鐘`;
 }
+
+/** 把 expiresAt(YYYY-MM-DD)視為當天 23:59:59.999 到期,回傳對應的 Date */
+function endOfExpiryDay(expiresAt: string): Date {
+  const end = new Date(expiresAt);
+  end.setHours(23, 59, 59, 999);
+  return end;
+}
+
+/** 計算「距離截止日期(含當天)結束」還剩幾個完整小時,超過視為 0 */
+export function hoursUntilExpiry(expiresAt: string, now: Date = new Date()): number {
+  const diffMs = Math.max(0, endOfExpiryDay(expiresAt).getTime() - now.getTime());
+  return Math.floor(diffMs / 3_600_000);
+}
+
+/** 把「距離截止日期」的時間差格式化成「還有 X 天」(剩餘 >= 24 小時)或「還有 X 小時」(剩餘 < 24 小時) */
+export function formatTimeUntilExpiry(expiresAt: string, now: Date = new Date()): string {
+  const totalHours = hoursUntilExpiry(expiresAt, now);
+  if (totalHours >= 24) {
+    const days = Math.floor(totalHours / 24);
+    return `還有 ${days} 天`;
+  }
+  return `還有 ${totalHours} 小時`;
+}
+
+/** 把 expiresAt(YYYY-MM-DD)格式化成 tooltip 顯示用的完整日期文字,例如「2026/08/01 截止」 */
+export function formatExpiryDate(expiresAt: string): string {
+  const [year, month, day] = expiresAt.split('-');
+  return `${year}/${Number(month)}/${Number(day)} 截止`;
+}

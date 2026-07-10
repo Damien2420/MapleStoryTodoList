@@ -20,20 +20,12 @@ export interface Character {
   order: number;
 }
 
-/** 任務模板:跨角色共用的任務範本,套用到角色時會複製成 CharacterTask */
-export interface TaskTemplate {
-  id: string;
-  name: string;
-  category: string;
-  resetCycle: ResetCycle;
-  order: number;
-}
-
 /** 角色底下的實際任務(勾選狀態、重置時間都是角色獨立的) */
 export interface CharacterTask {
   id: string;
   characterId: string;
-  templateId?: string;
+  /** 建立當下對應的預設任務/群組 id,用來之後查目錄判斷是否已下架;上線前建立的舊紀錄或手動新增的任務可能沒有此欄位 */
+  presetId?: string;
   name: string;
   category: string;
   resetCycle: ResetCycle;
