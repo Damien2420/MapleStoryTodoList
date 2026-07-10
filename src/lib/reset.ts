@@ -30,6 +30,24 @@ function latestWeeklyBoundary(now: Date, weeklyResetDay: number, weeklyResetTime
   return boundary;
 }
 
+/** 計算「以 now 為基準,最近一次的每月重置時間點」,固定在每月 1 號重置 */
+function latestMonthlyBoundary(now: Date, resetTime: string): Date {
+  const { hours, minutes } = parseTime(resetTime);
+  const boundary = new Date(now.getFullYear(), now.getMonth(), 1, hours, minutes, 0, 0);
+  if (boundary > now) {
+    boundary.setMonth(boundary.getMonth() - 1);
+  }
+  return boundary;
+}
+
+/** 判斷已勾選的每月項目是否已跨越下一次重置時間點(每月 1 號,沿用每日重置時間) */
+export function needsMonthlyReset(checked: boolean, lastResetAt: string, settings: Settings, now: Date = new Date()): boolean {
+  if (!checked) return false;
+  const lastReset = new Date(lastResetAt);
+  const boundary = latestMonthlyBoundary(now, settings.dailyResetTime);
+  return lastReset < boundary;
+}
+
 /** 判斷單一任務是否已跨越下一次重置時間點,需要把勾選狀態清掉 */
 export function needsReset(task: CharacterTask, settings: Settings, now: Date = new Date()): boolean {
   if (!task.checked) return false;

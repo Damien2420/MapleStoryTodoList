@@ -14,12 +14,18 @@ import {
 import { CharacterFormFields } from '@/components/CharacterFormFields';
 import { PresetTaskPicker } from '@/components/PresetTaskPicker';
 import { PresetTaskPreview } from '@/components/PresetTaskPreview';
+import { BossCatalogPicker } from '@/components/BossCatalogPicker';
+import { BossSelectionPreview } from '@/components/BossSelectionPreview';
 import { useCharacterStore } from '@/store/useCharacterStore';
 import { useTaskStore } from '@/store/useTaskStore';
+import { useBossStore } from '@/store/useBossStore';
 import { resolveSelectedPresetTasks, type PresetTask } from '@/lib/presetTasks';
-import { CHARACTER_NAME_MAX_LENGTH, SERVERS, type JobGroup, type Server } from '@/types';
+import { flattenBossSelections, type BossSelection } from '@/lib/bossCatalog';
+import { SERVERS, type Server } from '@/lib/servers';
+import type { JobGroup } from '@/lib/jobs';
+import { CHARACTER_NAME_MAX_LENGTH, type BossDifficulty } from '@/types';
 
-type AddCharacterStep = 'info' | 'presets' | 'confirm';
+type AddCharacterStep = 'info' | 'presets' | 'bosses' | 'confirm';
 
 /** 角色分頁列:切換目前檢視的角色,並提供新增/刪除角色的入口 */
 export function CharacterTabs() {
@@ -28,6 +34,7 @@ export function CharacterTabs() {
   const setActiveCharacter = useCharacterStore((s) => s.setActiveCharacter);
   const addCharacter = useCharacterStore((s) => s.addCharacter);
   const addPresetTasks = useTaskStore((s) => s.addPresetTasks);
+  const addBosses = useBossStore((s) => s.addBosses);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [step, setStep] = useState<AddCharacterStep>('info');
@@ -38,6 +45,8 @@ export function CharacterTabs() {
   const [job, setJob] = useState<string | undefined>(undefined);
   const [selectedPresetIds, setSelectedPresetIds] = useState<Set<string>>(new Set());
   const [resolvedPresetTasks, setResolvedPresetTasks] = useState<PresetTask[]>([]);
+  const [bossSelections, setBossSelections] = useState<Map<string, Set<BossDifficulty>>>(new Map());
+  const [resolvedBossSelections, setResolvedBossSelections] = useState<BossSelection[]>([]);
 
   const trackRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -93,6 +102,18 @@ export function CharacterTabs() {
     });
   }
 
+  function toggleBossDifficulty(bossId: string, difficulty: BossDifficulty) {
+    setBossSelections((prev) => {
+      const next = new Map(prev);
+      const set = new Set(next.get(bossId));
+      if (set.has(difficulty)) set.delete(difficulty);
+      else set.add(difficulty);
+      if (set.size === 0) next.delete(bossId);
+      else next.set(bossId, set);
+      return next;
+    });
+  }
+
   function resetForm() {
     setStep('info');
     setName('');
@@ -102,6 +123,8 @@ export function CharacterTabs() {
     setJob(undefined);
     setSelectedPresetIds(new Set());
     setResolvedPresetTasks([]);
+    setBossSelections(new Map());
+    setResolvedBossSelections([]);
   }
 
   const canSubmit =
@@ -114,17 +137,24 @@ export function CharacterTabs() {
     setStep('presets');
   }
 
-  function handleReviewPresets() {
-    if (selectedPresetIds.size === 0) return;
-    setResolvedPresetTasks(resolveSelectedPresetTasks(selectedPresetIds, enteredLevel));
+  function continueFromPresets(tasks: PresetTask[]) {
+    setResolvedPresetTasks(tasks);
+    setStep('bosses');
+  }
+
+  function continueFromBosses(selections: BossSelection[]) {
+    setResolvedBossSelections(selections);
     setStep('confirm');
   }
 
-  function createCharacter(tasks: PresetTask[]) {
+  function createCharacter(tasks: PresetTask[], bosses: BossSelection[]) {
     if (!canSubmit) return;
     const newCharacterId = addCharacter({ name, server, level: enteredLevel, jobGroup: jobGroup!, job: job! });
     if (tasks.length > 0) {
       addPresetTasks(newCharacterId, tasks);
+    }
+    if (bosses.length > 0) {
+      addBosses(newCharacterId, bosses);
     }
     resetForm();
     setDialogOpen(false);
@@ -170,7 +200,7 @@ export function CharacterTabs() {
                 <TabsTrigger
                   key={character.id}
                   value={character.id}
-                  className="shrink-0 rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-sm"
+                  className="shrink-0 rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground data-[state=active]:bg-primary/12 data-[state=active]:text-primary data-[state=active]:shadow-sm dark:data-[state=active]:bg-primary/25"
                 >
                   {character.name}
                 </TabsTrigger>
@@ -248,16 +278,16 @@ export function CharacterTabs() {
                   type="button"
                   className="w-full"
                   disabled={selectedPresetIds.size === 0}
-                  onClick={handleReviewPresets}
+                  onClick={() => continueFromPresets(resolveSelectedPresetTasks(selectedPresetIds, enteredLevel))}
                 >
-                  套用所選並新增角色({selectedPresetIds.size})
+                  套用所選並前往下一步({selectedPresetIds.size})
                 </Button>
-                <Button type="button" variant="outline" className="w-full" onClick={() => createCharacter([])}>
-                  跳過,直接新增角色
+                <Button type="button" variant="outline" className="w-full" onClick={() => continueFromPresets([])}>
+                  跳過,前往下一步
                 </Button>
               </DialogFooter>
             </div>
-          ) : (
+          ) : step === 'bosses' ? (
             <div className="space-y-4">
               <DialogHeader>
                 <Button
@@ -270,14 +300,59 @@ export function CharacterTabs() {
                   <ArrowLeft className="size-3.5" />
                   返回預設任務
                 </Button>
-                <DialogTitle>確認建立以下任務</DialogTitle>
+                <DialogTitle>套用預設 BOSS(選填)</DialogTitle>
+                <DialogDescription>勾選要一併追蹤的 BOSS 與難度,或直接跳過。</DialogDescription>
+              </DialogHeader>
+
+              <BossCatalogPicker selections={bossSelections} onToggleDifficulty={toggleBossDifficulty} />
+
+              <DialogFooter className="sm:flex-col">
+                <Button
+                  type="button"
+                  className="w-full"
+                  disabled={flattenBossSelections(bossSelections).length === 0}
+                  onClick={() => continueFromBosses(flattenBossSelections(bossSelections))}
+                >
+                  套用所選並前往確認({flattenBossSelections(bossSelections).length})
+                </Button>
+                <Button type="button" variant="outline" className="w-full" onClick={() => continueFromBosses([])}>
+                  跳過,前往確認
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <DialogHeader>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="-ml-2 w-fit gap-1 text-muted-foreground"
+                  onClick={() => setStep('bosses')}
+                >
+                  <ArrowLeft className="size-3.5" />
+                  返回預設 BOSS
+                </Button>
+                <DialogTitle>確認建立以下內容</DialogTitle>
                 <DialogDescription>確認無誤後即可建立角色,建立後可再自行調整。</DialogDescription>
               </DialogHeader>
 
-              <PresetTaskPreview tasks={resolvedPresetTasks} />
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-foreground">任務({resolvedPresetTasks.length})</p>
+                <PresetTaskPreview tasks={resolvedPresetTasks} />
+              </div>
 
-              <Button type="button" className="w-full" onClick={() => createCharacter(resolvedPresetTasks)}>
-                確認新增角色({resolvedPresetTasks.length})
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-foreground">BOSS({resolvedBossSelections.length})</p>
+                <BossSelectionPreview selections={resolvedBossSelections} />
+              </div>
+
+              <Button
+                type="button"
+                className="w-full"
+                onClick={() => createCharacter(resolvedPresetTasks, resolvedBossSelections)}
+              >
+                確認新增角色
               </Button>
             </div>
           )}

@@ -47,3 +47,26 @@ export interface Settings {
   /** 每週重置時間,24 小時制 "HH:mm" */
   weeklyResetTime: string;
 }
+
+/** BOSS 難度 */
+export type BossDifficulty = '簡單' | '普通' | '困難' | '渾沌' | '極限';
+
+/** 角色底下實際追蹤的 BOSS 討伐記錄,獨立於任務系統之外 */
+export interface CharacterBossTrackList {
+  id: string;
+  characterId: string;
+  bossName: string;
+  difficulty: BossDifficulty;
+  resetCycle: 'daily' | 'weekly' | 'monthly';
+  /** 週王的重置星期幾(0=日~6=六),未設定則沿用全域設定 */
+  weeklyResetDay?: number;
+  /** 顯示分類:賽季王會歸類到獨立的「賽季」區塊,但實際重置週期仍依 resetCycle 判斷 */
+  category?: 'season';
+  /** 建立當下對應的目錄 id,用來之後查目錄判斷是否已下架;上線前建立的舊紀錄可能沒有此欄位 */
+  bossCatalogId?: string;
+  /** 預估收益,套用時帶入參考值,使用者可事後手動覆寫 */
+  crystalValue: number;
+  checked: boolean;
+  lastResetAt: string;
+  order: number;
+}

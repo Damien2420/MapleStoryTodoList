@@ -2,22 +2,31 @@ import { useEffect, useState } from 'react';
 import { ArrowLeft, Moon, Sun, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CharacterTabs } from '@/components/CharacterTabs';
+import { CharacterHeader } from '@/components/CharacterHeader';
 import { CharacterFormFields } from '@/components/CharacterFormFields';
 import { PresetTaskPicker } from '@/components/PresetTaskPicker';
 import { PresetTaskPreview } from '@/components/PresetTaskPreview';
+import { BossCatalogPicker } from '@/components/BossCatalogPicker';
+import { BossSelectionPreview } from '@/components/BossSelectionPreview';
 import { TaskList } from '@/components/TaskList';
+import { BossList } from '@/components/BossList';
+import { DashboardSummary } from '@/components/DashboardSummary';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useCharacterStore } from '@/store/useCharacterStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useTaskStore } from '@/store/useTaskStore';
+import { useBossStore } from '@/store/useBossStore';
 import { useTheme } from '@/components/theme-provider';
 import { resolveSelectedPresetTasks, type PresetTask } from '@/lib/presetTasks';
-import { CHARACTER_NAME_MAX_LENGTH, SERVERS, type JobGroup, type Server } from '@/types';
+import { flattenBossSelections, type BossSelection } from '@/lib/bossCatalog';
+import { SERVERS, type Server } from '@/lib/servers';
+import type { JobGroup } from '@/lib/jobs';
+import { CHARACTER_NAME_MAX_LENGTH, type BossDifficulty } from '@/types';
 
 const RESET_CHECK_INTERVAL_MS = 60_000;
 
-type OnboardingStep = 'info' | 'presets' | 'confirm';
+type OnboardingStep = 'info' | 'presets' | 'bosses' | 'confirm';
 
 function ThemeToggle() {
   const { theme, setTheme } = useTheme();
@@ -40,6 +49,7 @@ function ThemeToggle() {
 function FirstCharacterOnboarding() {
   const addCharacter = useCharacterStore((s) => s.addCharacter);
   const addPresetTasks = useTaskStore((s) => s.addPresetTasks);
+  const addBosses = useBossStore((s) => s.addBosses);
   const [step, setStep] = useState<OnboardingStep>('info');
   const [name, setName] = useState('');
   const [server, setServer] = useState<Server>(SERVERS[0]);
@@ -48,6 +58,8 @@ function FirstCharacterOnboarding() {
   const [job, setJob] = useState<string | undefined>(undefined);
   const [selectedPresetIds, setSelectedPresetIds] = useState<Set<string>>(new Set());
   const [resolvedPresetTasks, setResolvedPresetTasks] = useState<PresetTask[]>([]);
+  const [bossSelections, setBossSelections] = useState<Map<string, Set<BossDifficulty>>>(new Map());
+  const [resolvedBossSelections, setResolvedBossSelections] = useState<BossSelection[]>([]);
 
   function togglePreset(id: string) {
     setSelectedPresetIds((prev) => {
@@ -57,6 +69,18 @@ function FirstCharacterOnboarding() {
       } else {
         next.add(id);
       }
+      return next;
+    });
+  }
+
+  function toggleBossDifficulty(bossId: string, difficulty: BossDifficulty) {
+    setBossSelections((prev) => {
+      const next = new Map(prev);
+      const set = new Set(next.get(bossId));
+      if (set.has(difficulty)) set.delete(difficulty);
+      else set.add(difficulty);
+      if (set.size === 0) next.delete(bossId);
+      else next.set(bossId, set);
       return next;
     });
   }
@@ -71,17 +95,24 @@ function FirstCharacterOnboarding() {
     setStep('presets');
   }
 
-  function handleReviewPresets() {
-    if (selectedPresetIds.size === 0) return;
-    setResolvedPresetTasks(resolveSelectedPresetTasks(selectedPresetIds, enteredLevel));
+  function continueFromPresets(tasks: PresetTask[]) {
+    setResolvedPresetTasks(tasks);
+    setStep('bosses');
+  }
+
+  function continueFromBosses(selections: BossSelection[]) {
+    setResolvedBossSelections(selections);
     setStep('confirm');
   }
 
-  function createCharacter(tasks: PresetTask[]) {
+  function createCharacter(tasks: PresetTask[], bosses: BossSelection[]) {
     if (!canSubmit) return;
     const newCharacterId = addCharacter({ name, server, level: enteredLevel, jobGroup: jobGroup!, job: job! });
     if (tasks.length > 0) {
       addPresetTasks(newCharacterId, tasks);
+    }
+    if (bosses.length > 0) {
+      addBosses(newCharacterId, bosses);
     }
     setStep('info');
     setName('');
@@ -90,6 +121,8 @@ function FirstCharacterOnboarding() {
     setJob(undefined);
     setSelectedPresetIds(new Set());
     setResolvedPresetTasks([]);
+    setBossSelections(new Map());
+    setResolvedBossSelections([]);
   }
 
   return (
@@ -142,15 +175,19 @@ function FirstCharacterOnboarding() {
           <PresetTaskPicker selectedIds={selectedPresetIds} onToggle={togglePreset} characterLevel={enteredLevel} />
 
           <div className="flex flex-col gap-2">
-            <Button type="button" disabled={selectedPresetIds.size === 0} onClick={handleReviewPresets}>
-              套用所選並新增角色({selectedPresetIds.size})
+            <Button
+              type="button"
+              disabled={selectedPresetIds.size === 0}
+              onClick={() => continueFromPresets(resolveSelectedPresetTasks(selectedPresetIds, enteredLevel))}
+            >
+              套用所選並前往下一步({selectedPresetIds.size})
             </Button>
-            <Button type="button" variant="outline" onClick={() => createCharacter([])}>
-              跳過,直接新增角色
+            <Button type="button" variant="outline" onClick={() => continueFromPresets([])}>
+              跳過,前往下一步
             </Button>
           </div>
         </div>
-      ) : (
+      ) : step === 'bosses' ? (
         <div className="flex w-full max-w-sm flex-col gap-4 text-left">
           <Button
             type="button"
@@ -163,15 +200,51 @@ function FirstCharacterOnboarding() {
             返回預設任務
           </Button>
 
+          <BossCatalogPicker selections={bossSelections} onToggleDifficulty={toggleBossDifficulty} />
+
+          <div className="flex flex-col gap-2">
+            <Button
+              type="button"
+              disabled={flattenBossSelections(bossSelections).length === 0}
+              onClick={() => continueFromBosses(flattenBossSelections(bossSelections))}
+            >
+              套用所選並前往下一步({flattenBossSelections(bossSelections).length})
+            </Button>
+            <Button type="button" variant="outline" onClick={() => continueFromBosses([])}>
+              跳過,前往確認
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex w-full max-w-sm flex-col gap-4 text-left">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="-ml-2 w-fit gap-1 self-start text-muted-foreground"
+            onClick={() => setStep('bosses')}
+          >
+            <ArrowLeft className="size-3.5" />
+            返回預設 BOSS
+          </Button>
+
           <div className="space-y-1.5">
-            <h2 className="text-lg font-semibold text-foreground">確認建立以下任務</h2>
+            <h2 className="text-lg font-semibold text-foreground">確認建立以下內容</h2>
             <p className="text-sm text-muted-foreground">確認無誤後即可建立角色,建立後可再自行調整。</p>
           </div>
 
-          <PresetTaskPreview tasks={resolvedPresetTasks} />
+          <div className="space-y-2">
+            <p className="text-sm font-semibold text-foreground">任務({resolvedPresetTasks.length})</p>
+            <PresetTaskPreview tasks={resolvedPresetTasks} />
+          </div>
 
-          <Button type="button" onClick={() => createCharacter(resolvedPresetTasks)}>
-            確認新增角色({resolvedPresetTasks.length})
+          <div className="space-y-2">
+            <p className="text-sm font-semibold text-foreground">BOSS({resolvedBossSelections.length})</p>
+            <BossSelectionPreview selections={resolvedBossSelections} />
+          </div>
+
+          <Button type="button" onClick={() => createCharacter(resolvedPresetTasks, resolvedBossSelections)}>
+            確認新增角色
           </Button>
         </div>
       )}
@@ -183,15 +256,20 @@ export function App() {
   const characters = useCharacterStore((s) => s.characters);
   const activeCharacterId = useCharacterStore((s) => s.activeCharacterId);
   const settings = useSettingsStore((s) => s.settings);
-  const runResetCheck = useTaskStore((s) => s.runResetCheck);
+  const runTaskResetCheck = useTaskStore((s) => s.runResetCheck);
+  const runBossResetCheck = useBossStore((s) => s.runResetCheck);
 
   const activeCharacter = characters.find((c) => c.id === activeCharacterId);
 
   useEffect(() => {
-    runResetCheck(settings);
-    const interval = setInterval(() => runResetCheck(settings), RESET_CHECK_INTERVAL_MS);
+    runTaskResetCheck(settings);
+    runBossResetCheck(settings);
+    const interval = setInterval(() => {
+      runTaskResetCheck(settings);
+      runBossResetCheck(settings);
+    }, RESET_CHECK_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [runResetCheck, settings]);
+  }, [runTaskResetCheck, runBossResetCheck, settings]);
 
   return (
     <TooltipProvider>
@@ -204,9 +282,14 @@ export function App() {
         {characters.length === 0 || !activeCharacter ? (
           <FirstCharacterOnboarding />
         ) : (
-          <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6">
+          <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6">
             <CharacterTabs />
-            <TaskList character={activeCharacter} />
+            <CharacterHeader character={activeCharacter} />
+            <DashboardSummary character={activeCharacter} />
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+              <TaskList character={activeCharacter} />
+              <BossList character={activeCharacter} />
+            </div>
           </main>
         )}
       </div>
