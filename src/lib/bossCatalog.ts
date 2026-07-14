@@ -29,6 +29,27 @@ export interface BossSelection {
   difficulty: BossDifficulty;
 }
 
+/** 單一角色可勾選的每週 BOSS(不含賽季王)上限,對應遊戲內一週可販售的結晶數 */
+export const WEEKLY_BOSS_LIMIT = 12;
+
+/**
+ * 計算選取狀態中「每週重置且非賽季王」的已勾選難度筆數。
+ *
+ * @param selections UI 上「王 id -> 已選難度集合」的選取狀態
+ * @returns 計入每週上限的勾選筆數(同一隻王勾多個週期難度會分別計數)
+ */
+export function countWeeklyBossSelections(selections: Map<string, Set<BossDifficulty>>): number {
+  let count = 0;
+  for (const [bossId, difficulties] of selections) {
+    const entry = findBossCatalogEntry(bossId);
+    if (!entry || entry.category === 'season') continue;
+    for (const difficulty of difficulties) {
+      if (findDifficultyOption(entry, difficulty)?.resetCycle === 'weekly') count++;
+    }
+  }
+  return count;
+}
+
 /** 將 UI 上「王 id -> 已選難度集合」的選取狀態,攤平成送出用的 BossSelection[] */
 export function flattenBossSelections(selections: Map<string, Set<BossDifficulty>>): BossSelection[] {
   return Array.from(selections.entries()).flatMap(([bossId, difficulties]) =>

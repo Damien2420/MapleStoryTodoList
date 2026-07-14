@@ -1,6 +1,13 @@
 import { cn } from '@/lib/utils';
 import { Marker, MarkerContent } from '@/components/ui/marker';
-import { BOSS_CATALOG, isCatalogEntryExpired, type BossCatalogEntry, type BossDifficultyOption } from '@/lib/bossCatalog';
+import {
+  BOSS_CATALOG,
+  countWeeklyBossSelections,
+  isCatalogEntryExpired,
+  WEEKLY_BOSS_LIMIT,
+  type BossCatalogEntry,
+  type BossDifficultyOption,
+} from '@/lib/bossCatalog';
 import type { BossDifficulty } from '@/types';
 
 interface BossCatalogPickerProps {
@@ -45,14 +52,19 @@ function buildGroupedBossCatalog(): [string, GroupedBossRow[]][] {
 
 const GROUPED_BOSS_CATALOG = buildGroupedBossCatalog();
 
-/** BOSS 名單勾選清單:依每日/每週/每月/賽季分類顯示,難度按鈕本身即勾選開關,可跨難度多選 */
+/** BOSS 名單勾選清單:依每日/每週/每月/賽季分類顯示,難度按鈕本身即勾選開關,可跨難度多選;每週區塊(不含賽季)最多勾選 WEEKLY_BOSS_LIMIT 筆 */
 export function BossCatalogPicker({ selections, onToggleDifficulty }: BossCatalogPickerProps) {
+  const weeklyCount = countWeeklyBossSelections(selections);
+  const weeklyFull = weeklyCount >= WEEKLY_BOSS_LIMIT;
+
   return (
     <div className="flex min-h-0 max-h-[50vh] flex-col gap-4 overflow-y-auto pr-1">
       {GROUPED_BOSS_CATALOG.map(([label, rows]) => (
         <div key={label} className="flex flex-col gap-2">
           <Marker variant="separator">
-            <MarkerContent>{label}</MarkerContent>
+            <MarkerContent>
+              {label === '每週' ? `${label} ${weeklyCount}/${WEEKLY_BOSS_LIMIT}` : label}
+            </MarkerContent>
           </Marker>
           <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
             {rows.map(({ entry, options }) => {
@@ -70,16 +82,22 @@ export function BossCatalogPicker({ selections, onToggleDifficulty }: BossCatalo
                   <div className="flex flex-wrap justify-end gap-1.5">
                     {options.map((option) => {
                       const active = selectedDifficulties?.has(option.difficulty) ?? false;
+                      // 每週區塊達上限時,只鎖住尚未勾選的按鈕,已勾選的仍可點擊取消
+                      const disabled = !active && label === '每週' && weeklyFull;
                       return (
                         <button
                           key={option.difficulty}
                           type="button"
+                          disabled={disabled}
                           onClick={() => onToggleDifficulty(entry.id, option.difficulty)}
                           className={cn(
-                            'rounded-md border px-2.5 py-1 text-xs font-medium transition-all hover:scale-105 active:scale-95',
+                            'rounded-md border px-2.5 py-1 text-xs font-medium transition-all',
+                            !disabled && 'hover:scale-105 active:scale-95',
                             active
                               ? 'border-primary bg-primary text-primary-foreground'
-                              : 'border-input text-muted-foreground hover:border-primary/50 hover:bg-muted/60',
+                              : disabled
+                                ? 'cursor-not-allowed border-input text-muted-foreground opacity-50'
+                                : 'border-input text-muted-foreground hover:border-primary/50 hover:bg-muted/60',
                           )}
                         >
                           {option.difficulty}
