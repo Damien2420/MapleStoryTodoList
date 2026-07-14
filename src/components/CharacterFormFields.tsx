@@ -4,7 +4,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { JobPickerDialog } from '@/components/JobPickerDialog';
 import { CHARACTER_NAME_MAX_LENGTH } from '@/types';
 import { SERVERS, type Server } from '@/lib/servers';
-import type { JobGroup } from '@/lib/jobs';
 
 interface CharacterFormFieldsProps {
   idPrefix: string;
@@ -14,9 +13,8 @@ interface CharacterFormFieldsProps {
   onServerChange: (server: Server) => void;
   level: string;
   onLevelChange: (level: string) => void;
-  jobGroup: JobGroup | undefined;
   job: string | undefined;
-  onJobChange: (jobGroup: JobGroup | undefined, job: string | undefined) => void;
+  onJobChange: (job: string | undefined) => void;
   autoFocusName?: boolean;
 }
 
@@ -29,7 +27,6 @@ export function CharacterFormFields({
   onServerChange,
   level,
   onLevelChange,
-  jobGroup,
   job,
   onJobChange,
   autoFocusName,
@@ -85,7 +82,7 @@ export function CharacterFormFields({
         <Label>
           職業<span className="text-destructive"> *</span>
         </Label>
-        <JobPickerDialog jobGroup={jobGroup} job={job} onChange={onJobChange} />
+        <JobPickerDialog job={job} onChange={onJobChange} />
       </div>
     </div>
   );

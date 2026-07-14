@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Loader2, Plus } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -12,41 +14,24 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { CharacterFormFields } from '@/components/CharacterFormFields';
+import { CharacterLookupResult } from '@/components/CharacterLookupResult';
 import { PresetTaskPicker } from '@/components/PresetTaskPicker';
 import { PresetTaskPreview } from '@/components/PresetTaskPreview';
 import { BossCatalogPicker } from '@/components/BossCatalogPicker';
 import { BossSelectionPreview } from '@/components/BossSelectionPreview';
 import { useCharacterStore } from '@/store/useCharacterStore';
-import { useTaskStore } from '@/store/useTaskStore';
-import { useBossStore } from '@/store/useBossStore';
-import { resolveSelectedPresetTasks, type PresetTask } from '@/lib/presetTasks';
-import { flattenBossSelections, type BossSelection } from '@/lib/bossCatalog';
-import { SERVERS, type Server } from '@/lib/servers';
-import type { JobGroup } from '@/lib/jobs';
-import { CHARACTER_NAME_MAX_LENGTH, type BossDifficulty } from '@/types';
-
-type AddCharacterStep = 'info' | 'presets' | 'bosses' | 'confirm';
+import { useAddCharacterFlow } from '@/hooks/useAddCharacterFlow';
+import { resolveSelectedPresetTasks } from '@/lib/presetTasks';
+import { flattenBossSelections } from '@/lib/bossCatalog';
 
 /** 角色分頁列:切換目前檢視的角色,並提供新增/刪除角色的入口 */
 export function CharacterTabs() {
   const characters = useCharacterStore((s) => s.characters);
   const activeCharacterId = useCharacterStore((s) => s.activeCharacterId);
   const setActiveCharacter = useCharacterStore((s) => s.setActiveCharacter);
-  const addCharacter = useCharacterStore((s) => s.addCharacter);
-  const addPresetTasks = useTaskStore((s) => s.addPresetTasks);
-  const addBosses = useBossStore((s) => s.addBosses);
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [step, setStep] = useState<AddCharacterStep>('info');
-  const [name, setName] = useState('');
-  const [server, setServer] = useState<Server>(SERVERS[0]);
-  const [level, setLevel] = useState('');
-  const [jobGroup, setJobGroup] = useState<JobGroup | undefined>(undefined);
-  const [job, setJob] = useState<string | undefined>(undefined);
-  const [selectedPresetIds, setSelectedPresetIds] = useState<Set<string>>(new Set());
-  const [resolvedPresetTasks, setResolvedPresetTasks] = useState<PresetTask[]>([]);
-  const [bossSelections, setBossSelections] = useState<Map<string, Set<BossDifficulty>>>(new Map());
-  const [resolvedBossSelections, setResolvedBossSelections] = useState<BossSelection[]>([]);
+  const flow = useAddCharacterFlow(() => setDialogOpen(false));
 
   const trackRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -88,76 +73,6 @@ export function CharacterTabs() {
 
   function scrollTrackBy(amount: number) {
     trackRef.current?.scrollBy({ left: amount, behavior: 'smooth' });
-  }
-
-  function togglePreset(id: string) {
-    setSelectedPresetIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  }
-
-  function toggleBossDifficulty(bossId: string, difficulty: BossDifficulty) {
-    setBossSelections((prev) => {
-      const next = new Map(prev);
-      const set = new Set(next.get(bossId));
-      if (set.has(difficulty)) set.delete(difficulty);
-      else set.add(difficulty);
-      if (set.size === 0) next.delete(bossId);
-      else next.set(bossId, set);
-      return next;
-    });
-  }
-
-  function resetForm() {
-    setStep('info');
-    setName('');
-    setServer(SERVERS[0]);
-    setLevel('');
-    setJobGroup(undefined);
-    setJob(undefined);
-    setSelectedPresetIds(new Set());
-    setResolvedPresetTasks([]);
-    setBossSelections(new Map());
-    setResolvedBossSelections([]);
-  }
-
-  const canSubmit =
-    name.trim().length > 0 && name.length <= CHARACTER_NAME_MAX_LENGTH && !!jobGroup && !!job;
-  const enteredLevel = Number(level) || 1;
-
-  function handleInfoSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!canSubmit) return;
-    setStep('presets');
-  }
-
-  function continueFromPresets(tasks: PresetTask[]) {
-    setResolvedPresetTasks(tasks);
-    setStep('bosses');
-  }
-
-  function continueFromBosses(selections: BossSelection[]) {
-    setResolvedBossSelections(selections);
-    setStep('confirm');
-  }
-
-  function createCharacter(tasks: PresetTask[], bosses: BossSelection[]) {
-    if (!canSubmit) return;
-    const newCharacterId = addCharacter({ name, server, level: enteredLevel, jobGroup: jobGroup!, job: job! });
-    if (tasks.length > 0) {
-      addPresetTasks(newCharacterId, tasks);
-    }
-    if (bosses.length > 0) {
-      addBosses(newCharacterId, bosses);
-    }
-    resetForm();
-    setDialogOpen(false);
   }
 
   return (
@@ -214,7 +129,7 @@ export function CharacterTabs() {
         open={dialogOpen}
         onOpenChange={(next) => {
           setDialogOpen(next);
-          if (!next) resetForm();
+          if (!next) flow.resetForm();
         }}
       >
         <DialogTrigger asChild>
@@ -224,37 +139,100 @@ export function CharacterTabs() {
           </Button>
         </DialogTrigger>
         <DialogContent className="sm:max-w-lg">
-          {step === 'info' ? (
-            <form onSubmit={handleInfoSubmit}>
+          {flow.step === 'info' && flow.lookupPhase === 'search' ? (
+            <form onSubmit={flow.handleLookup}>
               <DialogHeader>
                 <DialogTitle>新增角色</DialogTitle>
-                <DialogDescription>建立一個新角色,開始追蹤這個角色的每日/每週任務。</DialogDescription>
+                <DialogDescription>輸入遊戲內角色名稱,自動查詢伺服器、等級與職業。</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="add-character-lookup-name">角色名稱</Label>
+                  <Input
+                    id="add-character-lookup-name"
+                    autoFocus
+                    placeholder="輸入遊戲內角色名稱"
+                    value={flow.name}
+                    onChange={(e) => flow.setName(e.target.value)}
+                  />
+                </div>
+                {flow.lookupError && <p className="text-sm text-destructive">{flow.lookupError}</p>}
+              </div>
+              <DialogFooter className="sm:flex-col">
+                <Button type="submit" className="w-full gap-1.5" disabled={!flow.name.trim() || flow.lookupLoading}>
+                  {flow.lookupLoading && <Loader2 className="size-4 animate-spin" />}
+                  {flow.lookupLoading ? '查詢中…' : '查詢角色'}
+                </Button>
+                <Button type="button" variant="outline" className="w-full" onClick={flow.switchToManualEntry}>
+                  改為手動輸入
+                </Button>
+              </DialogFooter>
+            </form>
+          ) : flow.step === 'info' && flow.lookupPhase === 'result' ? (
+            <div>
+              <DialogHeader>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="-ml-2 w-fit gap-1 text-muted-foreground"
+                  onClick={flow.retryLookup}
+                >
+                  <ArrowLeft className="size-3.5" />
+                  返回角色查詢
+                </Button>
+                <DialogTitle>確認角色資訊</DialogTitle>
+              </DialogHeader>
+              <div className="py-4">
+                <CharacterLookupResult
+                  info={{
+                    name: flow.name,
+                    level: flow.enteredLevel,
+                    job: flow.job ?? '',
+                    world: flow.server,
+                    imageUrl: flow.imageUrl,
+                  }}
+                  onConfirm={flow.confirmLookupResult}
+                  onRetry={flow.retryLookup}
+                />
+              </div>
+            </div>
+          ) : flow.step === 'info' ? (
+            <form onSubmit={flow.handleInfoSubmit}>
+              <DialogHeader>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="-ml-2 w-fit gap-1 text-muted-foreground"
+                  onClick={() => flow.setLookupPhase('search')}
+                >
+                  <ArrowLeft className="size-3.5" />
+                  返回角色查詢
+                </Button>
+                <DialogTitle>新增角色</DialogTitle>
+                <DialogDescription>建立一個新角色，開始追蹤這個角色的每日/每週任務。</DialogDescription>
               </DialogHeader>
               <div className="py-4">
                 <CharacterFormFields
                   idPrefix="add-character"
-                  name={name}
-                  onNameChange={setName}
-                  server={server}
-                  onServerChange={setServer}
-                  level={level}
-                  onLevelChange={setLevel}
-                  jobGroup={jobGroup}
-                  job={job}
-                  onJobChange={(g, j) => {
-                    setJobGroup(g);
-                    setJob(j);
-                  }}
-                  autoFocusName
+                  name={flow.name}
+                  onNameChange={flow.setName}
+                  server={flow.server}
+                  onServerChange={flow.setServer}
+                  level={flow.level}
+                  onLevelChange={flow.setLevel}
+                  job={flow.job}
+                  onJobChange={flow.setJob}
                 />
               </div>
               <DialogFooter>
-                <Button type="submit" disabled={!canSubmit}>
+                <Button type="submit" disabled={!flow.canSubmit}>
                   下一步
                 </Button>
               </DialogFooter>
             </form>
-          ) : step === 'presets' ? (
+          ) : flow.step === 'presets' ? (
             <div className="space-y-4">
               <DialogHeader>
                 <Button
@@ -262,32 +240,38 @@ export function CharacterTabs() {
                   variant="ghost"
                   size="sm"
                   className="-ml-2 w-fit gap-1 text-muted-foreground"
-                  onClick={() => setStep('info')}
+                  onClick={() => flow.setStep('info')}
                 >
                   <ArrowLeft className="size-3.5" />
                   返回角色資訊
                 </Button>
                 <DialogTitle>套用預設任務(選填)</DialogTitle>
-                <DialogDescription>勾選要一併建立的預設任務,或直接跳過。</DialogDescription>
+                <DialogDescription>勾選要一併建立的預設任務，或直接跳過。</DialogDescription>
               </DialogHeader>
 
-              <PresetTaskPicker selectedIds={selectedPresetIds} onToggle={togglePreset} characterLevel={enteredLevel} />
+              <PresetTaskPicker
+                selectedIds={flow.selectedPresetIds}
+                onToggle={flow.togglePreset}
+                characterLevel={flow.enteredLevel}
+              />
 
               <DialogFooter className="sm:flex-col">
                 <Button
                   type="button"
                   className="w-full"
-                  disabled={selectedPresetIds.size === 0}
-                  onClick={() => continueFromPresets(resolveSelectedPresetTasks(selectedPresetIds, enteredLevel))}
+                  disabled={flow.selectedPresetIds.size === 0}
+                  onClick={() =>
+                    flow.continueFromPresets(resolveSelectedPresetTasks(flow.selectedPresetIds, flow.enteredLevel))
+                  }
                 >
-                  套用所選並前往下一步({selectedPresetIds.size})
+                  套用所選並前往下一步({flow.selectedPresetIds.size})
                 </Button>
-                <Button type="button" variant="outline" className="w-full" onClick={() => continueFromPresets([])}>
-                  跳過,前往下一步
+                <Button type="button" variant="outline" className="w-full" onClick={() => flow.continueFromPresets([])}>
+                  跳過，前往下一步
                 </Button>
               </DialogFooter>
             </div>
-          ) : step === 'bosses' ? (
+          ) : flow.step === 'bosses' ? (
             <div className="space-y-4">
               <DialogHeader>
                 <Button
@@ -295,28 +279,28 @@ export function CharacterTabs() {
                   variant="ghost"
                   size="sm"
                   className="-ml-2 w-fit gap-1 text-muted-foreground"
-                  onClick={() => setStep('presets')}
+                  onClick={() => flow.setStep('presets')}
                 >
                   <ArrowLeft className="size-3.5" />
                   返回預設任務
                 </Button>
                 <DialogTitle>套用預設 BOSS(選填)</DialogTitle>
-                <DialogDescription>勾選要一併追蹤的 BOSS 與難度,或直接跳過。</DialogDescription>
+                <DialogDescription>勾選要一併追蹤的 BOSS 與難度，或直接跳過。</DialogDescription>
               </DialogHeader>
 
-              <BossCatalogPicker selections={bossSelections} onToggleDifficulty={toggleBossDifficulty} />
+              <BossCatalogPicker selections={flow.bossSelections} onToggleDifficulty={flow.toggleBossDifficulty} />
 
               <DialogFooter className="sm:flex-col">
                 <Button
                   type="button"
                   className="w-full"
-                  disabled={flattenBossSelections(bossSelections).length === 0}
-                  onClick={() => continueFromBosses(flattenBossSelections(bossSelections))}
+                  disabled={flattenBossSelections(flow.bossSelections).length === 0}
+                  onClick={() => flow.continueFromBosses(flattenBossSelections(flow.bossSelections))}
                 >
-                  套用所選並前往確認({flattenBossSelections(bossSelections).length})
+                  套用所選並前往確認({flattenBossSelections(flow.bossSelections).length})
                 </Button>
-                <Button type="button" variant="outline" className="w-full" onClick={() => continueFromBosses([])}>
-                  跳過,前往確認
+                <Button type="button" variant="outline" className="w-full" onClick={() => flow.continueFromBosses([])}>
+                  跳過，前往確認
                 </Button>
               </DialogFooter>
             </div>
@@ -328,29 +312,31 @@ export function CharacterTabs() {
                   variant="ghost"
                   size="sm"
                   className="-ml-2 w-fit gap-1 text-muted-foreground"
-                  onClick={() => setStep('bosses')}
+                  onClick={() => flow.setStep('bosses')}
                 >
                   <ArrowLeft className="size-3.5" />
                   返回預設 BOSS
                 </Button>
                 <DialogTitle>確認建立以下內容</DialogTitle>
-                <DialogDescription>確認無誤後即可建立角色,建立後可再自行調整。</DialogDescription>
+                <DialogDescription>確認無誤後即可建立角色，建立後可再自行調整。</DialogDescription>
               </DialogHeader>
 
-              <div className="space-y-2">
-                <p className="text-sm font-semibold text-foreground">任務({resolvedPresetTasks.length})</p>
-                <PresetTaskPreview tasks={resolvedPresetTasks} />
-              </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-foreground">任務({flow.resolvedPresetTasks.length})</p>
+                  <PresetTaskPreview tasks={flow.resolvedPresetTasks} />
+                </div>
 
-              <div className="space-y-2">
-                <p className="text-sm font-semibold text-foreground">BOSS({resolvedBossSelections.length})</p>
-                <BossSelectionPreview selections={resolvedBossSelections} />
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-foreground">BOSS({flow.resolvedBossSelections.length})</p>
+                  <BossSelectionPreview selections={flow.resolvedBossSelections} />
+                </div>
               </div>
 
               <Button
                 type="button"
                 className="w-full"
-                onClick={() => createCharacter(resolvedPresetTasks, resolvedBossSelections)}
+                onClick={() => flow.createCharacter(flow.resolvedPresetTasks, flow.resolvedBossSelections)}
               >
                 確認新增角色
               </Button>

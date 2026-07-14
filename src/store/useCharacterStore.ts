@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { Character } from '@/types';
-import type { JobGroup } from '@/lib/jobs';
 import type { Server } from '@/lib/servers';
 import { trackLocalChange } from '@/lib/trackLocalChange';
 
@@ -9,8 +8,8 @@ export interface NewCharacterInput {
   name: string;
   server: Server;
   level: number;
-  jobGroup: JobGroup;
   job: string;
+  imageUrl?: string;
 }
 
 interface CharacterState {
@@ -35,8 +34,8 @@ export const useCharacterStore = create<CharacterState>()(
           name: trimmed,
           server: input.server,
           level: input.level,
-          jobGroup: input.jobGroup,
           job: input.job,
+          imageUrl: input.imageUrl,
           order: get().characters.length,
         };
         set((state) => ({

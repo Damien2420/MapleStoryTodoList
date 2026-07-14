@@ -48,7 +48,7 @@ const GROUPED_BOSS_CATALOG = buildGroupedBossCatalog();
 /** BOSS 名單勾選清單:依每日/每週/每月/賽季分類顯示,難度按鈕本身即勾選開關,可跨難度多選 */
 export function BossCatalogPicker({ selections, onToggleDifficulty }: BossCatalogPickerProps) {
   return (
-    <div className="flex max-h-[50vh] flex-col gap-4 overflow-y-auto pr-1">
+    <div className="flex min-h-0 max-h-[50vh] flex-col gap-4 overflow-y-auto pr-1">
       {GROUPED_BOSS_CATALOG.map(([label, rows]) => (
         <div key={label} className="flex flex-col gap-2">
           <Marker variant="separator">

@@ -74,12 +74,12 @@ export function PresetTaskPicker({ selectedIds, onToggle, characterLevel }: Pres
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex min-h-0 flex-col gap-3">
       <Button type="button" variant="outline" size="sm" className="self-end" onClick={handleToggleAll}>
         {allSelected ? '取消全選' : '全選'}
       </Button>
 
-      <div className="flex max-h-[50vh] flex-col gap-4 overflow-y-auto pr-1">
+      <div className="flex min-h-0 max-h-[50vh] flex-col gap-4 overflow-y-auto pr-1">
         {groupedItems.map(([category, items]) => (
           <div key={category} className="flex flex-col gap-1.5">
             <Marker variant="separator">
@@ -92,18 +92,19 @@ export function PresetTaskPicker({ selectedIds, onToggle, characterLevel }: Pres
                   <label
                     className={
                       item.disabled
-                        ? 'flex cursor-not-allowed items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-input px-3 py-2 text-center text-sm text-muted-foreground opacity-50'
+                        ? 'relative flex cursor-not-allowed items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-input px-3 py-2 text-center text-sm text-muted-foreground opacity-50'
                         : selected
-                          ? 'flex cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-primary bg-primary px-3 py-2 text-center text-sm font-medium text-primary-foreground'
-                          : 'flex cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-input px-3 py-2 text-center text-sm hover:bg-muted/60'
+                          ? 'relative flex cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-primary bg-primary px-3 py-2 text-center text-sm font-medium text-primary-foreground'
+                          : 'relative flex cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-input px-3 py-2 text-center text-sm hover:bg-muted/60'
                     }
                   >
-                    <Checkbox
-                      checked={selected}
-                      disabled={item.disabled}
-                      onCheckedChange={() => onToggle(item.id)}
-                      className="absolute h-px w-px overflow-hidden rounded-none border-0 p-0 -m-px shadow-none [clip:rect(0,0,0,0)]"
-                    />
+                    <span className="sr-only">
+                      <Checkbox
+                        checked={selected}
+                        disabled={item.disabled}
+                        onCheckedChange={() => onToggle(item.id)}
+                      />
+                    </span>
                     <span>{item.name}</span>
                   </label>
                 );

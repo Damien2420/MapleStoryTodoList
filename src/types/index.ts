@@ -1,4 +1,3 @@
-import type { JobGroup } from '@/lib/jobs';
 import type { Server } from '@/lib/servers';
 
 /** 任務重置週期:每日 / 每週 / 一次性(不自動重置) */
@@ -15,8 +14,9 @@ export interface Character {
   name: string;
   server: Server;
   level: number;
-  jobGroup: JobGroup;
   job: string;
+  /** 角色外觀圖網址(NEXON Open API 查詢角色時取得的公開靜態圖片連結),手動建立的角色不會有這個欄位 */
+  imageUrl?: string;
   order: number;
 }
 

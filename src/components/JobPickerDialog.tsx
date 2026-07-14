@@ -15,23 +15,29 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { JOB_GROUPS, type JobGroup } from '@/lib/jobs';
 
 interface JobPickerDialogProps {
-  jobGroup: JobGroup | undefined;
   job: string | undefined;
-  onChange: (jobGroup: JobGroup | undefined, job: string | undefined) => void;
+  onChange: (job: string | undefined) => void;
 }
 
-/** 職業選擇彈跳視窗:先選職業群,再從該職業群底下選擇具體職業 */
-export function JobPickerDialog({ jobGroup, job, onChange }: JobPickerDialogProps) {
+/** 依目前選定的職業反查所屬職業群,查不到(尚未選擇或職業名稱對應不上)回傳 undefined */
+function findJobGroup(job: string | undefined): JobGroup | undefined {
+  return JOB_GROUPS.find((g) => (g.jobs as readonly string[]).includes(job ?? ''))?.group;
+}
+
+/** 職業選擇彈跳視窗:先選職業群,再從該職業群底下選擇具體職業。職業群只是這裡的內部導覽用 state,實際只對外暴露/接收 job */
+export function JobPickerDialog({ job, onChange }: JobPickerDialogProps) {
   const [open, setOpen] = useState(false);
+  const [jobGroup, setJobGroup] = useState<JobGroup | undefined>(() => findJobGroup(job));
 
   const jobsInGroup = JOB_GROUPS.find((g) => g.group === jobGroup)?.jobs ?? [];
 
   function handleGroupChange(nextGroup: string) {
-    onChange(nextGroup as JobGroup, undefined);
+    setJobGroup(nextGroup as JobGroup);
+    onChange(undefined);
   }
 
   function handleJobChange(nextJob: string) {
-    onChange(jobGroup, nextJob);
+    onChange(nextJob);
   }
 
   return (
