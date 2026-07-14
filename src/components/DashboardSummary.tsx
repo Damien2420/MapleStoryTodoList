@@ -23,8 +23,8 @@ function formatCrystalTotal(value: number): string {
   return value.toLocaleString('zh-TW');
 }
 
-/** 角色總覽摘要:合併顯示任務完成進度與 BOSS 預估結晶收益,避免兩個獨立區塊高度不一致 */
-export function DashboardSummary({ character }: { character: Character }) {
+/** 角色總覽摘要:顯示任務完成進度與 BOSS 預估結晶收益,不帶卡片外框,由 CharacterHeader 併入同一橫帶顯示 */
+export function DashboardSummary({ character, className }: { character: Character; className?: string }) {
   const allTasks = useTaskStore((s) => s.tasks);
   const allBosses = useBossStore((s) => s.bosses);
 
@@ -60,8 +60,9 @@ export function DashboardSummary({ character }: { character: Character }) {
   return (
     <div
       className={cn(
-        'grid gap-4 rounded-lg border border-border bg-card p-4',
-        hasTaskSummary && hasBossSummary && 'lg:grid-cols-2 lg:gap-0 lg:divide-x lg:divide-border',
+        'grid gap-4',
+        hasTaskSummary && hasBossSummary && 'lg:grid-cols-[2fr_3fr] lg:gap-0 lg:divide-x lg:divide-border',
+        className,
       )}
     >
       {hasTaskSummary && (
