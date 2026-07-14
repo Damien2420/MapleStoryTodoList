@@ -14,8 +14,13 @@ interface TokenResponse {
   error?: string;
 }
 
+interface TokenClientError {
+  type: 'popup_closed' | 'popup_failed_to_open' | string;
+}
+
 interface TokenClient {
   callback: (resp: TokenResponse) => void;
+  error_callback: (error: TokenClientError) => void;
   requestAccessToken: (overrideConfig?: { prompt?: string }) => void;
 }
 
@@ -28,6 +33,7 @@ declare global {
             client_id: string;
             scope: string;
             callback: (resp: TokenResponse) => void;
+            error_callback?: (error: TokenClientError) => void;
           }) => TokenClient;
           revoke: (token: string, done: () => void) => void;
         };
@@ -92,6 +98,17 @@ export async function requestAccessToken(): Promise<void> {
       }
       accessToken = resp.access_token;
       resolve();
+    };
+    client.error_callback = (error) => {
+      if (error.type === 'popup_closed') {
+        reject(new Error('登入視窗已關閉，登入失敗'));
+        return;
+      }
+      if (error.type === 'popup_failed_to_open') {
+        reject(new Error('無法開啟 Google 登入視窗，請確認瀏覽器未封鎖彈出視窗後再試一次'));
+        return;
+      }
+      reject(new Error('Google 授權失敗或已取消'));
     };
     client.requestAccessToken();
   });
