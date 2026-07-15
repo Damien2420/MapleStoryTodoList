@@ -1,8 +1,12 @@
-import { Moon, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { HomeIcon } from '@/components/ui/home';
 import { SettingsIcon } from '@/components/ui/settings';
+import { GithubIcon } from '@/components/ui/github';
+import { SunIcon } from '@/components/ui/sun';
+import { MoonIcon } from '@/components/ui/moon';
 import { useTheme } from '@/components/theme-provider';
+
+const GITHUB_REPO_URL = 'https://github.com/Damien2420/MapleStoryTodoList';
 
 function ThemeToggle() {
   const { theme, setTheme } = useTheme();
@@ -17,7 +21,17 @@ function ThemeToggle() {
       aria-label={isDark ? '切換為淺色主題' : '切換為深色主題'}
       onClick={() => setTheme(isDark ? 'light' : 'dark')}
     >
-      {isDark ? <Sun className="size-4" /> : <Moon className="size-4" />}
+      {isDark ? <SunIcon size={16} /> : <MoonIcon size={16} />}
+    </Button>
+  );
+}
+
+function GithubLink() {
+  return (
+    <Button variant="ghost" size="icon" className="rounded-full" aria-label="前往 GitHub 專案頁面" asChild>
+      <a href={GITHUB_REPO_URL} target="_blank" rel="noopener noreferrer">
+        <GithubIcon size={16} />
+      </a>
     </Button>
   );
 }
@@ -33,7 +47,8 @@ export function Header({ onGoHome, onOpenDataManagement }: HeaderProps) {
     <header className="flex flex-col gap-2 border-b border-border px-4 py-3 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center sm:gap-0 sm:px-6">
       <div className="flex items-center justify-between">
         <h1 className="text-base font-semibold tracking-tight text-foreground">楓之谷角色任務追蹤管理</h1>
-        <div className="sm:hidden">
+        <div className="flex items-center gap-1 sm:hidden">
+          <GithubLink />
           <ThemeToggle />
         </div>
       </div>
@@ -56,7 +71,8 @@ export function Header({ onGoHome, onOpenDataManagement }: HeaderProps) {
         </Button>
       </div>
 
-      <div className="hidden sm:block sm:justify-self-end">
+      <div className="hidden items-center gap-1 sm:flex sm:justify-self-end">
+        <GithubLink />
         <ThemeToggle />
       </div>
     </header>

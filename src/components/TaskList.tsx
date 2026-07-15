@@ -3,9 +3,9 @@ import { ClipboardList, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { TaskItem } from '@/components/TaskItem';
 import { AddTaskDialog } from '@/components/AddTaskDialog';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { cn } from '@/lib/utils';
 import { useTaskStore } from '@/store/useTaskStore';
 import { isPresetExpired } from '@/lib/presetTasks';
 import type { Character, CharacterTask } from '@/types';
@@ -31,7 +31,7 @@ function groupByCategory(tasks: CharacterTask[]): Map<string, CharacterTask[]> {
 /** 依分類渲染單一週期(每日/每週)的任務區塊清單 */
 function renderCategoryGroup(
   grouped: Map<string, CharacterTask[]>,
-  dotClassName: string,
+  cycleLabel: '每日' | '每週',
   characterId: string,
   toggleCategoryTasks: (characterId: string, category: string, checked: boolean) => void,
   onDeleteCategory: (category: string) => void,
@@ -46,7 +46,7 @@ function renderCategoryGroup(
           <section key={category} className="flex flex-col gap-1 rounded-lg border border-border bg-card px-3 py-2.5">
             <div className="flex items-center justify-between gap-2">
               <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                <span className={cn('size-1.5 shrink-0 rounded-full', dotClassName)} />
+                <Badge variant={cycleLabel === '每日' ? 'secondary' : 'outline'}>{cycleLabel}</Badge>
                 {category}
                 <span className="text-xs font-normal tabular-nums text-muted-foreground">
                   ({categoryDoneCount}/{categoryTasks.length})
@@ -141,15 +141,9 @@ export function TaskList({ character }: { character: Character }) {
             <AddTaskDialog characterId={character.id} existingCategories={existingCategories} />
           </div>
           {dailyGrouped.size > 0 &&
-            renderCategoryGroup(dailyGrouped, 'bg-primary', character.id, toggleCategoryTasks, handleDeleteCategory)}
+            renderCategoryGroup(dailyGrouped, '每日', character.id, toggleCategoryTasks, handleDeleteCategory)}
           {weeklyGrouped.size > 0 &&
-            renderCategoryGroup(
-              weeklyGrouped,
-              'bg-secondary-foreground',
-              character.id,
-              toggleCategoryTasks,
-              handleDeleteCategory,
-            )}
+            renderCategoryGroup(weeklyGrouped, '每週', character.id, toggleCategoryTasks, handleDeleteCategory)}
         </div>
       )}
     </div>

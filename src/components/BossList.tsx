@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { Swords } from 'lucide-react';
 import { BossItem } from '@/components/BossItem';
 import { AddBossDialog } from '@/components/AddBossDialog';
+import { Badge } from '@/components/ui/badge';
 import { useBossStore } from '@/store/useBossStore';
 import { findBossCatalogEntry, isCatalogEntryExpired } from '@/lib/bossCatalog';
 import type { Character } from '@/types';
@@ -53,8 +54,7 @@ export function BossList({ character }: { character: Character }) {
           {dailyBosses.length > 0 && (
             <section className="flex flex-col gap-1 rounded-lg border border-border bg-card px-3 py-2.5">
               <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                <span className="size-1.5 shrink-0 rounded-full bg-primary" />
-                每日
+                <Badge variant="secondary">每日</Badge>
               </h3>
               <div className="flex flex-col divide-y divide-border">
                 {dailyBosses.map((boss) => (
@@ -67,8 +67,7 @@ export function BossList({ character }: { character: Character }) {
           {weeklyBosses.length > 0 && (
             <section className="flex flex-col gap-1 rounded-lg border border-border bg-card px-3 py-2.5">
               <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                <span className="size-1.5 shrink-0 rounded-full bg-secondary-foreground" />
-                每週
+                <Badge variant="outline">每週</Badge>
               </h3>
               <div className="flex flex-col divide-y divide-border">
                 {weeklyBosses.map((boss) => (
@@ -81,8 +80,7 @@ export function BossList({ character }: { character: Character }) {
           {monthlyBosses.length > 0 && (
             <section className="flex flex-col gap-1 rounded-lg border border-border bg-card px-3 py-2.5">
               <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                <span className="size-1.5 shrink-0 rounded-full bg-accent-foreground" />
-                每月
+                <Badge variant="secondary">每月</Badge>
               </h3>
               <div className="flex flex-col divide-y divide-border">
                 {monthlyBosses.map((boss) => (
@@ -95,8 +93,7 @@ export function BossList({ character }: { character: Character }) {
           {seasonBosses.length > 0 && (
             <section className="flex flex-col gap-1 rounded-lg border border-border bg-card px-3 py-2.5">
               <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                <span className="size-1.5 shrink-0 rounded-full bg-chart-1" />
-                賽季
+                <Badge variant="outline">賽季</Badge>
               </h3>
               <div className="flex flex-col divide-y divide-border">
                 {seasonBosses.map((boss) => (
