@@ -61,7 +61,7 @@ export function AddBossDialog({ characterId }: AddBossDialogProps) {
       <DialogTrigger asChild>
         <Button className="gap-1.5">
           <Plus className="size-4" />
-          新增BOSS
+          <span className="max-[400px]:sr-only">新增BOSS</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-xl sm:max-h-fit">

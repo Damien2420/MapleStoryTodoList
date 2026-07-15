@@ -132,7 +132,7 @@ export function AddTaskDialog({ characterId, existingCategories }: AddTaskDialog
       <DialogTrigger asChild>
         <Button className="gap-1.5">
           <Plus className="size-4" />
-          新增任務
+          <span className="max-[400px]:sr-only">新增任務</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-xl sm:max-h-fit">

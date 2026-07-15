@@ -1,13 +1,17 @@
 import { useMemo } from 'react';
-import { ClipboardList, Trash2 } from 'lucide-react';
+import { ChevronDown, ClipboardList, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { TaskItem } from '@/components/TaskItem';
 import { AddTaskDialog } from '@/components/AddTaskDialog';
+import { StatusFilterControl } from '@/components/StatusFilterControl';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useTaskStore } from '@/store/useTaskStore';
+import { useListFilterStore } from '@/store/useListFilterStore';
+import { filterItemsByStatus, type StatusFilter } from '@/lib/listFilter';
 import { isPresetExpired } from '@/lib/presetTasks';
+import { cn } from '@/lib/utils';
 import type { Character, CharacterTask } from '@/types';
 
 /** 任務對應的預設範本是否已下架(沒有 presetId 的任務視為未下架) */
@@ -28,17 +32,31 @@ function groupByCategory(tasks: CharacterTask[]): Map<string, CharacterTask[]> {
   return groups;
 }
 
+/** 分組內是否有任一分類在套用完成狀態篩選後仍有可見項目 */
+function hasVisibleItems(grouped: Map<string, CharacterTask[]>, filter: StatusFilter): boolean {
+  return Array.from(grouped.values()).some((items) => filterItemsByStatus(items, filter).length > 0);
+}
+
 /** 依分類渲染單一週期(每日/每週)的任務區塊清單 */
 function renderCategoryGroup(
   grouped: Map<string, CharacterTask[]>,
   cycleLabel: '每日' | '每週',
   characterId: string,
+  statusFilter: StatusFilter,
+  collapsedSections: Set<string>,
+  toggleSection: (key: string) => void,
   toggleCategoryTasks: (characterId: string, category: string, checked: boolean) => void,
   onDeleteCategory: (category: string) => void,
 ) {
   return (
     <div className="flex flex-col gap-5">
       {Array.from(grouped.entries()).map(([category, categoryTasks]) => {
+        // 計數與「全部完成」永遠以整個分類為準;完成狀態篩選只影響顯示哪些項目
+        const visibleTasks = filterItemsByStatus(categoryTasks, statusFilter);
+        if (visibleTasks.length === 0) return null;
+
+        const sectionKey = `${characterId}|${cycleLabel}|${category}`;
+        const collapsed = collapsedSections.has(sectionKey);
         const categoryDoneCount = categoryTasks.filter((t) => t.checked).length;
         const allDone = categoryDoneCount === categoryTasks.length;
 
@@ -46,6 +64,15 @@ function renderCategoryGroup(
           <section key={category} className="flex flex-col gap-1 rounded-lg border border-border bg-card px-3 py-2.5">
             <div className="flex items-center justify-between gap-2">
               <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                <button
+                  type="button"
+                  aria-expanded={!collapsed}
+                  aria-label={collapsed ? `展開分類:${category}` : `收合分類:${category}`}
+                  className="flex size-5 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                  onClick={() => toggleSection(sectionKey)}
+                >
+                  <ChevronDown className={cn('size-4 transition-transform', collapsed && '-rotate-90')} />
+                </button>
                 <Badge variant={cycleLabel === '每日' ? 'secondary' : 'outline'}>{cycleLabel}</Badge>
                 {category}
                 <span className="text-xs font-normal tabular-nums text-muted-foreground">
@@ -79,11 +106,13 @@ function renderCategoryGroup(
                 </Tooltip>
               </div>
             </div>
-            <div className="flex flex-col divide-y divide-border">
-              {categoryTasks.map((task) => (
-                <TaskItem key={task.id} task={task} />
-              ))}
-            </div>
+            {!collapsed && (
+              <div className="flex flex-col divide-y divide-border">
+                {visibleTasks.map((task) => (
+                  <TaskItem key={task.id} task={task} />
+                ))}
+              </div>
+            )}
           </section>
         );
       })}
@@ -97,6 +126,10 @@ export function TaskList({ character }: { character: Character }) {
   const toggleCategoryTasks = useTaskStore((s) => s.toggleCategoryTasks);
   const removeCategoryTasks = useTaskStore((s) => s.removeCategoryTasks);
   const restoreTask = useTaskStore((s) => s.restoreTask);
+  const taskStatusFilter = useListFilterStore((s) => s.taskStatusFilter);
+  const collapsedTaskSections = useListFilterStore((s) => s.collapsedTaskSections);
+  const setTaskStatusFilter = useListFilterStore((s) => s.setTaskStatusFilter);
+  const toggleTaskSection = useListFilterStore((s) => s.toggleTaskSection);
 
   const tasks = useMemo(
     () =>
@@ -111,6 +144,8 @@ export function TaskList({ character }: { character: Character }) {
   const weeklyTasks = useMemo(() => tasks.filter((t) => t.resetCycle === 'weekly'), [tasks]);
   const dailyGrouped = useMemo(() => groupByCategory(dailyTasks), [dailyTasks]);
   const weeklyGrouped = useMemo(() => groupByCategory(weeklyTasks), [weeklyTasks]);
+  const showDaily = hasVisibleItems(dailyGrouped, taskStatusFilter);
+  const showWeekly = hasVisibleItems(weeklyGrouped, taskStatusFilter);
 
   function handleDeleteCategory(category: string) {
     const removed = removeCategoryTasks(character.id, category);
@@ -136,14 +171,36 @@ export function TaskList({ character }: { character: Character }) {
         </div>
       ) : (
         <div className="flex flex-col gap-6">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm font-semibold text-foreground">任務清單</p>
+            <StatusFilterControl value={taskStatusFilter} onChange={setTaskStatusFilter} />
             <AddTaskDialog characterId={character.id} existingCategories={existingCategories} />
           </div>
-          {dailyGrouped.size > 0 &&
-            renderCategoryGroup(dailyGrouped, '每日', character.id, toggleCategoryTasks, handleDeleteCategory)}
-          {weeklyGrouped.size > 0 &&
-            renderCategoryGroup(weeklyGrouped, '每週', character.id, toggleCategoryTasks, handleDeleteCategory)}
+          {showDaily &&
+            renderCategoryGroup(
+              dailyGrouped,
+              '每日',
+              character.id,
+              taskStatusFilter,
+              collapsedTaskSections,
+              toggleTaskSection,
+              toggleCategoryTasks,
+              handleDeleteCategory,
+            )}
+          {showWeekly &&
+            renderCategoryGroup(
+              weeklyGrouped,
+              '每週',
+              character.id,
+              taskStatusFilter,
+              collapsedTaskSections,
+              toggleTaskSection,
+              toggleCategoryTasks,
+              handleDeleteCategory,
+            )}
+          {!showDaily && !showWeekly && (
+            <p className="py-8 text-center text-sm text-muted-foreground">沒有符合篩選條件的任務</p>
+          )}
         </div>
       )}
     </div>
