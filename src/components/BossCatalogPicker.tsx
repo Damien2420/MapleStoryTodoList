@@ -79,7 +79,7 @@ export function BossCatalogPicker({ selections, onToggleDifficulty }: BossCatalo
           <div className="flex flex-col gap-1.5">
             {rows.map(({ entry, options }) => {
               const selectedDifficulties = selections.get(entry.id);
-              const hasSelection = (selectedDifficulties?.size ?? 0) > 0;
+              const hasSelection = options.some((option) => selectedDifficulties?.has(option.difficulty) ?? false);
               return (
                 <div
                   key={entry.id}
