@@ -80,7 +80,7 @@ export function useAddCharacterFlow(onCreated?: () => void) {
   const canSubmit = name.trim().length > 0 && name.length <= CHARACTER_NAME_MAX_LENGTH && !!job;
   const enteredLevel = Number(level) || 1;
 
-  async function handleLookup(e: React.FormEvent) {
+  async function handleLookup(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     const trimmed = name.trim();
     if (!trimmed) return;
@@ -121,7 +121,7 @@ export function useAddCharacterFlow(onCreated?: () => void) {
     setStep('presets');
   }
 
-  function handleInfoSubmit(e: React.FormEvent) {
+  function handleInfoSubmit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!canSubmit) return;
     setStep('presets');

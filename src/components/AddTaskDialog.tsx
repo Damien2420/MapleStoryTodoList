@@ -89,7 +89,7 @@ export function AddTaskDialog({ characterId, existingCategories }: AddTaskDialog
     });
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!name.trim() || name.length > TASK_NAME_MAX_LENGTH) return;
     addTask({
