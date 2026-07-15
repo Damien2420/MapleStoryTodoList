@@ -1,21 +1,12 @@
-# React + TypeScript + Vite + shadcn/ui
+# MapleStory ToDoList
 
-This is a template for a new Vite project with React, TypeScript, and shadcn/ui.
+多角色的楓之谷每日/每週代辦追蹤工具。同時經營多個角色時，用來管理每個角色各自的日常任務、週王討伐進度，並在重置時間到了之後自動清空勾選狀態。
 
-## Adding components
+## 功能
 
-To add components to your app, run the following command:
-
-```bash
-npx shadcn@latest add button
-```
-
-This will place the ui components in the `src/components` directory.
-
-## Using components
-
-To use the components in your app, import them as follows:
-
-```tsx
-import { Button } from "@/components/ui/button"
-```
+- **多角色管理**：可建立多個角色，各自獨立追蹤任務與 BOSS 進度，並可在角色間快速切換
+- **角色查詢建立**：輸入角色名稱，透過官方 Open API 自動帶入伺服器、等級、職業與角色外觀圖，也可手動輸入；僅讀取官方 API 提供的公開角色資訊，不會儲存任何帳號密碼等敏感資料
+- **代辦任務**：套用預設任務範本（依角色等級自動判斷可選的地區/活動任務），或自訂任務，依每日/每週/一次性設定重置週期
+- **BOSS 討伐追蹤**：勾選要追蹤的 BOSS 與難度，內建結晶收益參考值，畫面上顯示本日/本週/本月預估收益
+- **自動重置**：依角色設定的每日重置時間、每週重置星期，定期自動清空已勾選的任務與 BOSS 狀態
+- **資料備份**：可將所有角色資料匯出成檔案，或透過 Google 帳號登入備份到自己的 Google Drive；畫面上會提示尚未備份或有異動未備份的狀態
