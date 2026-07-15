@@ -101,7 +101,7 @@ export function BossCatalogPicker({ selections, onToggleDifficulty }: BossCatalo
                           disabled={disabled}
                           onClick={() => onToggleDifficulty(entry.id, option.difficulty)}
                           className={cn(
-                            'rounded-md border px-2.5 py-1 text-xs font-medium transition-all',
+                            'rounded-md border px-2.5 py-2 text-xs font-medium outline-none transition-all focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
                             !disabled && 'hover:scale-105 active:scale-95',
                             active
                               ? 'border-primary bg-primary text-primary-foreground'

@@ -38,7 +38,7 @@ export function BackupStatusBar({ onOpenBackupPage }: { onOpenBackupPage: () => 
         type="button"
         onClick={onOpenBackupPage}
         className={cn(
-          'flex min-w-0 flex-1 items-center gap-1.5 text-left max-[400px]:items-start',
+          'flex min-w-0 flex-1 items-center gap-1.5 rounded text-left outline-none max-[400px]:items-start focus-visible:ring-3 focus-visible:ring-ring/50',
           isWarning ? 'hover:text-amber-800 dark:hover:text-amber-300' : 'hover:text-foreground',
         )}
       >
@@ -60,7 +60,7 @@ export function BackupStatusBar({ onOpenBackupPage }: { onOpenBackupPage: () => 
         onClick={dismiss}
         aria-label="關閉備份提示"
         className={cn(
-          'shrink-0 rounded p-0.5 transition-colors',
+          'shrink-0 rounded p-0.5 outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50',
           isWarning ? 'hover:bg-amber-500/20' : 'hover:bg-muted',
         )}
       >

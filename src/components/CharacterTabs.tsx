@@ -89,7 +89,7 @@ export function CharacterTabs() {
             type="button"
             aria-label="向左捲動角色分頁"
             onClick={() => scrollTrackBy(-160)}
-            className="absolute top-1/2 left-1 z-20 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-sm"
+            className="absolute top-1/2 left-1 z-20 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-sm outline-none transition-colors hover:bg-muted focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
           >
             <ChevronLeft className="size-3.5" />
           </button>
@@ -99,7 +99,7 @@ export function CharacterTabs() {
             type="button"
             aria-label="向右捲動角色分頁"
             onClick={() => scrollTrackBy(160)}
-            className="absolute top-1/2 right-1 z-20 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-sm"
+            className="absolute top-1/2 right-1 z-20 inline-flex size-6 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-sm outline-none transition-colors hover:bg-muted focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
           >
             <ChevronRight className="size-3.5" />
           </button>

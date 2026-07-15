@@ -94,8 +94,8 @@ export function PresetTaskPicker({ selectedIds, onToggle, characterLevel }: Pres
                       item.disabled
                         ? 'relative flex cursor-not-allowed items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-input px-3 py-2 text-center text-sm text-muted-foreground opacity-50'
                         : selected
-                          ? 'relative flex cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-primary bg-primary px-3 py-2 text-center text-sm font-medium text-primary-foreground'
-                          : 'relative flex cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-input px-3 py-2 text-center text-sm hover:bg-muted/60'
+                          ? 'relative flex cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-primary bg-primary px-3 py-2 text-center text-sm font-medium text-primary-foreground has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50'
+                          : 'relative flex cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-md border border-input px-3 py-2 text-center text-sm hover:bg-muted/60 has-[:focus-visible]:border-ring has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50'
                     }
                   >
                     <span className="sr-only">
