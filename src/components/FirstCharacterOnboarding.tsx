@@ -6,7 +6,7 @@ import { CharacterFormFields } from '@/components/CharacterFormFields';
 import { CharacterLookupResult } from '@/components/CharacterLookupResult';
 import { PresetTaskPicker } from '@/components/PresetTaskPicker';
 import { PresetTaskPreview } from '@/components/PresetTaskPreview';
-import { BossCatalogPicker } from '@/components/BossCatalogPicker';
+import { BossCatalogPicker, WeeklyBossLimitHint } from '@/components/BossCatalogPicker';
 import { BossSelectionPreview } from '@/components/BossSelectionPreview';
 import { useAddCharacterFlow } from '@/hooks/useAddCharacterFlow';
 import { resolveSelectedPresetTasks } from '@/lib/presetTasks';
@@ -172,6 +172,8 @@ export function FirstCharacterOnboarding({ onImport }: { onImport: () => void })
             <h2 className="text-lg font-semibold text-foreground">套用預設 BOSS</h2>
             <p className="text-sm text-muted-foreground">勾選要一併追蹤的 BOSS 討伐難度。</p>
           </div>
+
+          <WeeklyBossLimitHint selections={flow.bossSelections} />
 
           <BossCatalogPicker selections={flow.bossSelections} onToggleDifficulty={flow.toggleBossDifficulty} />
 

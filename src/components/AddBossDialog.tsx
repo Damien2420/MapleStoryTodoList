@@ -10,7 +10,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { BossCatalogPicker } from '@/components/BossCatalogPicker';
+import { BossCatalogPicker, WeeklyBossLimitHint } from '@/components/BossCatalogPicker';
 import { flattenBossSelections } from '@/lib/bossCatalog';
 import { useBossStore } from '@/store/useBossStore';
 import type { BossDifficulty } from '@/types';
@@ -70,6 +70,8 @@ export function AddBossDialog({ characterId }: AddBossDialogProps) {
             <DialogTitle>新增BOSS</DialogTitle>
             <DialogDescription>勾選要追蹤的王與難度,一次可套用多隻、多難度。</DialogDescription>
           </DialogHeader>
+
+          <WeeklyBossLimitHint selections={selections} />
 
           <BossCatalogPicker selections={selections} onToggleDifficulty={handleToggleDifficulty} />
 

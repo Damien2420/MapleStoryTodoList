@@ -17,7 +17,7 @@ import { CharacterFormFields } from '@/components/CharacterFormFields';
 import { CharacterLookupResult } from '@/components/CharacterLookupResult';
 import { PresetTaskPicker } from '@/components/PresetTaskPicker';
 import { PresetTaskPreview } from '@/components/PresetTaskPreview';
-import { BossCatalogPicker } from '@/components/BossCatalogPicker';
+import { BossCatalogPicker, WeeklyBossLimitHint } from '@/components/BossCatalogPicker';
 import { BossSelectionPreview } from '@/components/BossSelectionPreview';
 import { useCharacterStore } from '@/store/useCharacterStore';
 import { useAddCharacterFlow } from '@/hooks/useAddCharacterFlow';
@@ -287,6 +287,8 @@ export function CharacterTabs() {
                 <DialogTitle>套用預設 BOSS(選填)</DialogTitle>
                 <DialogDescription>勾選要一併追蹤的 BOSS 與難度，或直接跳過。</DialogDescription>
               </DialogHeader>
+
+              <WeeklyBossLimitHint selections={flow.bossSelections} />
 
               <BossCatalogPicker selections={flow.bossSelections} onToggleDifficulty={flow.toggleBossDifficulty} />
 

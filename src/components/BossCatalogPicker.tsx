@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 import { Marker, MarkerContent } from '@/components/ui/marker';
 import {
   BOSS_CATALOG,
@@ -14,6 +15,17 @@ interface BossCatalogPickerProps {
   /** 目前已選取的 BOSS id -> 已選難度集合 對應表 */
   selections: Map<string, Set<BossDifficulty>>;
   onToggleDifficulty: (bossId: string, difficulty: BossDifficulty) => void;
+}
+
+/** 每週 BOSS 上限提示:固定顯示於描述文字下方,不隨清單捲動;達上限時切換為主色提示已滿 */
+export function WeeklyBossLimitHint({ selections }: { selections: Map<string, Set<BossDifficulty>> }) {
+  const weeklyCount = countWeeklyBossSelections(selections);
+  const weeklyFull = weeklyCount >= WEEKLY_BOSS_LIMIT;
+  return (
+    <Badge variant={weeklyFull ? 'default' : 'outline'} className="tabular-nums">
+      每週 BOSS 上限 {weeklyCount}/{WEEKLY_BOSS_LIMIT}
+    </Badge>
+  );
 }
 
 /** 分類顯示順序與標籤:每日 -> 每週 -> 每月 -> 賽季 */
@@ -52,7 +64,7 @@ function buildGroupedBossCatalog(): [string, GroupedBossRow[]][] {
 
 const GROUPED_BOSS_CATALOG = buildGroupedBossCatalog();
 
-/** BOSS 名單勾選清單:依每日/每週/每月/賽季分類顯示,難度按鈕本身即勾選開關,可跨難度多選;每週區塊(不含賽季)最多勾選 WEEKLY_BOSS_LIMIT 筆 */
+/** BOSS 名單勾選清單:依每日/每週/每月/賽季分類顯示,難度按鈕本身即勾選開關,可跨難度多選;每週區塊(不含賽季)最多勾選 12 筆,上限提示由 WeeklyBossLimitHint 獨立顯示 */
 export function BossCatalogPicker({ selections, onToggleDifficulty }: BossCatalogPickerProps) {
   const weeklyCount = countWeeklyBossSelections(selections);
   const weeklyFull = weeklyCount >= WEEKLY_BOSS_LIMIT;
@@ -62,11 +74,9 @@ export function BossCatalogPicker({ selections, onToggleDifficulty }: BossCatalo
       {GROUPED_BOSS_CATALOG.map(([label, rows]) => (
         <div key={label} className="flex flex-col gap-2">
           <Marker variant="separator">
-            <MarkerContent>
-              {label === '每週' ? `${label} ${weeklyCount}/${WEEKLY_BOSS_LIMIT}` : label}
-            </MarkerContent>
+            <MarkerContent>{label}</MarkerContent>
           </Marker>
-          <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
             {rows.map(({ entry, options }) => {
               const selectedDifficulties = selections.get(entry.id);
               const hasSelection = (selectedDifficulties?.size ?? 0) > 0;
@@ -74,12 +84,12 @@ export function BossCatalogPicker({ selections, onToggleDifficulty }: BossCatalo
                 <div
                   key={entry.id}
                   className={cn(
-                    'flex items-center justify-between gap-2 rounded-lg border px-3 py-2',
+                    'flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 rounded-lg border px-3 py-2',
                     hasSelection ? 'border-primary bg-primary/5' : 'border-border',
                   )}
                 >
                   <span className="shrink-0 text-sm font-medium">{entry.name}</span>
-                  <div className="flex flex-wrap justify-end gap-1.5">
+                  <div className="flex flex-wrap gap-1.5">
                     {options.map((option) => {
                       const active = selectedDifficulties?.has(option.difficulty) ?? false;
                       // 每週區塊達上限時,只鎖住尚未勾選的按鈕,已勾選的仍可點擊取消
