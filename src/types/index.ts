@@ -49,7 +49,7 @@ export interface Settings {
 }
 
 /** BOSS 難度 */
-export type BossDifficulty = '簡單' | '普通' | '困難' | '渾沌' | '極限';
+export type BossDifficulty = '簡單' | '普通' | '困難' | '渾沌' | '極限' | '終極';
 
 /** 角色底下實際追蹤的 BOSS 討伐記錄,獨立於任務系統之外 */
 export interface CharacterBossTrackList {
