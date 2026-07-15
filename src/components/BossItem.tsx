@@ -5,14 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { findBossCatalogEntry } from '@/lib/bossCatalog';
+import { formatCrystalValue } from '@/lib/formatCrystal';
 import { formatExpiryDate, formatTimeUntilExpiry, hoursUntilExpiry } from '@/lib/reset';
 import { useNow } from '@/hooks/useNow';
 import type { CharacterBossTrackList } from '@/types';
 import { useBossStore } from '@/store/useBossStore';
-
-function formatCrystalValue(value: number): string {
-  return value.toLocaleString('zh-TW');
-}
 
 /** 單一 BOSS 討伐列:勾選框 + 王名稱 + 難度標籤 + 唯讀的收益數字 + 刪除鈕 */
 export function BossItem({ boss }: { boss: CharacterBossTrackList }) {

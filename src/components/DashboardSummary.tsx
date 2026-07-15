@@ -5,6 +5,7 @@ import { useTaskStore } from '@/store/useTaskStore';
 import { useBossStore } from '@/store/useBossStore';
 import { isPresetExpired } from '@/lib/presetTasks';
 import { findBossCatalogEntry, isCatalogEntryExpired } from '@/lib/bossCatalog';
+import { formatCrystalValue } from '@/lib/formatCrystal';
 import type { Character, CharacterTask } from '@/types';
 
 /** 任務對應的預設範本是否已下架(沒有 presetId 的任務視為未下架) */
@@ -17,10 +18,6 @@ function isBossExpired(boss: { bossCatalogId?: string }): boolean {
   if (!boss.bossCatalogId) return false;
   const entry = findBossCatalogEntry(boss.bossCatalogId);
   return entry ? isCatalogEntryExpired(entry) : false;
-}
-
-function formatCrystalTotal(value: number): string {
-  return value.toLocaleString('zh-TW');
 }
 
 /** 角色總覽摘要:顯示任務完成進度與 BOSS 預估結晶收益,不帶卡片外框,由 CharacterHeader 併入同一橫帶顯示 */
@@ -104,7 +101,7 @@ export function DashboardSummary({ character, className }: { character: Characte
                 <span className="truncate">本日預估收益</span>
               </p>
               <p className="shrink-0 text-sm font-semibold tabular-nums text-foreground min-[350px]:w-full min-[350px]:truncate min-[350px]:text-center">
-                ${formatCrystalTotal(dailyTotal)}
+                ${formatCrystalValue(dailyTotal)}
               </p>
             </div>
           )}
@@ -115,7 +112,7 @@ export function DashboardSummary({ character, className }: { character: Characte
                 <span className="truncate">本週預估收益</span>
               </p>
               <p className="shrink-0 text-sm font-semibold tabular-nums text-foreground min-[350px]:w-full min-[350px]:truncate min-[350px]:text-center">
-                ${formatCrystalTotal(weeklyTotal)}
+                ${formatCrystalValue(weeklyTotal)}
               </p>
             </div>
           )}
@@ -126,7 +123,7 @@ export function DashboardSummary({ character, className }: { character: Characte
                 <span className="truncate">本月預估收益</span>
               </p>
               <p className="shrink-0 text-sm font-semibold tabular-nums text-foreground min-[350px]:w-full min-[350px]:truncate min-[350px]:text-center">
-                ${formatCrystalTotal(monthlyTotal)}
+                ${formatCrystalValue(monthlyTotal)}
               </p>
             </div>
           )}
