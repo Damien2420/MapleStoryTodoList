@@ -12,6 +12,8 @@ import { useCharacterStore } from '@/store/useCharacterStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useBossStore } from '@/store/useBossStore';
+import { SpeedInsights } from '@vercel/speed-insights/react';
+import { Analytics } from '@vercel/analytics/react';
 
 const DataManagementPage = lazy(() => import('@/components/DataManagementPage'));
 
@@ -61,6 +63,8 @@ export function App() {
         )}
       </div>
       <Toaster position="bottom-center" />
+      <Analytics/>
+      <SpeedInsights/>
     </TooltipProvider>
   );
 }
