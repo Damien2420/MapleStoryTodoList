@@ -213,7 +213,7 @@ export function CharacterTabs() {
                 <DialogTitle>新增角色</DialogTitle>
                 <DialogDescription>建立一個新角色，開始追蹤這個角色的每日/每週任務。</DialogDescription>
               </DialogHeader>
-              <div className="py-4">
+              <div className="space-y-3 py-4">
                 <CharacterFormFields
                   idPrefix="add-character"
                   name={flow.name}
@@ -225,6 +225,7 @@ export function CharacterTabs() {
                   job={flow.job}
                   onJobChange={flow.setJob}
                 />
+                {flow.lookupError && <p className="text-sm text-destructive">{flow.lookupError}</p>}
               </div>
               <DialogFooter>
                 <Button type="submit" disabled={!flow.canSubmit}>

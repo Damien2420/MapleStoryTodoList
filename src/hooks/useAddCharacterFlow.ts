@@ -20,6 +20,7 @@ type LookupPhase = 'search' | 'result' | 'form';
  */
 export function useAddCharacterFlow(onCreated?: () => void) {
   const addCharacter = useCharacterStore((s) => s.addCharacter);
+  const characters = useCharacterStore((s) => s.characters);
   const addPresetTasks = useTaskStore((s) => s.addPresetTasks);
   const addBosses = useBossStore((s) => s.addBosses);
 
@@ -61,6 +62,12 @@ export function useAddCharacterFlow(onCreated?: () => void) {
     });
   }
 
+  // 名稱 + 伺服器相同即視為同一角色
+  function isDuplicateCharacter(targetName: string, targetServer: Server): boolean {
+    const trimmed = targetName.trim();
+    return characters.some((c) => c.name === trimmed && c.server === targetServer);
+  }
+
   function resetForm() {
     setStep('info');
     setLookupPhase('search');
@@ -90,6 +97,10 @@ export function useAddCharacterFlow(onCreated?: () => void) {
       const info = await fetchCharacterByName(trimmed);
       if (!isKnownServer(info.world)) {
         setLookupError('查詢結果的伺服器無法辨識,請改用手動輸入');
+        return;
+      }
+      if (isDuplicateCharacter(info.name, info.world)) {
+        setLookupError(`「${info.name}」已在角色清單中`);
         return;
       }
       setName(info.name);
@@ -124,6 +135,11 @@ export function useAddCharacterFlow(onCreated?: () => void) {
   function handleInfoSubmit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!canSubmit) return;
+    if (isDuplicateCharacter(name, server)) {
+      setLookupError(`「${name.trim()}」已在角色清單中`);
+      return;
+    }
+    setLookupError(undefined);
     setStep('presets');
   }
 
