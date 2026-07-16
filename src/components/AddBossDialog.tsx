@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,7 +11,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { BossCatalogPicker, WeeklyBossLimitHint } from '@/components/BossCatalogPicker';
-import { flattenBossSelections } from '@/lib/bossCatalog';
+import { buildTrackedGroupKeys, flattenBossSelections } from '@/lib/bossCatalog';
 import { useBossStore } from '@/store/useBossStore';
 import type { BossDifficulty } from '@/types';
 
@@ -22,8 +22,12 @@ interface AddBossDialogProps {
 /** 新增BOSS對話框:只能從 BOSS_CATALOG 勾選 + 選難度套用,一次可套用多隻、每隻可同時選多個難度 */
 export function AddBossDialog({ characterId }: AddBossDialogProps) {
   const addBosses = useBossStore((s) => s.addBosses);
+  const bosses = useBossStore((s) => s.bosses);
   const [open, setOpen] = useState(false);
   const [selections, setSelections] = useState<Map<string, Set<BossDifficulty>>>(new Map());
+
+  // 該角色已追蹤的互斥群組鍵,對話框中整群鎖住避免建立同週期重複紀錄
+  const trackedGroupKeys = useMemo(() => buildTrackedGroupKeys(bosses, characterId), [bosses, characterId]);
 
   function resetForm() {
     setSelections(new Map());
@@ -73,7 +77,11 @@ export function AddBossDialog({ characterId }: AddBossDialogProps) {
 
           <WeeklyBossLimitHint selections={selections} />
 
-          <BossCatalogPicker selections={selections} onToggleDifficulty={handleToggleDifficulty} />
+          <BossCatalogPicker
+            selections={selections}
+            onToggleDifficulty={handleToggleDifficulty}
+            trackedGroupKeys={trackedGroupKeys}
+          />
 
           <DialogFooter>
             <Button

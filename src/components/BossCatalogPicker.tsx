@@ -15,6 +15,8 @@ interface BossCatalogPickerProps {
   /** 目前已選取的 BOSS id -> 已選難度集合 對應表 */
   selections: Map<string, Set<BossDifficulty>>;
   onToggleDifficulty: (bossId: string, difficulty: BossDifficulty) => void;
+  /** 該角色已追蹤中的互斥群組鍵(`bossCatalogId|resetCycle`),對應群組的難度按鈕整群鎖住 */
+  trackedGroupKeys: Set<string>;
 }
 
 /** 每週 BOSS 上限提示:固定顯示於描述文字下方,不隨清單捲動;達上限時切換為主色提示已滿 */
@@ -65,7 +67,7 @@ function buildGroupedBossCatalog(): [string, GroupedBossRow[]][] {
 const GROUPED_BOSS_CATALOG = buildGroupedBossCatalog();
 
 /** BOSS 名單勾選清單:依每日/每週/每月/賽季分類顯示,難度按鈕本身即勾選開關,可跨難度多選;每週區塊(不含賽季)最多勾選 12 筆,上限提示由 WeeklyBossLimitHint 獨立顯示 */
-export function BossCatalogPicker({ selections, onToggleDifficulty }: BossCatalogPickerProps) {
+export function BossCatalogPicker({ selections, onToggleDifficulty, trackedGroupKeys }: BossCatalogPickerProps) {
   const weeklyCount = countWeeklyBossSelections(selections);
   const weeklyFull = weeklyCount >= WEEKLY_BOSS_LIMIT;
 
@@ -92,13 +94,26 @@ export function BossCatalogPicker({ selections, onToggleDifficulty }: BossCatalo
                   <div className="flex flex-wrap gap-1.5">
                     {options.map((option) => {
                       const active = selectedDifficulties?.has(option.difficulty) ?? false;
+                      // 已追蹤鎖定:該角色此王在此週期已有追蹤紀錄,整群(含相同難度)鎖住
+                      const trackedLocked = trackedGroupKeys.has(`${entry.id}|${option.resetCycle}`);
+                      // 對話框內互斥:同王同週期已勾了別的難度,鎖住這顆未勾的,需先取消才能改選
+                      const cycleLocked =
+                        !active &&
+                        options.some(
+                          (o) =>
+                            o.difficulty !== option.difficulty &&
+                            o.resetCycle === option.resetCycle &&
+                            (selectedDifficulties?.has(o.difficulty) ?? false),
+                        );
                       // 每週區塊達上限時,只鎖住尚未勾選的按鈕,已勾選的仍可點擊取消
-                      const disabled = !active && label === '每週' && weeklyFull;
+                      const weeklyLocked = !active && label === '每週' && weeklyFull;
+                      const disabled = trackedLocked || cycleLocked || weeklyLocked;
                       return (
                         <button
                           key={option.difficulty}
                           type="button"
                           disabled={disabled}
+                          title={trackedLocked ? '此週期已在追蹤中' : undefined}
                           onClick={() => onToggleDifficulty(entry.id, option.difficulty)}
                           className={cn(
                             'rounded-md border px-2.5 py-2 text-xs font-medium outline-none transition-all focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',

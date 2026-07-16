@@ -175,7 +175,11 @@ export function FirstCharacterOnboarding({ onImport }: { onImport: () => void })
 
           <WeeklyBossLimitHint selections={flow.bossSelections} />
 
-          <BossCatalogPicker selections={flow.bossSelections} onToggleDifficulty={flow.toggleBossDifficulty} />
+          <BossCatalogPicker
+            selections={flow.bossSelections}
+            onToggleDifficulty={flow.toggleBossDifficulty}
+            trackedGroupKeys={new Set<string>()}
+          />
 
           <div className="flex flex-col gap-2">
             <Button

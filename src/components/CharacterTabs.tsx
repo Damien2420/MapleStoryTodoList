@@ -291,7 +291,11 @@ export function CharacterTabs() {
 
               <WeeklyBossLimitHint selections={flow.bossSelections} />
 
-              <BossCatalogPicker selections={flow.bossSelections} onToggleDifficulty={flow.toggleBossDifficulty} />
+              <BossCatalogPicker
+                selections={flow.bossSelections}
+                onToggleDifficulty={flow.toggleBossDifficulty}
+                trackedGroupKeys={new Set<string>()}
+              />
 
               <DialogFooter className="sm:flex-col">
                 <Button

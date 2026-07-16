@@ -1,4 +1,4 @@
-import type { BossDifficulty } from '@/types';
+import type { BossDifficulty, CharacterBossTrackList } from '@/types';
 
 /** 單一難度的參考收益與重置週期,僅供套用時帶入初始值,非即時經濟數據 */
 export interface BossDifficultyOption {
@@ -368,4 +368,25 @@ export function isCatalogEntryExpired(entry: BossCatalogEntry, now: Date = new D
   const end = new Date(entry.expiresAt);
   end.setHours(23, 59, 59, 999);
   return now.getTime() > end.getTime();
+}
+
+/**
+ * 蒐集指定角色「追蹤中且未下架」的 BOSS 互斥群組鍵。
+ *
+ * 同一隻王在同一個重置週期內只能討伐一個難度,群組鍵用於在新增BOSS對話框中鎖住已追蹤的群組。
+ * 沒有 bossCatalogId 的舊紀錄無法對應回目錄,略過不鎖;目錄項目已下架者同樣略過。
+ *
+ * @param bosses 全部角色的 BOSS 追蹤紀錄(呼叫端不需預先過濾角色)
+ * @param characterId 要計算的角色 id
+ * @returns 群組鍵集合,元素格式為 `${bossCatalogId}|${resetCycle}`
+ */
+export function buildTrackedGroupKeys(bosses: CharacterBossTrackList[], characterId: string): Set<string> {
+  const keys = new Set<string>();
+  for (const boss of bosses) {
+    if (boss.characterId !== characterId || !boss.bossCatalogId) continue;
+    const entry = findBossCatalogEntry(boss.bossCatalogId);
+    if (!entry || isCatalogEntryExpired(entry)) continue;
+    keys.add(`${boss.bossCatalogId}|${boss.resetCycle}`);
+  }
+  return keys;
 }
