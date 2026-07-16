@@ -28,8 +28,10 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: 'maplestory-todolist-settings',
-      // settings 是寫死的常數,不持久化,避免舊版預設值卡在 localStorage 蓋掉之後改的寫死值
       partialize: (state) => ({ lastBackupAt: state.lastBackupAt, lastLocalChangeAt: state.lastLocalChangeAt }),
+      // schema 版本:此 store 只持久化 lastBackupAt/lastLocalChangeAt 時間戳,不進備份檔,
+      // 若未來新增其他持久化欄位並有破壞性變更時 version +1 並補 migrate(不需同步 backupPayload.ts)
+      version: 0,
     },
   ),
 );

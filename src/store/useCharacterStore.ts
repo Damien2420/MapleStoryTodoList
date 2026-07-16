@@ -54,7 +54,12 @@ export const useCharacterStore = create<CharacterState>()(
       },
       setActiveCharacter: (id) => set({ activeCharacterId: id }),
     }),
-    { name: 'maplestory-todolist-characters' },
+    {
+      name: 'maplestory-todolist-characters',
+      // schema 版本:改動 Character 持久化結構(改名/刪除/改語意)時 version +1 並補 migrate,
+      // 且需同步檢查 backupPayload.ts 的 CURRENT_VERSION/MIGRATIONS 是否也要升版
+      version: 0,
+    },
   ),
 );
 

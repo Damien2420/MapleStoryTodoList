@@ -16,7 +16,12 @@ export interface DriveBackupPayload {
   bosses: CharacterBossTrackList[];
 }
 
-/** 每次 version 破壞性升版時,才新增一個對應的 migrate 函式,例如: 1: (old) => migrateV1ToV2(old as DriveBackupPayloadV1) */
+/**
+ * 每次 version 破壞性升版時,才新增一個對應的 migrate 函式,例如: 1: (old) => migrateV1ToV2(old as DriveBackupPayloadV1)
+ * 若該實體(characters/tasks/bosses)在對應的 persist store(src/store/use*Store.ts)也需要同步升版,
+ * 轉換邏輯統一放在 src/lib/schemaMigrations.ts(首次遷移時才建立),兩側各自 .map() 呼叫共用函式,
+ * 不得各自內聯撰寫重複的轉換邏輯。
+ */
 const MIGRATIONS: Record<number, (old: unknown) => DriveBackupPayload> = {};
 
 /** 把任意版本的備份內容升級到 CURRENT_VERSION;版本較新、或缺少對應 migration 時中止並丟出錯誤 */
