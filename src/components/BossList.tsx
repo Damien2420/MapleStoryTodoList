@@ -97,7 +97,7 @@ export function BossList({ character }: { character: Character }) {
           <Swords className="size-8 text-muted-foreground" strokeWidth={1.5} />
           <div className="space-y-1">
             <p className="text-sm font-medium text-foreground">{character.name} 還沒有追蹤中的 BOSS</p>
-            <p className="text-sm text-muted-foreground">套用常見週/日 BOSS,開始追蹤討伐進度</p>
+            <p className="text-sm text-muted-foreground">加入 BOSS 至列表中，開始追蹤你的討伐進度</p>
           </div>
           <AddBossDialog characterId={character.id} />
         </div>

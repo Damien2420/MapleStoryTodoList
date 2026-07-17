@@ -168,7 +168,7 @@ export function TaskList({ character }: { character: Character }) {
           <ClipboardList className="size-8 text-muted-foreground" strokeWidth={1.5} />
           <div className="space-y-1">
             <p className="text-sm font-medium text-foreground">{character.name} 還沒有任務</p>
-            <p className="text-sm text-muted-foreground">建立第一筆每日/每週任務,開始追蹤進度</p>
+            <p className="text-sm text-muted-foreground">建立第一筆每日/每週任務，開始追蹤進度</p>
           </div>
           <AddTaskDialog characterId={character.id} existingCategories={existingCategories} />
         </div>
