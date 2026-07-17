@@ -20,7 +20,7 @@ function isBossExpired(boss: { bossCatalogId?: string }): boolean {
   return entry ? isCatalogEntryExpired(entry) : false;
 }
 
-/** 角色總覽摘要:顯示任務完成進度與 BOSS 預估結晶收益,不帶卡片外框,由 CharacterHeader 併入同一橫帶顯示 */
+/** 角色總覽摘要:顯示任務完成進度與已討伐 BOSS 的結晶收益(只計已勾選),不帶卡片外框,由 CharacterHeader 併入同一橫帶顯示 */
 export function DashboardSummary({ character, className }: { character: Character; className?: string }) {
   const allTasks = useTaskStore((s) => s.tasks);
   const allBosses = useBossStore((s) => s.bosses);
@@ -45,9 +45,19 @@ export function DashboardSummary({ character, className }: { character: Characte
     [bosses],
   );
   const monthlyBosses = useMemo(() => bosses.filter((b) => b.resetCycle === 'monthly'), [bosses]);
-  const dailyTotal = useMemo(() => dailyBosses.reduce((sum, b) => sum + b.crystalValue, 0), [dailyBosses]);
-  const weeklyTotal = useMemo(() => weeklyBosses.reduce((sum, b) => sum + b.crystalValue, 0), [weeklyBosses]);
-  const monthlyTotal = useMemo(() => monthlyBosses.reduce((sum, b) => sum + b.crystalValue, 0), [monthlyBosses]);
+  // 收益只計入已勾選(已討伐)的 BOSS,未勾選不算
+  const dailyTotal = useMemo(
+    () => dailyBosses.reduce((sum, b) => sum + (b.checked ? b.crystalValue : 0), 0),
+    [dailyBosses],
+  );
+  const weeklyTotal = useMemo(
+    () => weeklyBosses.reduce((sum, b) => sum + (b.checked ? b.crystalValue : 0), 0),
+    [weeklyBosses],
+  );
+  const monthlyTotal = useMemo(
+    () => monthlyBosses.reduce((sum, b) => sum + (b.checked ? b.crystalValue : 0), 0),
+    [monthlyBosses],
+  );
 
   const hasTaskSummary = dailyTasks.length > 0 || weeklyTasks.length > 0;
   const hasBossSummary = dailyBosses.length > 0 || weeklyBosses.length > 0 || monthlyBosses.length > 0;
@@ -98,7 +108,7 @@ export function DashboardSummary({ character, className }: { character: Characte
             <div className="flex min-w-0 items-center justify-between gap-2 min-[350px]:flex-1 min-[350px]:flex-col min-[350px]:justify-normal min-[350px]:gap-1">
               <p className="flex min-w-0 items-center gap-1 truncate text-xs text-muted-foreground sm:text-sm min-[350px]:w-full min-[350px]:justify-center">
                 <img src="/Intense_Power_Crystal_(Daily).png" alt="" className="size-4 shrink-0" />
-                <span className="truncate">本日預估收益</span>
+                <span className="truncate">本日討伐收益</span>
               </p>
               <p className="shrink-0 text-sm font-semibold tabular-nums text-foreground min-[350px]:w-full min-[350px]:truncate min-[350px]:text-center">
                 ${formatCrystalValue(dailyTotal)}
@@ -109,7 +119,7 @@ export function DashboardSummary({ character, className }: { character: Characte
             <div className="flex min-w-0 items-center justify-between gap-2 min-[350px]:flex-1 min-[350px]:flex-col min-[350px]:justify-normal min-[350px]:gap-1">
               <p className="flex min-w-0 items-center gap-1 truncate text-xs text-muted-foreground sm:text-sm min-[350px]:w-full min-[350px]:justify-center">
                 <img src="/Intense_Power_Crystal_(Weekly).png" alt="" className="size-4 shrink-0" />
-                <span className="truncate">本週預估收益</span>
+                <span className="truncate">本週討伐收益</span>
               </p>
               <p className="shrink-0 text-sm font-semibold tabular-nums text-foreground min-[350px]:w-full min-[350px]:truncate min-[350px]:text-center">
                 ${formatCrystalValue(weeklyTotal)}
@@ -120,7 +130,7 @@ export function DashboardSummary({ character, className }: { character: Characte
             <div className="flex min-w-0 items-center justify-between gap-2 min-[350px]:flex-1 min-[350px]:flex-col min-[350px]:justify-normal min-[350px]:gap-1">
               <p className="flex min-w-0 items-center gap-1 truncate text-xs text-muted-foreground sm:text-sm min-[350px]:w-full min-[350px]:justify-center">
                 <img src="/Intense_Power_Crystal_(Monthly).png" alt="" className="size-4 shrink-0" />
-                <span className="truncate">本月預估收益</span>
+                <span className="truncate">本月討伐收益</span>
               </p>
               <p className="shrink-0 text-sm font-semibold tabular-nums text-foreground min-[350px]:w-full min-[350px]:truncate min-[350px]:text-center">
                 ${formatCrystalValue(monthlyTotal)}
