@@ -56,6 +56,12 @@ export function DataManagementPage({ onBack }: { onBack: () => void }) {
   const [backupEmptyConfirmOpen, setBackupEmptyConfirmOpen] = useState(false);
   const { lastBackupAt, neverBackedUp, hasUnsavedChanges } = useBackupStatus();
 
+  // 空資料防護:沒有任何紀錄時,消費資料的操作(下載備份、刪除全部)不開放;產生資料的操作(匯入)不受影響
+  const hasCharacters = useCharacterStore((s) => s.characters.length > 0);
+  const hasTasks = useTaskStore((s) => s.tasks.length > 0);
+  const hasBosses = useBossStore((s) => s.bosses.length > 0);
+  const hasAnyData = hasCharacters || hasTasks || hasBosses;
+
   useEffect(() => {
     if (!signedIn) return;
     checkBackupAvailability()
@@ -122,14 +128,6 @@ export function DataManagementPage({ onBack }: { onBack: () => void }) {
     }
   }
 
-  function isAllDataEmpty() {
-    return (
-      useCharacterStore.getState().characters.length === 0 &&
-      useTaskStore.getState().tasks.length === 0 &&
-      useBossStore.getState().bosses.length === 0
-    );
-  }
-
   async function performBackup() {
     setBackingUp(true);
     try {
@@ -144,7 +142,7 @@ export function DataManagementPage({ onBack }: { onBack: () => void }) {
   }
 
   function handleBackupNow() {
-    if (isAllDataEmpty()) {
+    if (!hasAnyData) {
       setBackupEmptyConfirmOpen(true);
       return;
     }
@@ -235,10 +233,17 @@ export function DataManagementPage({ onBack }: { onBack: () => void }) {
             <p className="text-xs text-muted-foreground">直接匯出/匯入檔案儲存在本機上，不需要登入 Google。</p>
           </div>
           <div className="flex flex-col gap-2">
-            <Button type="button" variant="outline" className="gap-2" onClick={handleDownloadToComputer}>
+            <Button
+              type="button"
+              variant="outline"
+              className="gap-2"
+              disabled={!hasAnyData}
+              onClick={handleDownloadToComputer}
+            >
               <Download className="size-4" />
               下載備份檔案到電腦
             </Button>
+            {!hasAnyData && <p className="text-xs text-muted-foreground">目前沒有可備份的資料</p>}
             <Button type="button" variant="outline" className="gap-2" disabled={importing} onClick={handleChooseFile}>
               <Upload className="size-4" />
               {importing ? '匯入中…' : '從檔案匯入'}
@@ -324,11 +329,13 @@ export function DataManagementPage({ onBack }: { onBack: () => void }) {
           type="button"
           variant="outline"
           className="w-fit gap-2 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+          disabled={!hasAnyData}
           onClick={() => setDeleteAllOpen(true)}
         >
           <Trash2 className="size-4" />
           刪除全部紀錄
         </Button>
+        {!hasAnyData && <p className="text-xs text-muted-foreground">目前沒有任何紀錄可刪除</p>}
       </div>
 
       <AlertDialog open={deleteAllOpen} onOpenChange={handleDeleteAllOpenChange}>
