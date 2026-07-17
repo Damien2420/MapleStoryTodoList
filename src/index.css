@@ -21,6 +21,14 @@
     --color-chart-3: var(--chart-3);
     --color-chart-2: var(--chart-2);
     --color-chart-1: var(--chart-1);
+    --color-cycle-daily: var(--cycle-daily);
+    --color-cycle-daily-foreground: var(--cycle-daily-foreground);
+    --color-cycle-weekly: var(--cycle-weekly);
+    --color-cycle-weekly-foreground: var(--cycle-weekly-foreground);
+    --color-cycle-monthly: var(--cycle-monthly);
+    --color-cycle-monthly-foreground: var(--cycle-monthly-foreground);
+    --color-cycle-season: var(--cycle-season);
+    --color-cycle-season-foreground: var(--cycle-season-foreground);
     --color-ring: var(--ring);
     --color-input: var(--input);
     --color-border: var(--border);
@@ -49,81 +57,100 @@
 }
 
 :root {
-    /* 暖白 Warm Off-White */
-    --background: oklch(0.98 0.008 60);
-    /* 暖炭黑 Warm Charcoal */
-    --foreground: oklch(0.22 0.012 50);
-    --card: oklch(0.955 0.014 58);
-    --card-foreground: oklch(0.22 0.012 50);
-    --popover: oklch(0.955 0.014 58);
-    --popover-foreground: oklch(0.22 0.012 50);
-    /* 溫暖赤陶橘 Warm Terracotta */
-    --primary: oklch(0.58 0.15 45);
-    --primary-foreground: oklch(0.98 0.01 60);
-    /* 焦糖褐 Caramel Brown */
-    --secondary: oklch(0.9 0.03 55);
-    --secondary-foreground: oklch(0.3 0.05 50);
-    /* 暖灰 Warm Grey */
-    --muted: oklch(0.93 0.01 55);
-    --muted-foreground: oklch(0.45 0.015 50);
-    /* 奶油杏色 Cream Apricot */
-    --accent: oklch(0.9 0.05 75);
-    --accent-foreground: oklch(0.3 0.04 60);
-    /* 逾期提醒:偏磚紅而非警報紅 */
-    --destructive: oklch(0.55 0.16 25);
-    --destructive-foreground: oklch(0.98 0.01 60);
-    --border: oklch(0.88 0.012 55);
-    --input: oklch(0.88 0.012 55);
-    --ring: oklch(0.58 0.15 45);
-    --chart-1: oklch(0.58 0.15 45);
-    --chart-2: oklch(0.45 0.08 50);
-    --chart-3: oklch(0.72 0.06 75);
-    --chart-4: oklch(0.55 0.16 25);
-    --chart-5: oklch(0.45 0.015 50);
+    /* 楓葉森林(V2):乾淨暖白底 + 楓紅橘/森綠/金黃三個語意色 */
+    /* 暖白 Warm White:帶淡淡金黃偏向,不是米黃 */
+    --background: oklch(0.985 0.005 90);
+    --foreground: oklch(0.25 0.015 60);
+    --card: oklch(0.962 0.008 88);
+    --card-foreground: oklch(0.25 0.015 60);
+    --popover: oklch(0.962 0.008 88);
+    --popover-foreground: oklch(0.25 0.015 60);
+    /* 楓紅橘 Maple:主要互動色(勾選、主按鈕、focus) */
+    --primary: oklch(0.62 0.19 35);
+    --primary-foreground: oklch(0.99 0.005 90);
+    /* 金黃 Golden:次要按鈕、badge、上限提示 */
+    --secondary: oklch(0.9 0.09 88);
+    --secondary-foreground: oklch(0.4 0.08 75);
+    --muted: oklch(0.94 0.01 88);
+    --muted-foreground: oklch(0.5 0.02 70);
+    /* 淡楓橘:選單 hover / 選取列 */
+    --accent: oklch(0.93 0.035 55);
+    --accent-foreground: oklch(0.38 0.09 40);
+    /* 逾期提醒:深紅,與楓橘 primary 拉開明度與色相避免混淆 */
+    --destructive: oklch(0.5 0.19 15);
+    --destructive-foreground: oklch(0.98 0.008 90);
+    --border: oklch(0.9 0.01 85);
+    --input: oklch(0.9 0.01 85);
+    --ring: oklch(0.62 0.19 35);
+    --chart-1: oklch(0.62 0.19 35);
+    --chart-2: oklch(0.52 0.1 150);
+    --chart-3: oklch(0.8 0.13 88);
+    --chart-4: oklch(0.5 0.19 15);
+    --chart-5: oklch(0.5 0.02 70);
     --radius: 0.75rem;
-    --sidebar: oklch(0.95 0.012 60);
-    --sidebar-foreground: oklch(0.22 0.012 50);
-    --sidebar-primary: oklch(0.58 0.15 45);
-    --sidebar-primary-foreground: oklch(0.98 0.01 60);
-    --sidebar-accent: oklch(0.9 0.05 75);
-    --sidebar-accent-foreground: oklch(0.3 0.04 60);
-    --sidebar-border: oklch(0.88 0.012 55);
-    --sidebar-ring: oklch(0.58 0.15 45);
+    /* sidebar token 作為全站頂欄(Header)的身分色:深森綠底 + 暖白字,楓橘為 focus ring */
+    --sidebar: oklch(0.36 0.055 150);
+    --sidebar-foreground: oklch(0.97 0.012 120);
+    --sidebar-primary: oklch(0.62 0.19 35);
+    --sidebar-primary-foreground: oklch(0.99 0.005 90);
+    --sidebar-accent: oklch(0.43 0.06 150);
+    --sidebar-accent-foreground: oklch(0.98 0.01 120);
+    --sidebar-border: oklch(0.31 0.05 150);
+    --sidebar-ring: oklch(0.62 0.19 35);
+    /* 週期語意色:每日=楓橘、每週=森綠、每月=金黃、賽季=中性 */
+    --cycle-daily: oklch(0.92 0.06 45);
+    --cycle-daily-foreground: oklch(0.42 0.12 35);
+    --cycle-weekly: oklch(0.92 0.06 150);
+    --cycle-weekly-foreground: oklch(0.36 0.09 150);
+    --cycle-monthly: oklch(0.92 0.08 88);
+    --cycle-monthly-foreground: oklch(0.42 0.08 80);
+    --cycle-season: oklch(0.92 0.015 88);
+    --cycle-season-foreground: oklch(0.45 0.02 70);
 }
 
 .dark {
-    --background: oklch(0.18 0.012 50);
-    --foreground: oklch(0.95 0.01 60);
-    --card: oklch(0.235 0.015 50);
-    --card-foreground: oklch(0.95 0.01 60);
-    --popover: oklch(0.235 0.015 50);
-    --popover-foreground: oklch(0.95 0.01 60);
-    --primary: oklch(0.64 0.16 45);
-    --primary-foreground: oklch(0.15 0.01 50);
-    --secondary: oklch(0.32 0.06 50);
-    --secondary-foreground: oklch(0.92 0.01 60);
-    --muted: oklch(0.26 0.012 50);
-    --muted-foreground: oklch(0.65 0.015 55);
-    --accent: oklch(0.3 0.04 65);
-    --accent-foreground: oklch(0.92 0.02 65);
-    --destructive: oklch(0.62 0.17 25);
-    --destructive-foreground: oklch(0.97 0.01 60);
-    --border: oklch(0.3 0.012 50);
-    --input: oklch(0.3 0.012 50);
-    --ring: oklch(0.64 0.16 45);
-    --chart-1: oklch(0.64 0.16 45);
-    --chart-2: oklch(0.55 0.09 50);
-    --chart-3: oklch(0.55 0.06 75);
-    --chart-4: oklch(0.62 0.17 25);
-    --chart-5: oklch(0.65 0.015 55);
-    --sidebar: oklch(0.21 0.013 50);
-    --sidebar-foreground: oklch(0.95 0.01 60);
-    --sidebar-primary: oklch(0.64 0.16 45);
-    --sidebar-primary-foreground: oklch(0.15 0.01 50);
-    --sidebar-accent: oklch(0.3 0.04 65);
-    --sidebar-accent-foreground: oklch(0.92 0.02 65);
-    --sidebar-border: oklch(0.3 0.012 50);
-    --sidebar-ring: oklch(0.64 0.16 45);
+    /* 楓葉森林(V2)深色:暖褐夜色底,楓橘在暗處提亮發光,森綠/金黃同步提亮 */
+    --background: oklch(0.2 0.015 80);
+    --foreground: oklch(0.94 0.012 90);
+    --card: oklch(0.245 0.018 80);
+    --card-foreground: oklch(0.94 0.012 90);
+    --popover: oklch(0.245 0.018 80);
+    --popover-foreground: oklch(0.94 0.012 90);
+    --primary: oklch(0.66 0.19 38);
+    --primary-foreground: oklch(0.16 0.02 60);
+    --secondary: oklch(0.34 0.06 85);
+    --secondary-foreground: oklch(0.9 0.08 90);
+    --muted: oklch(0.27 0.015 80);
+    --muted-foreground: oklch(0.68 0.02 85);
+    --accent: oklch(0.32 0.05 55);
+    --accent-foreground: oklch(0.92 0.05 60);
+    --destructive: oklch(0.6 0.19 18);
+    --destructive-foreground: oklch(0.97 0.01 90);
+    --border: oklch(0.31 0.015 80);
+    --input: oklch(0.31 0.015 80);
+    --ring: oklch(0.66 0.19 38);
+    --chart-1: oklch(0.66 0.19 38);
+    --chart-2: oklch(0.7 0.11 150);
+    --chart-3: oklch(0.8 0.12 90);
+    --chart-4: oklch(0.6 0.19 18);
+    --chart-5: oklch(0.68 0.02 85);
+    /* 深色主題頂欄:比夜色底更深一階的森綠,維持身分色但不搶暗處的楓橘 */
+    --sidebar: oklch(0.25 0.04 150);
+    --sidebar-foreground: oklch(0.93 0.015 120);
+    --sidebar-primary: oklch(0.66 0.19 38);
+    --sidebar-primary-foreground: oklch(0.16 0.02 60);
+    --sidebar-accent: oklch(0.31 0.05 150);
+    --sidebar-accent-foreground: oklch(0.96 0.015 120);
+    --sidebar-border: oklch(0.3 0.045 150);
+    --sidebar-ring: oklch(0.66 0.19 38);
+    --cycle-daily: oklch(0.35 0.08 40);
+    --cycle-daily-foreground: oklch(0.9 0.07 45);
+    --cycle-weekly: oklch(0.32 0.06 150);
+    --cycle-weekly-foreground: oklch(0.87 0.08 150);
+    --cycle-monthly: oklch(0.35 0.07 85);
+    --cycle-monthly-foreground: oklch(0.91 0.09 90);
+    --cycle-season: oklch(0.3 0.015 80);
+    --cycle-season-foreground: oklch(0.8 0.02 85);
 }
 
 @layer base {

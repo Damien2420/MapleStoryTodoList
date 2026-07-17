@@ -11,6 +11,7 @@ import { useTaskStore } from '@/store/useTaskStore';
 import { useListFilterStore } from '@/store/useListFilterStore';
 import { filterItemsByStatus, type StatusFilter } from '@/lib/listFilter';
 import { isPresetExpired } from '@/lib/presetTasks';
+import { CYCLE_BADGE_CLASSES } from '@/lib/cycleBadge';
 import { cn } from '@/lib/utils';
 import type { Character, CharacterTask } from '@/types';
 
@@ -73,7 +74,9 @@ function renderCategoryGroup(
                 >
                   <ChevronDown className={cn('size-4 transition-transform', collapsed && '-rotate-90')} />
                 </button>
-                <Badge variant={cycleLabel === '每日' ? 'secondary' : 'outline'}>{cycleLabel}</Badge>
+                <Badge variant="secondary" className={CYCLE_BADGE_CLASSES[cycleLabel]}>
+                  {cycleLabel}
+                </Badge>
                 {category}
                 <span className="text-xs font-normal tabular-nums text-muted-foreground">
                   ({categoryDoneCount}/{categoryTasks.length})

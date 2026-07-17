@@ -107,15 +107,16 @@ export function CharacterTabs() {
 
         <div
           ref={trackRef}
-          className="flex flex-nowrap items-center gap-1 overflow-x-auto rounded-xl bg-muted p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="flex flex-nowrap items-center gap-2 overflow-x-auto border-b border-border [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           <Tabs value={activeCharacterId ?? undefined} onValueChange={setActiveCharacter} className="contents">
-            <TabsList className="contents">
+            {/* line variant = 底線式分頁;底線與選中文字改用金黃(secondary-foreground 深淺主題各自有足夠對比) */}
+            <TabsList variant="line" className="contents">
               {characters.map((character) => (
                 <TabsTrigger
                   key={character.id}
                   value={character.id}
-                  className="shrink-0 rounded-lg px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground data-[state=active]:bg-primary/12 data-[state=active]:text-primary data-[state=active]:shadow-sm dark:data-[state=active]:bg-primary/25"
+                  className="shrink-0 px-3 py-2 text-sm font-medium transition-colors data-active:font-semibold data-active:text-secondary-foreground after:rounded-full after:bg-secondary-foreground group-data-horizontal/tabs:after:bottom-0 group-data-horizontal/tabs:after:h-[2.5px]"
                 >
                   {character.name}
                 </TabsTrigger>

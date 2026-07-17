@@ -8,6 +8,7 @@ import { useBossStore } from '@/store/useBossStore';
 import { useListFilterStore, type BossCycleKey } from '@/store/useListFilterStore';
 import { filterItemsByStatus } from '@/lib/listFilter';
 import { findBossCatalogEntry, isCatalogEntryExpired } from '@/lib/bossCatalog';
+import { CYCLE_BADGE_CLASSES } from '@/lib/cycleBadge';
 import { cn } from '@/lib/utils';
 import type { Character, CharacterBossTrackList } from '@/types';
 
@@ -20,15 +21,14 @@ function isBossExpired(boss: { bossCatalogId?: string }): boolean {
 
 interface BossSectionProps {
   cycleKey: BossCycleKey;
-  label: string;
-  badgeVariant: 'secondary' | 'outline';
+  label: '每日' | '每週' | '每月' | '賽季';
   bosses: CharacterBossTrackList[];
   collapsed: boolean;
   onToggle: (cycle: BossCycleKey) => void;
 }
 
 /** 單一週期(每日/每週/每月/賽季)的 BOSS 區塊,標題可收合 */
-function BossSection({ cycleKey, label, badgeVariant, bosses, collapsed, onToggle }: BossSectionProps) {
+function BossSection({ cycleKey, label, bosses, collapsed, onToggle }: BossSectionProps) {
   return (
     <section className="flex flex-col gap-1 rounded-lg border border-border bg-card px-3 py-2.5">
       <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
@@ -41,7 +41,9 @@ function BossSection({ cycleKey, label, badgeVariant, bosses, collapsed, onToggl
         >
           <ChevronDown className={cn('size-4 transition-transform', collapsed && '-rotate-90')} />
         </button>
-        <Badge variant={badgeVariant}>{label}</Badge>
+        <Badge variant="secondary" className={CYCLE_BADGE_CLASSES[label]}>
+          {label}
+        </Badge>
       </h3>
       {!collapsed && (
         <div className="flex flex-col divide-y divide-border">
@@ -81,10 +83,10 @@ export function BossList({ character }: { character: Character }) {
   const seasonBosses = useMemo(() => visibleBosses.filter((b) => b.category === 'season'), [visibleBosses]);
 
   const sections: Omit<BossSectionProps, 'collapsed' | 'onToggle'>[] = [
-    { cycleKey: 'daily', label: '每日', badgeVariant: 'secondary', bosses: dailyBosses },
-    { cycleKey: 'weekly', label: '每週', badgeVariant: 'outline', bosses: weeklyBosses },
-    { cycleKey: 'monthly', label: '每月', badgeVariant: 'secondary', bosses: monthlyBosses },
-    { cycleKey: 'season', label: '賽季', badgeVariant: 'outline', bosses: seasonBosses },
+    { cycleKey: 'daily', label: '每日', bosses: dailyBosses },
+    { cycleKey: 'weekly', label: '每週', bosses: weeklyBosses },
+    { cycleKey: 'monthly', label: '每月', bosses: monthlyBosses },
+    { cycleKey: 'season', label: '賽季', bosses: seasonBosses },
   ];
   const visibleSections = sections.filter((s) => s.bosses.length > 0);
 
