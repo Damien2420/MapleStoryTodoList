@@ -11,7 +11,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { BossCatalogPicker, WeeklyBossLimitHint } from '@/components/BossCatalogPicker';
-import { buildTrackedGroupKeys, flattenBossSelections } from '@/lib/bossCatalog';
+import { buildTrackedGroupKeys, countTrackedWeeklyBosses, flattenBossSelections } from '@/lib/bossCatalog';
 import { useBossStore } from '@/store/useBossStore';
 import type { BossDifficulty } from '@/types';
 
@@ -28,6 +28,8 @@ export function AddBossDialog({ characterId }: AddBossDialogProps) {
 
   // 該角色已追蹤的互斥群組鍵,對話框中整群鎖住避免建立同週期重複紀錄
   const trackedGroupKeys = useMemo(() => buildTrackedGroupKeys(bosses, characterId), [bosses, characterId]);
+  // 該角色已追蹤且計入每週上限的筆數,與對話框內勾選數合計判斷 12 筆上限
+  const trackedWeeklyCount = useMemo(() => countTrackedWeeklyBosses(bosses, characterId), [bosses, characterId]);
 
   function resetForm() {
     setSelections(new Map());
@@ -75,12 +77,13 @@ export function AddBossDialog({ characterId }: AddBossDialogProps) {
             <DialogDescription>勾選要追蹤的王與難度,一次可套用多隻、多難度。</DialogDescription>
           </DialogHeader>
 
-          <WeeklyBossLimitHint selections={selections} />
+          <WeeklyBossLimitHint selections={selections} trackedWeeklyCount={trackedWeeklyCount} />
 
           <BossCatalogPicker
             selections={selections}
             onToggleDifficulty={handleToggleDifficulty}
             trackedGroupKeys={trackedGroupKeys}
+            trackedWeeklyCount={trackedWeeklyCount}
           />
 
           <DialogFooter>

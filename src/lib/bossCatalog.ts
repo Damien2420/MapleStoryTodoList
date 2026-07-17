@@ -50,6 +50,29 @@ export function countWeeklyBossSelections(selections: Map<string, Set<BossDiffic
   return count;
 }
 
+/**
+ * 計算指定角色「已追蹤中」計入每週上限的 BOSS 筆數(每週重置且非賽季王)。
+ *
+ * 與 countWeeklyBossSelections 相加即為該角色本週實際占用的上限額度。
+ * 目錄項目已下架者不再顯示於清單,故不計;沒有 bossCatalogId 的舊紀錄無法對應目錄,一律計入。
+ *
+ * @param bosses 全部角色的 BOSS 追蹤紀錄(呼叫端不需預先過濾角色)
+ * @param characterId 要計算的角色 id
+ * @returns 已追蹤且計入每週上限的筆數
+ */
+export function countTrackedWeeklyBosses(bosses: CharacterBossTrackList[], characterId: string): number {
+  let count = 0;
+  for (const boss of bosses) {
+    if (boss.characterId !== characterId || boss.resetCycle !== 'weekly' || boss.category === 'season') continue;
+    if (boss.bossCatalogId) {
+      const entry = findBossCatalogEntry(boss.bossCatalogId);
+      if (entry && isCatalogEntryExpired(entry)) continue;
+    }
+    count++;
+  }
+  return count;
+}
+
 /** 將 UI 上「王 id -> 已選難度集合」的選取狀態,攤平成送出用的 BossSelection[] */
 export function flattenBossSelections(selections: Map<string, Set<BossDifficulty>>): BossSelection[] {
   return Array.from(selections.entries()).flatMap(([bossId, difficulties]) =>

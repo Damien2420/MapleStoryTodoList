@@ -17,11 +17,19 @@ interface BossCatalogPickerProps {
   onToggleDifficulty: (bossId: string, difficulty: BossDifficulty) => void;
   /** 該角色已追蹤中的互斥群組鍵(`bossCatalogId|resetCycle`),對應群組的難度按鈕整群鎖住 */
   trackedGroupKeys: Set<string>;
+  /** 該角色已追蹤且計入每週上限的筆數,與對話框內勾選數相加後判斷上限;新增角色流程沒有既有紀錄,省略即為 0 */
+  trackedWeeklyCount?: number;
 }
 
-/** 每週 BOSS 上限提示:固定顯示於描述文字下方,不隨清單捲動;達上限時切換為主色提示已滿 */
-export function WeeklyBossLimitHint({ selections }: { selections: Map<string, Set<BossDifficulty>> }) {
-  const weeklyCount = countWeeklyBossSelections(selections);
+/** 每週 BOSS 上限提示:固定顯示於描述文字下方,不隨清單捲動;顯示「已追蹤 + 已勾選」的合計,達上限時切換為主色提示已滿 */
+export function WeeklyBossLimitHint({
+  selections,
+  trackedWeeklyCount = 0,
+}: {
+  selections: Map<string, Set<BossDifficulty>>;
+  trackedWeeklyCount?: number;
+}) {
+  const weeklyCount = trackedWeeklyCount + countWeeklyBossSelections(selections);
   const weeklyFull = weeklyCount >= WEEKLY_BOSS_LIMIT;
   return (
     <Badge variant={weeklyFull ? 'default' : 'outline'} className="tabular-nums">
@@ -66,9 +74,14 @@ function buildGroupedBossCatalog(): [string, GroupedBossRow[]][] {
 
 const GROUPED_BOSS_CATALOG = buildGroupedBossCatalog();
 
-/** BOSS 名單勾選清單:依每日/每週/每月/賽季分類顯示,難度按鈕本身即勾選開關,可跨難度多選;每週區塊(不含賽季)最多勾選 12 筆,上限提示由 WeeklyBossLimitHint 獨立顯示 */
-export function BossCatalogPicker({ selections, onToggleDifficulty, trackedGroupKeys }: BossCatalogPickerProps) {
-  const weeklyCount = countWeeklyBossSelections(selections);
+/** BOSS 名單勾選清單:依每日/每週/每月/賽季分類顯示,難度按鈕本身即勾選開關;每週區塊(不含賽季)以「已追蹤 + 已勾選」合計不超過 12 筆為上限,上限提示由 WeeklyBossLimitHint 獨立顯示 */
+export function BossCatalogPicker({
+  selections,
+  onToggleDifficulty,
+  trackedGroupKeys,
+  trackedWeeklyCount = 0,
+}: BossCatalogPickerProps) {
+  const weeklyCount = trackedWeeklyCount + countWeeklyBossSelections(selections);
   const weeklyFull = weeklyCount >= WEEKLY_BOSS_LIMIT;
 
   return (
