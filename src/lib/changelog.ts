@@ -1,0 +1,38 @@
+/** 單一版本的更新紀錄 */
+export interface ChangelogEntry {
+  /** 版號,遵循 SemVer(MAJOR.MINOR.PATCH) */
+  version: string;
+  /** 發布日期(YYYY-MM-DD) */
+  date: string;
+  /** 該版本的變更項目,依重要程度由上到下排列 */
+  changes: string[];
+}
+
+/** 版本更新紀錄,新版本在前;Footer 的版本紀錄 Dialog 直接渲染此陣列 */
+export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.1.0',
+    date: '2026-08-11',
+    changes: [
+      '任務清單新增「每月」重置週期，可自訂建立每月任務',
+      '任務清單新增「週末活動」週期（雙週一次，週五至週日開放），並提供「派對樂園」快速建立範本',
+      'BOSS 清單各週期區塊新增「全部完成」按鈕',
+      '新增頁尾，顯示目前版本並可查看版本更新紀錄',
+    ],
+  },
+  {
+    version: '1.0.0',
+    date: '2026-07-17',
+    changes: [
+      '支援建立多個角色，並各自追蹤每日/每週代辦任務與完成進度',
+      '新增 BOSS 討伐清單，可依難度計算水晶收益並依週期分區顯示',
+      '任務/BOSS 清單支援完成狀態篩選與分類區塊收合',
+      '新增角色時可透過 NEXON Open API 查詢角色資料自動帶入',
+      '新增資料管理頁面，支援 Google Drive 與本機檔案備份/還原',
+      '採用楓葉森林主題配色，支援淺色/深色模式切換',
+    ],
+  },
+];
+
+/** 目前應用程式版本,取自 CHANGELOG 最新一筆 */
+export const APP_VERSION = CHANGELOG[0].version;
