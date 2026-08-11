@@ -9,6 +9,8 @@ interface BossState {
   bosses: CharacterBossTrackList[];
   addBosses: (characterId: string, selections: BossSelection[]) => void;
   toggleBoss: (id: string) => void;
+  /** 將指定 id 清單內的 BOSS 一次設為同一個勾選狀態(用於「全部完成」按鈕) */
+  toggleBossesByIds: (ids: string[], checked: boolean) => void;
   removeBoss: (id: string) => void;
   /** 還原被刪除的 BOSS(用於刪除後的 toast 還原按鈕) */
   restoreBoss: (boss: CharacterBossTrackList) => void;
@@ -55,6 +57,15 @@ export const useBossStore = create<BossState>()(
             b.id === id
               ? { ...b, checked: !b.checked, lastResetAt: !b.checked ? new Date().toISOString() : b.lastResetAt }
               : b,
+          ),
+        }));
+      },
+      toggleBossesByIds: (ids, checked) => {
+        const idSet = new Set(ids);
+        const now = new Date().toISOString();
+        set((state) => ({
+          bosses: state.bosses.map((b) =>
+            idSet.has(b.id) ? { ...b, checked, lastResetAt: checked ? now : b.lastResetAt } : b,
           ),
         }));
       },
