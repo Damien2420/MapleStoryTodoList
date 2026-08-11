@@ -29,6 +29,8 @@
     --color-cycle-monthly-foreground: var(--cycle-monthly-foreground);
     --color-cycle-season: var(--cycle-season);
     --color-cycle-season-foreground: var(--cycle-season-foreground);
+    --color-cycle-weekend: var(--cycle-weekend);
+    --color-cycle-weekend-foreground: var(--cycle-weekend-foreground);
     --color-ring: var(--ring);
     --color-input: var(--input);
     --color-border: var(--border);
@@ -106,6 +108,8 @@
     --cycle-monthly-foreground: oklch(0.42 0.08 80);
     --cycle-season: oklch(0.92 0.015 88);
     --cycle-season-foreground: oklch(0.45 0.02 70);
+    --cycle-weekend: oklch(0.92 0.06 300);
+    --cycle-weekend-foreground: oklch(0.42 0.12 300);
 }
 
 .dark {
@@ -151,6 +155,8 @@
     --cycle-monthly-foreground: oklch(0.91 0.09 90);
     --cycle-season: oklch(0.3 0.015 80);
     --cycle-season-foreground: oklch(0.8 0.02 85);
+    --cycle-weekend: oklch(0.35 0.08 300);
+    --cycle-weekend-foreground: oklch(0.88 0.09 300);
 }
 
 @layer base {

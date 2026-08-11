@@ -1,7 +1,7 @@
 import type { Server } from '@/lib/servers';
 
-/** 任務重置週期:每日 / 每週 / 一次性(不自動重置) */
-export type ResetCycle = 'daily' | 'weekly' | 'once';
+/** 任務重置週期:每日 / 每週 / 每月 / 雙週週末活動(週五~週日開放) / 一次性(不自動重置) */
+export type ResetCycle = 'daily' | 'weekly' | 'monthly' | 'biweekly-weekend' | 'once';
 
 /** 角色名稱最大長度 */
 export const CHARACTER_NAME_MAX_LENGTH = 20;

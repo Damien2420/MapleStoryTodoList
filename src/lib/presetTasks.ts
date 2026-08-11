@@ -132,6 +132,12 @@ export const PRESET_TASKS: PresetTask[] = [
     weeklyResetDay: 4,
     expiresAt: '2026-09-08',
   },
+  {
+    id: 'weekend-party-playground',
+    name: '派對樂園',
+    category: '週末活動',
+    resetCycle: 'biweekly-weekend',
+  },
 ];
 
 /** 依角色等級展開成多筆區域每日任務的預設任務群組 */

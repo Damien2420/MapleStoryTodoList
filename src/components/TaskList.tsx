@@ -41,7 +41,7 @@ function hasVisibleItems(grouped: Map<string, CharacterTask[]>, filter: StatusFi
 /** 依分類渲染單一週期(每日/每週)的任務區塊清單 */
 function renderCategoryGroup(
   grouped: Map<string, CharacterTask[]>,
-  cycleLabel: '每日' | '每週',
+  cycleLabel: '每日' | '每週' | '每月' | '週末活動',
   characterId: string,
   statusFilter: StatusFilter,
   collapsedSections: Set<string>,
@@ -145,10 +145,16 @@ export function TaskList({ character }: { character: Character }) {
   const existingCategories = useMemo(() => Array.from(grouped.keys()), [grouped]);
   const dailyTasks = useMemo(() => tasks.filter((t) => t.resetCycle === 'daily'), [tasks]);
   const weeklyTasks = useMemo(() => tasks.filter((t) => t.resetCycle === 'weekly'), [tasks]);
+  const monthlyTasks = useMemo(() => tasks.filter((t) => t.resetCycle === 'monthly'), [tasks]);
+  const weekendTasks = useMemo(() => tasks.filter((t) => t.resetCycle === 'biweekly-weekend'), [tasks]);
   const dailyGrouped = useMemo(() => groupByCategory(dailyTasks), [dailyTasks]);
   const weeklyGrouped = useMemo(() => groupByCategory(weeklyTasks), [weeklyTasks]);
+  const monthlyGrouped = useMemo(() => groupByCategory(monthlyTasks), [monthlyTasks]);
+  const weekendGrouped = useMemo(() => groupByCategory(weekendTasks), [weekendTasks]);
   const showDaily = hasVisibleItems(dailyGrouped, taskStatusFilter);
   const showWeekly = hasVisibleItems(weeklyGrouped, taskStatusFilter);
+  const showMonthly = hasVisibleItems(monthlyGrouped, taskStatusFilter);
+  const showWeekend = hasVisibleItems(weekendGrouped, taskStatusFilter);
 
   function handleDeleteCategory(category: string) {
     const removed = removeCategoryTasks(character.id, category);
@@ -201,7 +207,29 @@ export function TaskList({ character }: { character: Character }) {
               toggleCategoryTasks,
               handleDeleteCategory,
             )}
-          {!showDaily && !showWeekly && (
+          {showMonthly &&
+            renderCategoryGroup(
+              monthlyGrouped,
+              '每月',
+              character.id,
+              taskStatusFilter,
+              collapsedTaskSections,
+              toggleTaskSection,
+              toggleCategoryTasks,
+              handleDeleteCategory,
+            )}
+          {showWeekend &&
+            renderCategoryGroup(
+              weekendGrouped,
+              '週末活動',
+              character.id,
+              taskStatusFilter,
+              collapsedTaskSections,
+              toggleTaskSection,
+              toggleCategoryTasks,
+              handleDeleteCategory,
+            )}
+          {!showDaily && !showWeekly && !showMonthly && !showWeekend && (
             <p className="py-8 text-center text-sm text-muted-foreground">沒有符合篩選條件的任務</p>
           )}
         </div>
