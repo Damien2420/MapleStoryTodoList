@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { CharacterTask, ResetCycle, Settings } from '@/types';
-import { needsReset } from '@/lib/reset';
+import { needsReset, isWeekendEventOpen } from '@/lib/reset';
 import type { PresetTask } from '@/lib/presetTasks';
 import { trackLocalChange } from '@/lib/trackLocalChange';
 
@@ -83,13 +83,16 @@ export const useTaskStore = create<TaskState>()(
         }));
       },
       toggleCategoryTasks: (characterId, category, checked) => {
-        const now = new Date().toISOString();
+        const nowDate = new Date();
+        const now = nowDate.toISOString();
+        const weekendOpen = isWeekendEventOpen(nowDate);
         set((state) => ({
-          tasks: state.tasks.map((t) =>
-            t.characterId === characterId && t.category === category
-              ? { ...t, checked, lastResetAt: checked ? now : t.lastResetAt }
-              : t,
-          ),
+          tasks: state.tasks.map((t) => {
+            if (t.characterId !== characterId || t.category !== category) return t;
+            // 週末活動視窗關閉時,批次操作不可繞過個別任務的鎖定(與 TaskItem 的鎖定方向一致,勾選/取消勾選皆鎖)
+            if (t.resetCycle === 'biweekly-weekend' && !weekendOpen) return t;
+            return { ...t, checked, lastResetAt: checked ? now : t.lastResetAt };
+          }),
         }));
       },
       removeTask: (id) => {
