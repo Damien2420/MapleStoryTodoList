@@ -5,6 +5,8 @@ import type { ResetCycle } from '@/types';
 const RESET_CYCLE_LABEL: Record<ResetCycle, string> = {
   daily: '每日',
   weekly: '每週',
+  monthly: '每月',
+  'biweekly-weekend': '週末活動',
   once: '一次性',
 };
 

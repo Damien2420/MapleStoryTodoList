@@ -4,7 +4,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { formatExpiryDate, formatTimeUntilExpiry, formatTimeUntilReset, hoursUntilExpiry, minutesUntilReset } from '@/lib/reset';
+import { formatExpiryDate, formatTimeUntilExpiry, formatTimeUntilReset, formatWeekendEventStatus, hoursUntilExpiry, isWeekendEventOpen, minutesUntilReset } from '@/lib/reset';
 import { useNow } from '@/hooks/useNow';
 import { findPresetExpiresAt } from '@/lib/presetTasks';
 import type { CharacterTask } from '@/types';
@@ -31,14 +31,24 @@ export function TaskItem({ task }: { task: CharacterTask }) {
   const settings = useSettingsStore((s) => s.settings);
   const now = useNow();
   const overdue = isOverdue(task);
+  const weekendClosed = task.resetCycle === 'biweekly-weekend' && !isWeekendEventOpen(now);
   const cycleLabel =
     task.resetCycle === 'once'
       ? '一次性'
-      : formatTimeUntilReset(task.resetCycle, settings, now, task.weeklyResetDay);
+      : task.resetCycle === 'biweekly-weekend'
+        ? formatWeekendEventStatus(now)
+        : formatTimeUntilReset(task.resetCycle, settings, now, task.weeklyResetDay);
   const resetImminent =
-    task.resetCycle !== 'once' && minutesUntilReset(task.resetCycle, settings, now, task.weeklyResetDay) < 60;
+    task.resetCycle !== 'once' &&
+    task.resetCycle !== 'biweekly-weekend' &&
+    minutesUntilReset(task.resetCycle, settings, now, task.weeklyResetDay) < 60;
   const expiresAt = task.presetId ? findPresetExpiresAt(task.presetId) : undefined;
   const expiringSoon = expiresAt !== undefined && hoursUntilExpiry(expiresAt, now) < 24;
+
+  function handleToggle() {
+    if (weekendClosed) return;
+    toggleTask(task.id);
+  }
 
   function handleDelete() {
     removeTask(task.id);
@@ -55,14 +65,16 @@ export function TaskItem({ task }: { task: CharacterTask }) {
       className={cn(
         'group flex cursor-pointer flex-col gap-1 rounded-lg px-2 py-2.5 transition-colors hover:bg-muted/60 sm:flex-row sm:items-center sm:gap-3',
         task.checked && 'opacity-60',
+        weekendClosed && 'cursor-not-allowed opacity-50 hover:bg-transparent',
       )}
-      onClick={() => toggleTask(task.id)}
+      onClick={handleToggle}
     >
       <div className="flex items-center gap-3 sm:min-w-0 sm:flex-1">
         <span className="shrink-0" onClick={(e) => e.stopPropagation()}>
           <Checkbox
             checked={task.checked}
-            onCheckedChange={() => toggleTask(task.id)}
+            disabled={weekendClosed}
+            onCheckedChange={handleToggle}
             aria-label={`勾選任務:${task.name}`}
             className="size-5 rounded-md"
           />

@@ -27,9 +27,10 @@ import { useTaskStore } from '@/store/useTaskStore';
 
 const DUE_DATE_FORMAT = 'yyyy-MM-dd';
 
-const RESET_CYCLE_LABEL: Record<ResetCycle, string> = {
+const RESET_CYCLE_LABEL: Record<Exclude<ResetCycle, 'biweekly-weekend'>, string> = {
   daily: '每日',
   weekly: '每週',
+  monthly: '每月',
   once: '一次性',
 };
 
@@ -278,7 +279,7 @@ export function AddTaskDialog({ characterId, existingCategories }: AddTaskDialog
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {(Object.keys(RESET_CYCLE_LABEL) as ResetCycle[]).map((cycle) => (
+                  {(Object.keys(RESET_CYCLE_LABEL) as Exclude<ResetCycle, 'biweekly-weekend'>[]).map((cycle) => (
                     <SelectItem key={cycle} value={cycle}>
                       {RESET_CYCLE_LABEL[cycle]}
                     </SelectItem>
