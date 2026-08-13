@@ -144,6 +144,19 @@ export const PRESET_TASKS: PresetTask[] = [
     category: '戰地',
     resetCycle: 'monthly',
   },
+  {
+    id: 'monster-park',
+    name: '怪物公園',
+    category: '每日任務',
+    resetCycle: 'daily',
+  },
+  {
+    id: 'monster-park-extreme',
+    name: '終極怪物公園',
+    category: '每週任務',
+    resetCycle: 'weekly',
+    weeklyResetDay: 4,
+  },
 ];
 
 /** 依角色等級展開成多筆區域每日任務的預設任務群組 */
