@@ -1,4 +1,4 @@
-import { Hourglass, Trash2 } from 'lucide-react';
+import { Hourglass, RefreshCw, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
@@ -6,19 +6,23 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { cn } from '@/lib/utils';
 import { findBossCatalogEntry } from '@/lib/bossCatalog';
 import { formatCrystalValue } from '@/lib/formatCrystal';
-import { formatExpiryDate, formatTimeUntilExpiry, hoursUntilExpiry } from '@/lib/reset';
+import { formatExpiryDate, formatTimeUntilExpiry, formatTimeUntilReset, hoursUntilExpiry, minutesUntilReset } from '@/lib/reset';
 import { useNow } from '@/hooks/useNow';
 import type { CharacterBossTrackList } from '@/types';
 import { useBossStore } from '@/store/useBossStore';
+import { useSettingsStore } from '@/store/useSettingsStore';
 
 /** 單一 BOSS 討伐列:勾選框 + 王名稱 + 難度標籤 + 唯讀的收益數字 + 刪除鈕 */
 export function BossItem({ boss }: { boss: CharacterBossTrackList }) {
   const toggleBoss = useBossStore((s) => s.toggleBoss);
   const removeBoss = useBossStore((s) => s.removeBoss);
   const restoreBoss = useBossStore((s) => s.restoreBoss);
+  const settings = useSettingsStore((s) => s.settings);
   const now = useNow();
   const expiresAt = boss.bossCatalogId ? findBossCatalogEntry(boss.bossCatalogId)?.expiresAt : undefined;
   const expiringSoon = expiresAt !== undefined && hoursUntilExpiry(expiresAt, now) < 24;
+  const cycleLabel = formatTimeUntilReset(boss.resetCycle, settings, now, boss.weeklyResetDay);
+  const resetImminent = minutesUntilReset(boss.resetCycle, settings, now, boss.weeklyResetDay) < 60;
 
   function handleDelete() {
     removeBoss(boss.id);
@@ -81,8 +85,21 @@ export function BossItem({ boss }: { boss: CharacterBossTrackList }) {
           )}
 
           {boss.category !== 'season' && (
-            <span className="text-xs tabular-nums text-muted-foreground">{formatCrystalValue(boss.crystalValue)}</span>
+            <span className="flex items-center gap-1 text-xs tabular-nums text-muted-foreground">
+              <img src="/coin.png" alt="" className="size-4 shrink-0" />
+              {formatCrystalValue(boss.crystalValue)}
+            </span>
           )}
+
+          <span
+            className={cn(
+              'flex items-center gap-1 text-xs',
+              resetImminent ? 'font-semibold text-destructive' : 'text-muted-foreground',
+            )}
+          >
+            <RefreshCw className="size-3" />
+            {cycleLabel}
+          </span>
         </div>
 
         <Tooltip>
