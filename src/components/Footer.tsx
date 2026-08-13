@@ -8,18 +8,21 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { APP_VERSION, CHANGELOG } from '@/lib/changelog';
+import { GithubIcon } from '@/components/ui/github';
+import { CHANGELOG } from '@/lib/changelog';
 
-/** 全站頁尾:顯示目前版本號,點擊可開啟版本更新紀錄 Dialog */
+const GITHUB_REPO_URL = 'https://github.com/Damien2420/MapleStoryTodoList';
+
+/** 全站頁尾:提供版本更新紀錄 Dialog 入口與 GitHub 專案連結 */
 export function Footer() {
   const [open, setOpen] = useState(false);
 
   return (
-    <footer className="mt-auto flex items-center justify-center border-t border-border px-4 py-3">
+    <footer className="mt-auto flex items-center justify-center gap-1 border-t border-border px-4 py-3">
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
           <Button type="button" variant="ghost" size="sm" className="text-xs text-muted-foreground">
-            v{APP_VERSION}
+            版本紀錄
           </Button>
         </DialogTrigger>
         <DialogContent className="sm:max-w-md">
@@ -44,6 +47,17 @@ export function Footer() {
           </div>
         </DialogContent>
       </Dialog>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="text-muted-foreground"
+        aria-label="前往 GitHub 專案頁面"
+        asChild
+      >
+        <a href={GITHUB_REPO_URL} target="_blank" rel="noopener noreferrer">
+          <GithubIcon size={16} />
+        </a>
+      </Button>
     </footer>
   );
 }

@@ -1,12 +1,9 @@
 import { Button } from '@/components/ui/button';
 import { HomeIcon } from '@/components/ui/home';
 import { SettingsIcon } from '@/components/ui/settings';
-import { GithubIcon } from '@/components/ui/github';
 import { SunIcon } from '@/components/ui/sun';
 import { MoonIcon } from '@/components/ui/moon';
 import { useTheme } from '@/components/theme-provider';
-
-const GITHUB_REPO_URL = 'https://github.com/Damien2420/MapleStoryTodoList';
 
 // 頂欄是深森綠底,ghost 按鈕預設的 hover:bg-muted 會出錯,統一改走 sidebar token
 const HEADER_BUTTON_CLASSES =
@@ -30,22 +27,6 @@ function ThemeToggle() {
   );
 }
 
-function GithubLink() {
-  return (
-    <Button
-      variant="ghost"
-      size="icon"
-      className={`rounded-full ${HEADER_BUTTON_CLASSES}`}
-      aria-label="前往 GitHub 專案頁面"
-      asChild
-    >
-      <a href={GITHUB_REPO_URL} target="_blank" rel="noopener noreferrer">
-        <GithubIcon size={16} />
-      </a>
-    </Button>
-  );
-}
-
 interface HeaderProps {
   onGoHome: () => void;
   onOpenDataManagement: () => void;
@@ -58,7 +39,6 @@ export function Header({ onGoHome, onOpenDataManagement }: HeaderProps) {
       <div className="flex items-center justify-between">
         <h1 className="text-base font-semibold tracking-tight">楓之谷角色任務追蹤管理</h1>
         <div className="flex items-center gap-1 sm:hidden">
-          <GithubLink />
           <ThemeToggle />
         </div>
       </div>
@@ -88,7 +68,6 @@ export function Header({ onGoHome, onOpenDataManagement }: HeaderProps) {
       </div>
 
       <div className="hidden items-center gap-1 sm:flex sm:justify-self-end">
-        <GithubLink />
         <ThemeToggle />
       </div>
     </header>
