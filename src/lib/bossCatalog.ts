@@ -387,6 +387,22 @@ export const BOSS_CATALOG: BossCatalogEntry[] = [
     ],
   },
   {
+    id: 'radiant-ominous-star',
+    name: '燦爛的凶星',
+    difficulties: [
+      { difficulty: '普通', crystalValue: 355_320_000, resetCycle: 'weekly', weeklyResetDay: 4 },
+      { difficulty: '困難', crystalValue: 817_510_000, resetCycle: 'weekly', weeklyResetDay: 4 },
+    ],
+  },
+  {
+    id: 'yubitae',
+    name: '尤比太',
+    difficulties: [
+      { difficulty: '普通', crystalValue: 705_000_000, resetCycle: 'weekly', weeklyResetDay: 4 },
+      { difficulty: '困難', crystalValue: 1_368_000_000, resetCycle: 'weekly', weeklyResetDay: 4 },
+    ],
+  },
+  {
     id: 'kai',
     name: '凱伊',
     category: 'season',
