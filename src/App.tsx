@@ -6,6 +6,7 @@ import { FirstCharacterOnboarding } from '@/components/FirstCharacterOnboarding'
 import { TaskList } from '@/components/TaskList';
 import { BossList } from '@/components/BossList';
 import { BackupStatusBar } from '@/components/BackupStatusBar';
+import { Footer } from '@/components/Footer';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useCharacterStore } from '@/store/useCharacterStore';
@@ -61,6 +62,8 @@ export function App() {
             </div>
           </main>
         )}
+
+        <Footer />
       </div>
       <Toaster position="bottom-center" />
       <Analytics/>
