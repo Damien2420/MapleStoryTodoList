@@ -142,7 +142,14 @@ export function TaskList({ character }: { character: Character }) {
     [allTasks, character.id],
   );
   const grouped = useMemo(() => groupByCategory(tasks), [tasks]);
-  const existingCategories = useMemo(() => Array.from(grouped.keys()), [grouped]);
+  // 純週末活動分類(例如「派對樂園」)不開放自訂任務表單使用
+  const existingCategories = useMemo(
+    () =>
+      Array.from(grouped.entries())
+        .filter(([, categoryTasks]) => categoryTasks.some((t) => t.resetCycle !== 'biweekly-weekend'))
+        .map(([category]) => category),
+    [grouped],
+  );
   const dailyTasks = useMemo(() => tasks.filter((t) => t.resetCycle === 'daily'), [tasks]);
   const weeklyTasks = useMemo(() => tasks.filter((t) => t.resetCycle === 'weekly'), [tasks]);
   const monthlyTasks = useMemo(() => tasks.filter((t) => t.resetCycle === 'monthly'), [tasks]);

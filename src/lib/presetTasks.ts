@@ -133,10 +133,16 @@ export const PRESET_TASKS: PresetTask[] = [
     expiresAt: '2026-09-08',
   },
   {
-    id: 'weekend-party-playground',
-    name: '派對樂園',
-    category: '週末活動',
+    id: 'weekend-party-playground-coin',
+    name: '派對樂園 - 領取奇蹟票卷',
+    category: '派對樂園',
     resetCycle: 'biweekly-weekend',
+  },
+  {
+    id: 'champions-arena',
+    name: '冠軍戰場',
+    category: '戰地',
+    resetCycle: 'monthly',
   },
 ];
 
