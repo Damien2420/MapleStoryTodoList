@@ -2,7 +2,12 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { CharacterBossTrackList, CharacterTask, Settings } from '@/types';
 import { needsMonthlyReset, needsReset } from '@/lib/reset';
-import { findBossCatalogEntry, findDifficultyOption, type BossSelection } from '@/lib/bossCatalog';
+import {
+  findBossCatalogEntry,
+  findDifficultyOption,
+  sortTrackedBossesByCatalogOrder,
+  type BossSelection,
+} from '@/lib/bossCatalog';
 import { trackLocalChange } from '@/lib/trackLocalChange';
 
 interface BossState {
@@ -26,7 +31,6 @@ export const useBossStore = create<BossState>()(
         if (selections.length === 0) return;
         const now = new Date().toISOString();
         set((state) => {
-          let order = state.bosses.filter((b) => b.characterId === characterId).length;
           const newBosses: CharacterBossTrackList[] = [];
           for (const selection of selections) {
             const entry = findBossCatalogEntry(selection.bossId);
@@ -45,10 +49,17 @@ export const useBossStore = create<BossState>()(
               crystalValue: option.crystalValue,
               checked: false,
               lastResetAt: now,
-              order: order++,
+              order: 0,
             });
           }
-          return { bosses: [...state.bosses, ...newBosses] };
+          const otherCharacters = state.bosses.filter((b) => b.characterId !== characterId);
+          const ownExisting = state.bosses.filter((b) => b.characterId === characterId);
+          // 每次加入都把「這個角色現有的 + 新增的」BOSS 依目錄順序重新排一次,不管分幾次加入都會得到同一個順序
+          const merged = sortTrackedBossesByCatalogOrder([...ownExisting, ...newBosses]).map((boss, index) => ({
+            ...boss,
+            order: index,
+          }));
+          return { bosses: [...otherCharacters, ...merged] };
         });
       },
       toggleBoss: (id) => {

@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { CharacterTask, ResetCycle, Settings } from '@/types';
 import { needsReset, isWeekendEventOpen } from '@/lib/reset';
-import type { PresetTask } from '@/lib/presetTasks';
+import { sortTasksByPresetOrder, type PresetTask } from '@/lib/presetTasks';
 import { trackLocalChange } from '@/lib/trackLocalChange';
 
 export interface NewTaskInput {
@@ -57,7 +57,6 @@ export const useTaskStore = create<TaskState>()(
         if (presets.length === 0) return;
         const now = new Date().toISOString();
         set((state) => {
-          let order = state.tasks.filter((t) => t.characterId === characterId).length;
           const newTasks: CharacterTask[] = presets.map((preset) => ({
             id: crypto.randomUUID(),
             characterId,
@@ -68,9 +67,17 @@ export const useTaskStore = create<TaskState>()(
             weeklyResetDay: preset.weeklyResetDay,
             checked: false,
             lastResetAt: now,
-            order: order++,
+            order: 0,
           }));
-          return { tasks: [...state.tasks, ...newTasks] };
+          const otherCharacters = state.tasks.filter((t) => t.characterId !== characterId);
+          const ownExisting = state.tasks.filter((t) => t.characterId === characterId);
+          // 每次套用都把「這個角色現有的 + 新增的」preset 任務依目錄順序重新排一次,
+          // 不管分幾批加入都會得到同一個順序;非 preset 的手動任務排到最後,彼此保持原本相對順序
+          const merged = sortTasksByPresetOrder([...ownExisting, ...newTasks]).map((task, index) => ({
+            ...task,
+            order: index,
+          }));
+          return { tasks: [...otherCharacters, ...merged] };
         });
       },
       toggleTask: (id) => {

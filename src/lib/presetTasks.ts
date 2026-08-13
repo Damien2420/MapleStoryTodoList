@@ -1,4 +1,4 @@
-import type { ResetCycle } from '@/types';
+import type { CharacterTask, ResetCycle } from '@/types';
 
 export interface PresetTask {
   id: string;
@@ -275,6 +275,25 @@ export function resolveSelectedPresetTasks(selectedIds: Set<string>, characterLe
     }
   }
   return tasks;
+}
+
+/** 計算單一已建立任務在預設任務目錄中的排序權重:一般任務用 PRESET_TASKS 的位置,群組展開出的任務用「群組位置 + 區域位置」;查無來源(手動建立/已被移除)回傳 Infinity */
+function presetTaskRank(task: Pick<CharacterTask, 'presetId' | 'name'>): number {
+  if (!task.presetId) return Infinity;
+  const taskIndex = PRESET_TASKS.findIndex((t) => t.id === task.presetId);
+  if (taskIndex !== -1) return taskIndex;
+  const groupIndex = PRESET_TASK_GROUPS.findIndex((g) => g.id === task.presetId);
+  if (groupIndex === -1) return Infinity;
+  const zoneIndex = PRESET_TASK_GROUPS[groupIndex].zones.findIndex((zone) => zone.name === task.name);
+  return PRESET_TASKS.length + groupIndex * 1000 + (zoneIndex === -1 ? 0 : zoneIndex);
+}
+
+/**
+ * 依預設任務目錄的順序排序「已建立」的任務,不論分幾次套用都會得到同一個順序;
+ * 查無對應來源(手動建立的任務、或來源已被移除)的排到最後,彼此保持原本的相對順序。
+ */
+export function sortTasksByPresetOrder(tasks: CharacterTask[]): CharacterTask[] {
+  return [...tasks].sort((a, b) => presetTaskRank(a) - presetTaskRank(b));
 }
 
 /** 判斷 expiresAt(YYYY-MM-DD)是否已超過當天結束(23:59:59.999) */

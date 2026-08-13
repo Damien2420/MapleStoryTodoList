@@ -80,6 +80,33 @@ export function flattenBossSelections(selections: Map<string, Set<BossDifficulty
   );
 }
 
+/** 計算某隻王+難度在 BOSS_CATALOG 中的排序權重;查無對應目錄項目回傳 Infinity */
+function bossCatalogRank(bossId: string, difficulty: BossDifficulty): number {
+  const entryIndex = BOSS_CATALOG.findIndex((entry) => entry.id === bossId);
+  if (entryIndex === -1) return Infinity;
+  const difficultyIndex = BOSS_CATALOG[entryIndex].difficulties.findIndex((option) => option.difficulty === difficulty);
+  return entryIndex * 100 + (difficultyIndex === -1 ? 0 : difficultyIndex);
+}
+
+/** 依 BOSS_CATALOG 的順序排序選取結果;查無對應目錄項目的選取(理論上不會發生)排到最後,保持穩定排序 */
+export function sortBossSelectionsByCatalogOrder(selections: BossSelection[]): BossSelection[] {
+  return [...selections].sort(
+    (a, b) => bossCatalogRank(a.bossId, a.difficulty) - bossCatalogRank(b.bossId, b.difficulty),
+  );
+}
+
+/**
+ * 依 BOSS_CATALOG 的順序排序「已建立」的 BOSS 追蹤紀錄,不論分幾次加入都會得到同一個順序;
+ * 查無對應目錄項目(舊資料/來源已下架)的排到最後,彼此保持原本的相對順序。
+ */
+export function sortTrackedBossesByCatalogOrder(bosses: CharacterBossTrackList[]): CharacterBossTrackList[] {
+  return [...bosses].sort((a, b) => {
+    const rankA = a.bossCatalogId ? bossCatalogRank(a.bossCatalogId, a.difficulty) : Infinity;
+    const rankB = b.bossCatalogId ? bossCatalogRank(b.bossCatalogId, b.difficulty) : Infinity;
+    return rankA - rankB;
+  });
+}
+
 /**
  * BOSS 名單:內建常見週/日 BOSS,收益數字為參考值,套用後可在畫面上手動覆寫。
  * 若名單缺某隻王,需由開發端擴充此清單,使用者無法自行新增。

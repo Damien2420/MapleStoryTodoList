@@ -3,7 +3,7 @@ import { useCharacterStore } from '@/store/useCharacterStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useBossStore } from '@/store/useBossStore';
 import type { PresetTask } from '@/lib/presetTasks';
-import type { BossSelection } from '@/lib/bossCatalog';
+import { sortBossSelectionsByCatalogOrder, type BossSelection } from '@/lib/bossCatalog';
 import { SERVERS, type Server } from '@/lib/servers';
 import { fetchCharacterByName, isKnownServer } from '@/lib/nexon';
 import { CHARACTER_NAME_MAX_LENGTH, type BossDifficulty } from '@/types';
@@ -149,7 +149,7 @@ export function useAddCharacterFlow(onCreated?: () => void) {
   }
 
   function continueFromBosses(selections: BossSelection[]) {
-    setResolvedBossSelections(selections);
+    setResolvedBossSelections(sortBossSelectionsByCatalogOrder(selections));
     setStep('confirm');
   }
 
