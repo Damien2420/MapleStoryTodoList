@@ -54,7 +54,7 @@ export function CharacterFormFields({
             <SelectTrigger id={`${idPrefix}-server`} className="w-full">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent position="popper">
               {SERVERS.map((s) => (
                 <SelectItem key={s} value={s}>
                   {s}

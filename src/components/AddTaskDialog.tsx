@@ -252,7 +252,7 @@ export function AddTaskDialog({ characterId, existingCategories }: AddTaskDialog
                 <SelectTrigger id="task-category" className="w-full">
                   <SelectValue placeholder="選擇分類" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent position="popper">
                   {existingCategories.map((c) => (
                     <SelectItem key={c} value={c}>
                       {c}
@@ -278,7 +278,7 @@ export function AddTaskDialog({ characterId, existingCategories }: AddTaskDialog
                 <SelectTrigger id="task-cycle" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent position="popper">
                   {(Object.keys(RESET_CYCLE_LABEL) as Exclude<ResetCycle, 'biweekly-weekend'>[]).map((cycle) => (
                     <SelectItem key={cycle} value={cycle}>
                       {RESET_CYCLE_LABEL[cycle]}
@@ -298,7 +298,7 @@ export function AddTaskDialog({ characterId, existingCategories }: AddTaskDialog
                   <SelectTrigger id="task-weekly-reset-day" className="w-full">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent position="popper">
                     {WEEKDAY_LABEL.map((label, day) => (
                       <SelectItem key={day} value={String(day)}>
                         {label}
