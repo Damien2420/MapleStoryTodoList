@@ -25,7 +25,7 @@ export function Footer() {
             版本紀錄
           </Button>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>版本更新紀錄</DialogTitle>
             <DialogDescription>楓之谷角色任務追蹤管理的歷史版本變更內容。</DialogDescription>

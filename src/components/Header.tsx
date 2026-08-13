@@ -50,7 +50,7 @@ export function Header({ onGoHome, onOpenDataManagement }: HeaderProps) {
   return (
     <header className="flex flex-col gap-2 border-b border-sidebar-border bg-sidebar text-sidebar-foreground px-4 py-3 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center sm:gap-0 sm:px-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-base font-semibold tracking-tight">楓之谷角色任務追蹤管理</h1>
+        <h1 className="text-base font-semibold tracking-tight">好楓寶角色管理</h1>
         <div className="flex items-center gap-1 sm:hidden">
           <ThemeToggle />
         </div>

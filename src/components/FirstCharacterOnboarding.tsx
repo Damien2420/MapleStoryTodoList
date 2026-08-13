@@ -190,7 +190,7 @@ export function FirstCharacterOnboarding({ onImport }: { onImport: () => void })
               建立所選BOSS追蹤({flattenBossSelections(flow.bossSelections).length})
             </Button>
             <Button type="button" variant="outline" onClick={() => flow.continueFromBosses([])}>
-              跳過，前往確認
+              跳過，前往下一步
             </Button>
           </div>
         </div>

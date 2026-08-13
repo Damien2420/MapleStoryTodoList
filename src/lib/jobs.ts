@@ -19,7 +19,7 @@ export const JOB_GROUPS = [
   { group: '阿尼瑪', jobs: ['蓮', '菈菈', '虎影'] },
   { group: '朋友世界', jobs: ['凱內西斯'] },
   { group: '超越者', jobs: ['神之子'] },
-  { group: '海外職業-曉之陣', jobs: ['劍豪', '陰陽師'] },
-  { group: '海外職業-江湖', jobs: ['琳恩', '墨玄'] },
+  { group: '曉之陣', jobs: ['劍豪', '陰陽師'] },
+  { group: '江湖', jobs: ['琳恩', '墨玄'] },
 ] as const;
 export type JobGroup = (typeof JOB_GROUPS)[number]['group'];

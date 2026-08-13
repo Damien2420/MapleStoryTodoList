@@ -59,13 +59,13 @@ export function formatWeekendEventStatus(now: Date = new Date()): string {
     const days = Math.floor(totalMinutes / (24 * 60));
     const hours = Math.floor((totalMinutes % (24 * 60)) / 60);
     const minutes = totalMinutes % 60;
-    if (days > 0) return `開放中,剩餘 ${days} 天 ${hours} 小時`;
-    if (hours > 0) return `開放中,剩餘 ${hours} 小時`;
-    return `開放中,剩餘 ${minutes} 分鐘`;
+    if (days > 0) return `開放中，剩餘 ${days} 天 ${hours} 小時`;
+    if (hours > 0) return `開放中，剩餘 ${hours} 小時`;
+    return `開放中，剩餘 ${minutes} 分鐘`;
   }
   const nextOpen = new Date(openBoundary);
   nextOpen.setDate(nextOpen.getDate() + WEEKEND_EVENT_CYCLE_DAYS);
-  return `尚未開放,${nextOpen.getMonth() + 1}/${nextOpen.getDate()} 開放`;
+  return `尚未開放，${nextOpen.getMonth() + 1}/${nextOpen.getDate()} 開放`;
 }
 
 /** 計算「以 now 為基準,最近一次的每日重置時間點」 */

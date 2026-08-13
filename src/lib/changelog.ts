@@ -29,7 +29,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       '任務/BOSS 清單支援完成狀態篩選與分類區塊收合',
       '新增角色時可透過 NEXON Open API 查詢角色資料自動帶入',
       '新增資料管理頁面，支援 Google Drive 與本機檔案備份/還原',
-      '採用楓葉森林主題配色，支援淺色/深色模式切換',
+      '支援淺色/深色模式切換',
     ],
   },
 ];

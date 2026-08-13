@@ -144,7 +144,7 @@ export function CharacterTabs() {
             <form onSubmit={flow.handleLookup}>
               <DialogHeader>
                 <DialogTitle>新增角色</DialogTitle>
-                <DialogDescription>輸入遊戲內角色名稱,自動查詢伺服器、等級與職業。</DialogDescription>
+                <DialogDescription>輸入遊戲內角色名稱，直接查詢您的角色資訊。</DialogDescription>
               </DialogHeader>
               <div className="space-y-3 py-4">
                 <div className="space-y-2">
@@ -152,7 +152,7 @@ export function CharacterTabs() {
                   <Input
                     id="add-character-lookup-name"
                     autoFocus
-                    placeholder="輸入遊戲內角色名稱"
+                    placeholder="請輸入遊戲內角色名稱"
                     value={flow.name}
                     onChange={(e) => flow.setName(e.target.value)}
                   />
@@ -311,7 +311,7 @@ export function CharacterTabs() {
                   套用所選並前往確認({flattenBossSelections(flow.bossSelections).length})
                 </Button>
                 <Button type="button" variant="outline" className="w-full" onClick={() => flow.continueFromBosses([])}>
-                  跳過，前往確認
+                  跳過，前往下一步
                 </Button>
               </DialogFooter>
             </div>
