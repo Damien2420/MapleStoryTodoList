@@ -2,16 +2,25 @@ import type { Character, CharacterBossTrackList, CharacterTask } from '@/types';
 import { useCharacterStore } from '@/store/useCharacterStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useBossStore } from '@/store/useBossStore';
+import { migrateCharacterAddSource } from '@/lib/schemaMigrations';
 
 /** 目前 app 支援的最新備份格式版本 */
-export const CURRENT_VERSION = 1;
+export const CURRENT_VERSION = 2;
 
 export interface DriveBackupPayload {
   /** 備份格式版本,供未來相容性判斷用 */
-  version: 1;
+  version: 2;
   /** 備份建立時間(ISO 字串) */
   createdAt: string;
   characters: Character[];
+  tasks: CharacterTask[];
+  bosses: CharacterBossTrackList[];
+}
+
+interface DriveBackupPayloadV1 {
+  version: 1;
+  createdAt: string;
+  characters: Omit<Character, 'source'>[];
   tasks: CharacterTask[];
   bosses: CharacterBossTrackList[];
 }
@@ -22,7 +31,12 @@ export interface DriveBackupPayload {
  * 轉換邏輯統一放在 src/lib/schemaMigrations.ts(首次遷移時才建立),兩側各自 .map() 呼叫共用函式,
  * 不得各自內聯撰寫重複的轉換邏輯。
  */
-const MIGRATIONS: Record<number, (old: unknown) => DriveBackupPayload> = {};
+const MIGRATIONS: Record<number, (old: unknown) => DriveBackupPayload> = {
+  1: (old) => {
+    const payload = old as DriveBackupPayloadV1;
+    return { ...payload, version: 2, characters: payload.characters.map(migrateCharacterAddSource) };
+  },
+};
 
 /** 把任意版本的備份內容升級到 CURRENT_VERSION;版本較新、或缺少對應 migration 時中止並丟出錯誤 */
 export function migrateToLatest(payload: { version: number }): DriveBackupPayload {

@@ -155,7 +155,8 @@ export function useAddCharacterFlow(onCreated?: () => void) {
 
   function createCharacter(tasks: PresetTask[], bosses: BossSelection[]) {
     if (!canSubmit) return;
-    const newCharacterId = addCharacter({ name, server, level: enteredLevel, job: job!, imageUrl });
+    const source = lookupPhase === 'result' ? 'api' : 'manual';
+    const newCharacterId = addCharacter({ name, server, level: enteredLevel, job: job!, imageUrl, source });
     if (tasks.length > 0) {
       addPresetTasks(newCharacterId, tasks);
     }

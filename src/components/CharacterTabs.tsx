@@ -212,7 +212,10 @@ export function CharacterTabs() {
                   返回角色查詢
                 </Button>
                 <DialogTitle>新增角色</DialogTitle>
-                <DialogDescription>建立一個新角色，開始追蹤這個角色的每日/每週任務。</DialogDescription>
+                <DialogDescription className="flex flex-col gap-1">
+                  <span>建立一個新角色，開始追蹤這個角色的每日/每週任務。</span>
+                  <span className="text-destructive">手動建立的角色不會有外觀照片</span>
+                </DialogDescription>
               </DialogHeader>
               <div className="space-y-3 py-4">
                 <CharacterFormFields

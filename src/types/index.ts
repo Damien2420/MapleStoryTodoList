@@ -8,6 +8,9 @@ export const CHARACTER_NAME_MAX_LENGTH = 20;
 /** 任務名稱最大長度 */
 export const TASK_NAME_MAX_LENGTH = 50;
 
+/** 角色資料建立來源:api = 透過 NEXON API 查詢帶入,manual = 使用者手動輸入;決定「更新角色」按鈕的行為 */
+export type CharacterSource = 'api' | 'manual';
+
 /** 遊戲角色 */
 export interface Character {
   id: string;
@@ -18,6 +21,7 @@ export interface Character {
   /** 角色外觀圖網址(NEXON Open API 查詢角色時取得的公開靜態圖片連結),手動建立的角色不會有這個欄位 */
   imageUrl?: string;
   order: number;
+  source: CharacterSource;
 }
 
 /** 角色底下的實際任務(勾選狀態、重置時間都是角色獨立的) */
