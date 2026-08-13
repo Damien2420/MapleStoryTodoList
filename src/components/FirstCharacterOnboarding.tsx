@@ -1,4 +1,5 @@
-import { ArrowLeft, Cloud, Loader2, UserPlus } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import { ArrowLeft, Cloud, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,10 +12,26 @@ import { BossSelectionPreview } from '@/components/BossSelectionPreview';
 import { useAddCharacterFlow } from '@/hooks/useAddCharacterFlow';
 import { resolveSelectedPresetTasks } from '@/lib/presetTasks';
 import { flattenBossSelections } from '@/lib/bossCatalog';
+import { HourglassIcon, type HourglassIconHandle } from './ui/hourglass-icon';
+
+/** HourglassIcon 的單次翻轉動畫時長(秒),查詢中期間會用同一個數字重複觸發動畫 */
+const LOADING_ICON_DURATION = 1;
 
 /** 首次使用引導畫面:角色數為 0 時顯示,提供 NEXON API 查詢或手動輸入建立第一個角色 */
 export function FirstCharacterOnboarding({ onImport }: { onImport: () => void }) {
   const flow = useAddCharacterFlow();
+  const hourglassRef = useRef<HourglassIconHandle>(null);
+
+  // 查詢中期間持續播放沙漏翻轉動畫:HourglassIcon 的動畫是「觸發一次」,不是自動 loop,
+  // 所以用 interval 每隔一個動畫週期(0.9 * duration 秒)重新觸發一次,做出持續轉動的效果
+  useEffect(() => {
+    if (!flow.lookupLoading) return;
+    hourglassRef.current?.startAnimation();
+    const intervalId = setInterval(() => {
+      hourglassRef.current?.startAnimation();
+    }, LOADING_ICON_DURATION * 900);
+    return () => clearInterval(intervalId);
+  }, [flow.lookupLoading]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 px-6 text-center overflow-y-auto">
@@ -47,7 +64,9 @@ export function FirstCharacterOnboarding({ onImport }: { onImport: () => void })
             </div>
             {flow.lookupError && <p className="text-sm text-destructive">{flow.lookupError}</p>}
             <Button type="submit" className="gap-1.5" disabled={!flow.name.trim() || flow.lookupLoading}>
-              {flow.lookupLoading && <Loader2 className="size-4 animate-spin" />}
+              {flow.lookupLoading && (
+                <HourglassIcon ref={hourglassRef} size={16} duration={LOADING_ICON_DURATION} color="#ffffff" />
+              )}
               {flow.lookupLoading ? '查詢中…' : '查詢角色'}
             </Button>
             <Button type="button" variant="outline" onClick={flow.switchToManualEntry}>
