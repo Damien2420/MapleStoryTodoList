@@ -70,6 +70,8 @@ export interface CharacterBossTrackList {
   bossCatalogId?: string;
   /** 預估收益,套用時帶入參考值,使用者可事後手動覆寫 */
   crystalValue: number;
+  /** 本次攻略的實際人數,用於平分結晶收益;預設 1(單人) */
+  partySize: number;
   checked: boolean;
   lastResetAt: string;
   order: number;
