@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { findBossCatalogEntry, getEffectiveCrystalValue, getMaxPartySize } from '@/lib/bossCatalog';
+import { DIFFICULTY_BADGE_CLASSES } from '@/lib/difficultyBadge';
 import { formatCrystalValue } from '@/lib/formatCrystal';
 import { formatExpiryDate, formatTimeUntilExpiry, formatTimeUntilReset, hoursUntilExpiry, minutesUntilReset } from '@/lib/reset';
 import { useNow } from '@/hooks/useNow';
@@ -39,28 +40,43 @@ export function BossItem({ boss }: { boss: CharacterBossTrackList }) {
   const showStepper = boss.category !== 'season' && maxPartySize > 1;
 
   const stepperControl = (
-    <div className="flex items-center gap-0.5">
-      <Button
-        variant="ghost"
-        size="icon"
-        className="size-5 shrink-0 text-muted-foreground disabled:opacity-30"
-        aria-label={`減少攻略人數:${boss.bossName}(最多 ${maxPartySize} 人)`}
-        disabled={boss.partySize <= 1}
-        onClick={() => setBossPartySize(boss.id, boss.partySize - 1)}
-      >
-        <Minus className="size-3" />
-      </Button>
-      <span className="w-4 shrink-0 text-center text-xs tabular-nums text-muted-foreground">{boss.partySize}</span>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="size-5 shrink-0 text-muted-foreground disabled:opacity-30"
-        aria-label={`增加攻略人數:${boss.bossName}(最多 ${maxPartySize} 人)`}
-        disabled={boss.partySize >= maxPartySize}
-        onClick={() => setBossPartySize(boss.id, boss.partySize + 1)}
-      >
-        <Plus className="size-3" />
-      </Button>
+    <div className="flex items-center gap-1">
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="relative size-5 shrink-0 text-muted-foreground before:absolute before:-inset-1.5 before:content-[''] disabled:opacity-30"
+            aria-label={`減少攻略人數:${boss.bossName}(最多 ${maxPartySize} 人)`}
+            disabled={boss.partySize <= 1}
+            onClick={() => setBossPartySize(boss.id, boss.partySize - 1)}
+          >
+            <Minus className="size-3" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>攻略人數(最多 {maxPartySize} 人)</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="w-4 shrink-0 text-center text-xs tabular-nums text-muted-foreground">{boss.partySize}</span>
+        </TooltipTrigger>
+        <TooltipContent>攻略人數(最多 {maxPartySize} 人)</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="relative size-5 shrink-0 text-muted-foreground before:absolute before:-inset-1.5 before:content-[''] disabled:opacity-30"
+            aria-label={`增加攻略人數:${boss.bossName}(最多 ${maxPartySize} 人)`}
+            disabled={boss.partySize >= maxPartySize}
+            onClick={() => setBossPartySize(boss.id, boss.partySize + 1)}
+          >
+            <Plus className="size-3" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>攻略人數(最多 {maxPartySize} 人)</TooltipContent>
+      </Tooltip>
     </div>
   );
 
@@ -87,13 +103,17 @@ export function BossItem({ boss }: { boss: CharacterBossTrackList }) {
   return (
     <div
       className={cn(
-        'group relative flex cursor-pointer flex-col gap-1 rounded-lg px-2 py-2.5 transition-colors hover:bg-muted/60 sm:flex-row sm:items-center sm:gap-3',
+        'group relative flex flex-col gap-1 rounded-lg px-2 py-2.5 transition-colors hover:bg-muted/60 @min-[640px]:flex-row @min-[640px]:items-center @min-[640px]:gap-3',
         boss.checked && 'opacity-60',
       )}
-      onClick={() => toggleBoss(boss.id)}
     >
-      {/* 標題列:勾選框 + 王名稱 + 難度標籤,400-640px 這段額外容納攻略人數與刪除鈕 */}
-      <div className="flex items-center gap-2 pr-8 min-[400px]:pr-0 sm:min-w-0 sm:flex-1">
+      {/* 標題列:勾選框 + 王名稱 + 難度標籤,400-640px 這段額外容納攻略人數與刪除鈕
+          點擊只在這個區域生效,避免右側人數、收益、倒數旁邊的空白誤觸勾選;反白高亮則留給整列(見外層 div),
+          讓滑鼠移到任何欄位都看得出目前在哪一列,跟「哪裡可以點」的游標樣式分開表達 */}
+      <div
+        className="flex cursor-pointer items-center gap-2 pr-8 @min-[400px]:pr-2 @min-[640px]:min-w-0 @min-[640px]:flex-1"
+        onClick={() => toggleBoss(boss.id)}
+      >
         <span className="shrink-0" onClick={(e) => e.stopPropagation()}>
           <Checkbox
             checked={boss.checked}
@@ -107,15 +127,15 @@ export function BossItem({ boss }: { boss: CharacterBossTrackList }) {
           <span className={cn('min-w-0 truncate', boss.checked && 'line-through decoration-muted-foreground')}>
             {boss.bossName}
           </span>
-          <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-normal text-muted-foreground">
+          <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-xs font-normal', DIFFICULTY_BADGE_CLASSES[boss.difficulty])}>
             {boss.difficulty}
           </span>
         </div>
 
-        {showStepper && <div className="hidden min-[400px]:flex sm:hidden" onClick={(e) => e.stopPropagation()}>{stepperControl}</div>}
+        {showStepper && <div className="hidden @min-[400px]:flex @min-[640px]:hidden" onClick={(e) => e.stopPropagation()}>{stepperControl}</div>}
 
         <div
-          className="absolute top-1.5 right-1.5 min-[400px]:static min-[400px]:top-auto min-[400px]:right-auto sm:hidden"
+          className="absolute top-1.5 right-1.5 @min-[400px]:static @min-[400px]:top-auto @min-[400px]:right-auto @min-[640px]:hidden"
           onClick={(e) => e.stopPropagation()}
         >
           {deleteButton}
@@ -124,7 +144,7 @@ export function BossItem({ boss }: { boss: CharacterBossTrackList }) {
 
       {/* 數值/狀態列:<400px 拆成兩行(攻略人數+收益 / 倒數),400-640px 合併一行(收益+倒數),≥640px 併回單一列 */}
       <div
-        className="flex flex-col gap-1 pl-7 min-[400px]:flex-row min-[400px]:items-center min-[400px]:gap-3 min-[400px]:shrink-0 sm:pl-0"
+        className="flex flex-col gap-1 pl-7 @min-[400px]:flex-row @min-[400px]:items-center @min-[400px]:gap-3 @min-[400px]:shrink-0 @min-[640px]:pl-0"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex flex-wrap items-center gap-2">
@@ -147,11 +167,12 @@ export function BossItem({ boss }: { boss: CharacterBossTrackList }) {
 
           {boss.category !== 'season' && (
             <>
-              {showStepper && <div className="min-[400px]:hidden sm:flex">{stepperControl}</div>}
+              {showStepper && <div className="@min-[400px]:hidden @min-[640px]:mr-4 @min-[640px]:flex">{stepperControl}</div>}
 
-              <span className="flex items-center gap-1 text-xs tabular-nums text-muted-foreground sm:min-w-[9.5em] sm:justify-end">
+              <span className="flex items-center gap-1 text-xs tabular-nums whitespace-nowrap text-muted-foreground @min-[640px]:w-[14em]">
                 <img src="/coin.png" alt="" className="size-4 shrink-0" />
                 {formatCrystalValue(getEffectiveCrystalValue(boss))}
+                {boss.partySize > 1 && <span className="shrink-0">(每人)</span>}
               </span>
             </>
           )}
@@ -159,16 +180,16 @@ export function BossItem({ boss }: { boss: CharacterBossTrackList }) {
 
         <span
           className={cn(
-            'flex items-center gap-1 text-xs',
+            'flex items-center gap-1 text-xs whitespace-nowrap @min-[640px]:w-[10.5em]',
             resetImminent ? 'font-semibold text-destructive' : 'text-muted-foreground',
           )}
         >
-          <RefreshCw className="size-3" />
+          <RefreshCw className="size-3 shrink-0" />
           {cycleLabel}
         </span>
       </div>
 
-      <div className="hidden sm:ml-auto sm:block">{deleteButton}</div>
+      <div className="hidden @min-[640px]:ml-auto @min-[640px]:block">{deleteButton}</div>
     </div>
   );
 }

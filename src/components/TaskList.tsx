@@ -87,7 +87,7 @@ function renderCategoryGroup(
                   type="button"
                   variant="ghost"
                   size="xs"
-                  className="text-muted-foreground"
+                  className="text-primary hover:text-primary hover:bg-primary/10"
                   onClick={() => toggleCategoryTasks(characterId, category, !allDone)}
                 >
                   {allDone ? '取消全部' : '全部完成'}
