@@ -132,26 +132,28 @@ export function BossList({ character }: { character: Character }) {
           <AddBossDialog characterId={character.id} />
         </div>
       ) : (
-        <div className="flex flex-col gap-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-col gap-6 lg:max-h-[calc(100vh-200px)]">
+          <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 bg-background pt-[10px] pb-1">
             <p className="text-sm font-semibold text-foreground">BOSS 清單</p>
             <StatusFilterControl value={bossStatusFilter} onChange={setBossStatusFilter} />
             <AddBossDialog characterId={character.id} />
           </div>
 
-          {visibleSections.map((section) => (
-            <BossSection
-              key={section.cycleKey}
-              {...section}
-              collapsed={collapsedBossSections.has(section.cycleKey)}
-              onToggle={toggleBossSection}
-              onToggleAll={toggleBossesByIds}
-            />
-          ))}
+          <div className="flex flex-col gap-6 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+            {visibleSections.map((section) => (
+              <BossSection
+                key={section.cycleKey}
+                {...section}
+                collapsed={collapsedBossSections.has(section.cycleKey)}
+                onToggle={toggleBossSection}
+                onToggleAll={toggleBossesByIds}
+              />
+            ))}
 
-          {visibleSections.length === 0 && (
-            <p className="py-8 text-center text-sm text-muted-foreground">沒有符合篩選條件的 BOSS</p>
-          )}
+            {visibleSections.length === 0 && (
+              <p className="py-8 text-center text-sm text-muted-foreground">沒有符合篩選條件的 BOSS</p>
+            )}
+          </div>
         </div>
       )}
     </div>

@@ -20,7 +20,7 @@ import { PresetTaskPicker } from '@/components/PresetTaskPicker';
 import { PresetTaskPreview } from '@/components/PresetTaskPreview';
 import { cn } from '@/lib/utils';
 import { resolveSelectedPresetTasks, type PresetTask } from '@/lib/presetTasks';
-import { TASK_NAME_MAX_LENGTH, type ResetCycle } from '@/types';
+import { TASK_NAME_MAX_LENGTH, TASK_CATEGORY_MAX_LENGTH, type ResetCycle } from '@/types';
 import { useCharacterStore } from '@/store/useCharacterStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useTaskStore } from '@/store/useTaskStore';
@@ -93,6 +93,7 @@ export function AddTaskDialog({ characterId, existingCategories }: AddTaskDialog
   function handleSubmit(e: React.SubmitEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!name.trim() || name.length > TASK_NAME_MAX_LENGTH) return;
+    if (isNewCategory && category.length > TASK_CATEGORY_MAX_LENGTH) return;
     addTask({
       characterId,
       name,
@@ -262,13 +263,18 @@ export function AddTaskDialog({ characterId, existingCategories }: AddTaskDialog
                 </SelectContent>
               </Select>
               {isNewCategory && (
-                <Input
-                  id="task-category-new"
-                  autoFocus
-                  placeholder="輸入新分類名稱,例如:日常、週王、活動"
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                />
+                <>
+                  <Input
+                    id="task-category-new"
+                    autoFocus
+                    placeholder="輸入新分類名稱,例如:日常、週王、活動"
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                  />
+                  {category.length > TASK_CATEGORY_MAX_LENGTH && (
+                    <p className="text-xs text-destructive">分類名稱最多 {TASK_CATEGORY_MAX_LENGTH} 字</p>
+                  )}
+                </>
               )}
             </div>
 
@@ -347,7 +353,14 @@ export function AddTaskDialog({ characterId, existingCategories }: AddTaskDialog
             </div>
 
             <DialogFooter>
-              <Button type="submit" disabled={!name.trim() || name.length > TASK_NAME_MAX_LENGTH}>
+              <Button
+                type="submit"
+                disabled={
+                  !name.trim() ||
+                  name.length > TASK_NAME_MAX_LENGTH ||
+                  (isNewCategory && category.length > TASK_CATEGORY_MAX_LENGTH)
+                }
+              >
                 新增任務
               </Button>
             </DialogFooter>
