@@ -16,6 +16,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     changes: [
       'BOSS 清單新增「攻略人數」設定，收益金額會依人數自動平分',
       '手機版任務清單/BOSS清單改為切換顯示',
+      '電腦版任務清單/BOSS清單樣式優化，標題列固定不消失',
     ],
   },
   {
