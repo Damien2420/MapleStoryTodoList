@@ -58,7 +58,7 @@ function BossSection({ cycleKey, label, bosses, allBosses, collapsed, onToggle, 
             type="button"
             variant="ghost"
             size="xs"
-            className="text-muted-foreground"
+            className="text-primary hover:text-primary hover:bg-primary/10"
             onClick={() => onToggleAll(allBosses.map((b) => b.id), !allDone)}
           >
             {allDone ? '取消全部' : '全部完成'}
