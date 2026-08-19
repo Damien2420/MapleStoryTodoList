@@ -2,14 +2,14 @@ import type { Character, CharacterBossTrackList, CharacterTask } from '@/types';
 import { useCharacterStore } from '@/store/useCharacterStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useBossStore } from '@/store/useBossStore';
-import { migrateCharacterAddSource } from '@/lib/schemaMigrations';
+import { migrateBossAddPartySize, migrateCharacterAddSource } from '@/lib/schemaMigrations';
 
 /** 目前 app 支援的最新備份格式版本 */
-export const CURRENT_VERSION = 2;
+export const CURRENT_VERSION = 3;
 
 export interface DriveBackupPayload {
   /** 備份格式版本,供未來相容性判斷用 */
-  version: 2;
+  version: 3;
   /** 備份建立時間(ISO 字串) */
   createdAt: string;
   characters: Character[];
@@ -22,7 +22,15 @@ interface DriveBackupPayloadV1 {
   createdAt: string;
   characters: Omit<Character, 'source'>[];
   tasks: CharacterTask[];
-  bosses: CharacterBossTrackList[];
+  bosses: Omit<CharacterBossTrackList, 'partySize'>[];
+}
+
+interface DriveBackupPayloadV2 {
+  version: 2;
+  createdAt: string;
+  characters: Character[];
+  tasks: CharacterTask[];
+  bosses: Omit<CharacterBossTrackList, 'partySize'>[];
 }
 
 /**
@@ -31,10 +39,14 @@ interface DriveBackupPayloadV1 {
  * 轉換邏輯統一放在 src/lib/schemaMigrations.ts(首次遷移時才建立),兩側各自 .map() 呼叫共用函式,
  * 不得各自內聯撰寫重複的轉換邏輯。
  */
-const MIGRATIONS: Record<number, (old: unknown) => DriveBackupPayload> = {
+const MIGRATIONS: Record<number, (old: unknown) => DriveBackupPayload | DriveBackupPayloadV2> = {
   1: (old) => {
     const payload = old as DriveBackupPayloadV1;
     return { ...payload, version: 2, characters: payload.characters.map(migrateCharacterAddSource) };
+  },
+  2: (old) => {
+    const payload = old as DriveBackupPayloadV2;
+    return { ...payload, version: 3, bosses: payload.bosses.map(migrateBossAddPartySize) };
   },
 };
 

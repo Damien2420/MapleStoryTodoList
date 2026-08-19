@@ -186,59 +186,61 @@ export function TaskList({ character }: { character: Character }) {
           <AddTaskDialog characterId={character.id} existingCategories={existingCategories} />
         </div>
       ) : (
-        <div className="flex flex-col gap-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-col gap-6 lg:max-h-[calc(100vh-200px)]">
+          <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 bg-background pt-[10px] pb-1">
             <p className="text-sm font-semibold text-foreground">任務清單</p>
             <StatusFilterControl value={taskStatusFilter} onChange={setTaskStatusFilter} />
             <AddTaskDialog characterId={character.id} existingCategories={existingCategories} />
           </div>
-          {showDaily &&
-            renderCategoryGroup(
-              dailyGrouped,
-              '每日',
-              character.id,
-              taskStatusFilter,
-              collapsedTaskSections,
-              toggleTaskSection,
-              toggleCategoryTasks,
-              handleDeleteCategory,
+          <div className="flex flex-col gap-6 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+            {showDaily &&
+              renderCategoryGroup(
+                dailyGrouped,
+                '每日',
+                character.id,
+                taskStatusFilter,
+                collapsedTaskSections,
+                toggleTaskSection,
+                toggleCategoryTasks,
+                handleDeleteCategory,
+              )}
+            {showWeekly &&
+              renderCategoryGroup(
+                weeklyGrouped,
+                '每週',
+                character.id,
+                taskStatusFilter,
+                collapsedTaskSections,
+                toggleTaskSection,
+                toggleCategoryTasks,
+                handleDeleteCategory,
+              )}
+            {showMonthly &&
+              renderCategoryGroup(
+                monthlyGrouped,
+                '每月',
+                character.id,
+                taskStatusFilter,
+                collapsedTaskSections,
+                toggleTaskSection,
+                toggleCategoryTasks,
+                handleDeleteCategory,
+              )}
+            {showWeekend &&
+              renderCategoryGroup(
+                weekendGrouped,
+                '週末活動',
+                character.id,
+                taskStatusFilter,
+                collapsedTaskSections,
+                toggleTaskSection,
+                toggleCategoryTasks,
+                handleDeleteCategory,
+              )}
+            {!showDaily && !showWeekly && !showMonthly && !showWeekend && (
+              <p className="py-8 text-center text-sm text-muted-foreground">沒有符合篩選條件的任務</p>
             )}
-          {showWeekly &&
-            renderCategoryGroup(
-              weeklyGrouped,
-              '每週',
-              character.id,
-              taskStatusFilter,
-              collapsedTaskSections,
-              toggleTaskSection,
-              toggleCategoryTasks,
-              handleDeleteCategory,
-            )}
-          {showMonthly &&
-            renderCategoryGroup(
-              monthlyGrouped,
-              '每月',
-              character.id,
-              taskStatusFilter,
-              collapsedTaskSections,
-              toggleTaskSection,
-              toggleCategoryTasks,
-              handleDeleteCategory,
-            )}
-          {showWeekend &&
-            renderCategoryGroup(
-              weekendGrouped,
-              '週末活動',
-              character.id,
-              taskStatusFilter,
-              collapsedTaskSections,
-              toggleTaskSection,
-              toggleCategoryTasks,
-              handleDeleteCategory,
-            )}
-          {!showDaily && !showWeekly && !showMonthly && !showWeekend && (
-            <p className="py-8 text-center text-sm text-muted-foreground">沒有符合篩選條件的任務</p>
-          )}
+          </div>
         </div>
       )}
     </div>

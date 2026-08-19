@@ -5,10 +5,12 @@ import { needsMonthlyReset, needsReset } from '@/lib/reset';
 import {
   findBossCatalogEntry,
   findDifficultyOption,
+  getMaxPartySize,
   sortTrackedBossesByCatalogOrder,
   type BossSelection,
 } from '@/lib/bossCatalog';
 import { trackLocalChange } from '@/lib/trackLocalChange';
+import { migrateBossAddPartySize } from '@/lib/schemaMigrations';
 
 interface BossState {
   bosses: CharacterBossTrackList[];
@@ -17,6 +19,8 @@ interface BossState {
   /** 將指定 id 清單內的 BOSS 一次設為同一個勾選狀態(用於「全部完成」按鈕) */
   toggleBossesByIds: (ids: string[], checked: boolean) => void;
   removeBoss: (id: string) => void;
+  /** 設定指定 BOSS 追蹤紀錄的攻略人數,自動夾在 1 ~ 該難度的 maxPartySize 之間 */
+  setBossPartySize: (id: string, partySize: number) => void;
   /** 還原被刪除的 BOSS(用於刪除後的 toast 還原按鈕) */
   restoreBoss: (boss: CharacterBossTrackList) => void;
   removeBossesForCharacter: (characterId: string) => void;
@@ -47,6 +51,7 @@ export const useBossStore = create<BossState>()(
               category: entry.category,
               bossCatalogId: entry.id,
               crystalValue: option.crystalValue,
+              partySize: 1,
               checked: false,
               lastResetAt: now,
               order: 0,
@@ -82,6 +87,16 @@ export const useBossStore = create<BossState>()(
       },
       removeBoss: (id) => {
         set((state) => ({ bosses: state.bosses.filter((b) => b.id !== id) }));
+      },
+      setBossPartySize: (id, partySize) => {
+        set((state) => ({
+          bosses: state.bosses.map((b) => {
+            if (b.id !== id) return b;
+            const max = getMaxPartySize(b);
+            const clamped = Math.min(Math.max(Math.round(partySize), 1), max);
+            return { ...b, partySize: clamped };
+          }),
+        }));
       },
       restoreBoss: (boss) => {
         set((state) => (state.bosses.some((b) => b.id === boss.id) ? state : { bosses: [...state.bosses, boss] }));
@@ -128,7 +143,14 @@ export const useBossStore = create<BossState>()(
       name: 'maplestory-todolist-bosses',
       // schema 版本:改動 CharacterBossTrackList 持久化結構(改名/刪除/改語意)時 version +1 並補 migrate,
       // 且需同步檢查 backupPayload.ts 的 CURRENT_VERSION/MIGRATIONS 是否也要升版
-      version: 0,
+      version: 1,
+      migrate: (persistedState, version) => {
+        const state = persistedState as BossState;
+        if (version === 0) {
+          return { ...state, bosses: state.bosses.map(migrateBossAddPartySize) };
+        }
+        return state;
+      },
     },
   ),
 );

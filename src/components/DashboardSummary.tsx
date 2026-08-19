@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useBossStore } from '@/store/useBossStore';
 import { isPresetExpired } from '@/lib/presetTasks';
-import { findBossCatalogEntry, isCatalogEntryExpired } from '@/lib/bossCatalog';
+import { findBossCatalogEntry, getEffectiveCrystalValue, isCatalogEntryExpired } from '@/lib/bossCatalog';
 import { formatCrystalValue } from '@/lib/formatCrystal';
 import type { Character, CharacterTask } from '@/types';
 
@@ -45,17 +45,17 @@ export function DashboardSummary({ character, className }: { character: Characte
     [bosses],
   );
   const monthlyBosses = useMemo(() => bosses.filter((b) => b.resetCycle === 'monthly'), [bosses]);
-  // 收益只計入已勾選(已討伐)的 BOSS,未勾選不算
+  // 收益只計入已勾選(已討伐)的 BOSS,未勾選不算;收益依攻略人數平分後計算
   const dailyTotal = useMemo(
-    () => dailyBosses.reduce((sum, b) => sum + (b.checked ? b.crystalValue : 0), 0),
+    () => dailyBosses.reduce((sum, b) => sum + (b.checked ? getEffectiveCrystalValue(b) : 0), 0),
     [dailyBosses],
   );
   const weeklyTotal = useMemo(
-    () => weeklyBosses.reduce((sum, b) => sum + (b.checked ? b.crystalValue : 0), 0),
+    () => weeklyBosses.reduce((sum, b) => sum + (b.checked ? getEffectiveCrystalValue(b) : 0), 0),
     [weeklyBosses],
   );
   const monthlyTotal = useMemo(
-    () => monthlyBosses.reduce((sum, b) => sum + (b.checked ? b.crystalValue : 0), 0),
+    () => monthlyBosses.reduce((sum, b) => sum + (b.checked ? getEffectiveCrystalValue(b) : 0), 0),
     [monthlyBosses],
   );
 
