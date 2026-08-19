@@ -8,8 +8,17 @@ export interface ChangelogEntry {
   changes: string[];
 }
 
-/** 版本更新紀錄,新版本在前;Footer 的版本紀錄 Dialog 直接渲染此陣列 */
 export const CHANGELOG: ChangelogEntry[] = [
+  {
+    version: '1.3.1',
+    date: '2026-08-19',
+    changes: [
+      'BOSS 清單難度標籤依難度分級上色，一眼辨識難度',
+      'BOSS 清單多人均分時，收益金額顯示「(每人)」標示',
+      'BOSS 清單互動優化：修正欄位對齊、調整按鈕可點擊範圍',
+      '修正 BOSS 清單排版在部分螢幕寬度下跑版的問題',
+    ],
+  },
   {
     version: '1.3.0',
     date: '2026-08-19',
