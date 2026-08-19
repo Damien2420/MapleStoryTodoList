@@ -87,13 +87,13 @@ export function BossItem({ boss }: { boss: CharacterBossTrackList }) {
   return (
     <div
       className={cn(
-        'group relative flex cursor-pointer flex-col gap-1 rounded-lg px-2 py-2.5 transition-colors hover:bg-muted/60 sm:flex-row sm:items-center sm:gap-3',
+        'group relative flex cursor-pointer flex-col gap-1 rounded-lg px-2 py-2.5 transition-colors hover:bg-muted/60 @min-[640px]:flex-row @min-[640px]:items-center @min-[640px]:gap-3',
         boss.checked && 'opacity-60',
       )}
       onClick={() => toggleBoss(boss.id)}
     >
       {/* 標題列:勾選框 + 王名稱 + 難度標籤,400-640px 這段額外容納攻略人數與刪除鈕 */}
-      <div className="flex items-center gap-2 pr-8 min-[400px]:pr-0 sm:min-w-0 sm:flex-1">
+      <div className="flex items-center gap-2 pr-8 @min-[400px]:pr-0 @min-[640px]:min-w-0 @min-[640px]:flex-1">
         <span className="shrink-0" onClick={(e) => e.stopPropagation()}>
           <Checkbox
             checked={boss.checked}
@@ -112,10 +112,10 @@ export function BossItem({ boss }: { boss: CharacterBossTrackList }) {
           </span>
         </div>
 
-        {showStepper && <div className="hidden min-[400px]:flex sm:hidden" onClick={(e) => e.stopPropagation()}>{stepperControl}</div>}
+        {showStepper && <div className="hidden @min-[400px]:flex @min-[640px]:hidden" onClick={(e) => e.stopPropagation()}>{stepperControl}</div>}
 
         <div
-          className="absolute top-1.5 right-1.5 min-[400px]:static min-[400px]:top-auto min-[400px]:right-auto sm:hidden"
+          className="absolute top-1.5 right-1.5 @min-[400px]:static @min-[400px]:top-auto @min-[400px]:right-auto @min-[640px]:hidden"
           onClick={(e) => e.stopPropagation()}
         >
           {deleteButton}
@@ -124,7 +124,7 @@ export function BossItem({ boss }: { boss: CharacterBossTrackList }) {
 
       {/* 數值/狀態列:<400px 拆成兩行(攻略人數+收益 / 倒數),400-640px 合併一行(收益+倒數),≥640px 併回單一列 */}
       <div
-        className="flex flex-col gap-1 pl-7 min-[400px]:flex-row min-[400px]:items-center min-[400px]:gap-3 min-[400px]:shrink-0 sm:pl-0"
+        className="flex flex-col gap-1 pl-7 @min-[400px]:flex-row @min-[400px]:items-center @min-[400px]:gap-3 @min-[400px]:shrink-0 @min-[640px]:pl-0"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex flex-wrap items-center gap-2">
@@ -147,9 +147,9 @@ export function BossItem({ boss }: { boss: CharacterBossTrackList }) {
 
           {boss.category !== 'season' && (
             <>
-              {showStepper && <div className="min-[400px]:hidden sm:flex">{stepperControl}</div>}
+              {showStepper && <div className="@min-[400px]:hidden @min-[640px]:flex">{stepperControl}</div>}
 
-              <span className="flex items-center gap-1 text-xs tabular-nums text-muted-foreground sm:min-w-[9.5em] sm:justify-end">
+              <span className="flex items-center gap-1 text-xs tabular-nums text-muted-foreground @min-[640px]:min-w-[9.5em] @min-[640px]:justify-end">
                 <img src="/coin.png" alt="" className="size-4 shrink-0" />
                 {formatCrystalValue(getEffectiveCrystalValue(boss))}
               </span>
@@ -168,7 +168,7 @@ export function BossItem({ boss }: { boss: CharacterBossTrackList }) {
         </span>
       </div>
 
-      <div className="hidden sm:ml-auto sm:block">{deleteButton}</div>
+      <div className="hidden @min-[640px]:ml-auto @min-[640px]:block">{deleteButton}</div>
     </div>
   );
 }

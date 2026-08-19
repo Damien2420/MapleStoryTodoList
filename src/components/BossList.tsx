@@ -121,7 +121,7 @@ export function BossList({ character }: { character: Character }) {
   const visibleSections = sections.filter((s) => s.bosses.length > 0);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="@container flex flex-col gap-6">
       {bosses.length === 0 ? (
         <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed border-border py-16 text-center">
           <Swords className="size-8 text-muted-foreground" strokeWidth={1.5} />
