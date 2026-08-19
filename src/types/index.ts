@@ -6,7 +6,9 @@ export type ResetCycle = 'daily' | 'weekly' | 'monthly' | 'biweekly-weekend' | '
 /** 角色名稱最大長度 */
 export const CHARACTER_NAME_MAX_LENGTH = 20;
 /** 任務名稱最大長度 */
-export const TASK_NAME_MAX_LENGTH = 50;
+export const TASK_NAME_MAX_LENGTH = 20;
+/** 任務分類名稱最大長度 */
+export const TASK_CATEGORY_MAX_LENGTH = 10;
 
 /** 角色資料建立來源:api = 透過 NEXON API 查詢帶入,manual = 使用者手動輸入;決定「更新角色」按鈕的行為 */
 export type CharacterSource = 'api' | 'manual';
