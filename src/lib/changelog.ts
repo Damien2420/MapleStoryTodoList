@@ -11,6 +11,14 @@ export interface ChangelogEntry {
 /** 版本更新紀錄,新版本在前;Footer 的版本紀錄 Dialog 直接渲染此陣列 */
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.3.0',
+    date: '2026-08-19',
+    changes: [
+      'BOSS 清單新增「攻略人數」設定，收益金額會依人數自動平分',
+      '手機版任務清單/BOSS清單改為切換顯示',
+    ],
+  },
+  {
     version: '1.2.1',
     date: '2026-08-13',
     changes: ['BOSS 清單新增「燦爛的凶星」、「尤比太」'],

@@ -9,6 +9,7 @@ import { BackupStatusBar } from '@/components/BackupStatusBar';
 import { Footer } from '@/components/Footer';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useCharacterStore } from '@/store/useCharacterStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useTaskStore } from '@/store/useTaskStore';
@@ -56,10 +57,20 @@ export function App() {
             <CharacterTabs />
             <CharacterHeader character={activeCharacter} />
             <BackupStatusBar onOpenBackupPage={() => setShowBackupPage(true)} />
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              <TaskList character={activeCharacter} />
-              <BossList character={activeCharacter} />
-            </div>
+            <Tabs defaultValue="tasks" className="gap-4">
+              <TabsList className="mx-auto lg:hidden">
+                <TabsTrigger value="tasks">任務清單</TabsTrigger>
+                <TabsTrigger value="bosses">BOSS 清單</TabsTrigger>
+              </TabsList>
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                <TabsContent value="tasks" forceMount className="mt-0 hidden data-[state=active]:block lg:block">
+                  <TaskList character={activeCharacter} />
+                </TabsContent>
+                <TabsContent value="bosses" forceMount className="mt-0 hidden data-[state=active]:block lg:block">
+                  <BossList character={activeCharacter} />
+                </TabsContent>
+              </div>
+            </Tabs>
           </main>
         )}
 
