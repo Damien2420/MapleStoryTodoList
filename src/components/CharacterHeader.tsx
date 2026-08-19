@@ -67,45 +67,38 @@ export function CharacterHeader({ character }: { character: Character }) {
             <h2 className="truncate text-lg font-semibold text-foreground" title={character.name}>
               {character.name}
             </h2>
-            <p className="flex flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground">
-              <span>{character.server}</span>
-              <span aria-hidden="true">·</span>
-              <span>Lv.{character.level}</span>
-              {character.job && (
-                <>
-                  <span aria-hidden="true">·</span>
-                  <span>{character.job}</span>
-                </>
-              )}
+            <p className="text-sm text-muted-foreground">
+              {character.server} · Lv.{character.level}
+              {character.job && ` · ${character.job}`}
             </p>
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-1 lg:hidden">
+        <div className="flex shrink-0 items-center gap-1 max-[560px]:flex-col lg:hidden">
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="gap-1.5 text-muted-foreground"
+            className="gap-1.5 text-muted-foreground max-[560px]:w-8 max-[560px]:px-0"
             aria-label={`${updateLabel}:${character.name}`}
             onClick={() => setUpdateDialogOpen(true)}
             onMouseEnter={() => mobileUpdateIconRef.current?.startAnimation()}
             onMouseLeave={() => mobileUpdateIconRef.current?.stopAnimation()}
           >
             <UpdateIcon ref={mobileUpdateIconRef} size={16} />
-            {updateLabel}
+            <span className="max-[560px]:hidden">{updateLabel}</span>
           </Button>
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="gap-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+            className="gap-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive max-[560px]:w-8 max-[560px]:px-0"
             aria-label={`刪除角色:${character.name}`}
             onClick={() => setDeleteConfirmOpen(true)}
             onMouseEnter={() => mobileDeleteIconRef.current?.startAnimation()}
             onMouseLeave={() => mobileDeleteIconRef.current?.stopAnimation()}
           >
             <Trash2Icon ref={mobileDeleteIconRef} size={16} />
-            刪除角色
+            <span className="max-[560px]:hidden">刪除角色</span>
           </Button>
         </div>
       </div>
