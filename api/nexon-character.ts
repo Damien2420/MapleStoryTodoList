@@ -35,14 +35,31 @@ function withImageSize(imageUrl: string): string {
   }
 }
 
-/** NEXON 資料為每日快照,只能查前一天(含以前)的資料,以台北時區為準計算「前一天」 */
-function yesterdayInTaipei(): string {
-  const taipeiNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Taipei' }));
-  taipeiNow.setDate(taipeiNow.getDate() - 1);
-  const yyyy = taipeiNow.getFullYear();
-  const mm = String(taipeiNow.getMonth() + 1).padStart(2, '0');
-  const dd = String(taipeiNow.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
+/** 把上游(NEXON)非預期回應的狀態碼與 body 一併記錄,方便事後從 log 判斷實際錯誤原因 */
+async function logUpstreamError(context: string, res: Response): Promise<void> {
+  const body = await res.text();
+  console.error(`[nexon-character] ${context}, status ${res.status}: ${body}`);
+}
+
+type UpstreamOutcome = { ok: true } | { ok: false; status: number; error: string; message: string };
+
+/**
+ * 統一分類 NEXON 回應的非預期狀態碼,id 查詢與 basic 查詢共用同一套判斷,避免兩處各寫一份規則、
+ * 在某個上游狀態碼上出現不一致。429 直接轉發給前端;401/403 視為我方金鑰設定異常;
+ * 其餘非 2xx 一律視為上游異常並記錄 body。
+ */
+async function classifyUpstreamStatus(res: Response, context: string): Promise<UpstreamOutcome> {
+  if (res.ok) return { ok: true };
+
+  if (res.status === 429) {
+    return { ok: false, status: 429, error: 'RATE_LIMITED', message: '查詢過於頻繁，請稍後再試' };
+  }
+  if (res.status === 401 || res.status === 403) {
+    await logUpstreamError(`${context}: NEXON rejected API key`, res);
+    return { ok: false, status: 500, error: 'SERVER_ERROR', message: '查詢服務暫時無法使用，請改用手動輸入' };
+  }
+  await logUpstreamError(`${context}: unexpected status`, res);
+  return { ok: false, status: 502, error: 'UPSTREAM_ERROR', message: '無法連線至查詢服務，請稍後再試' };
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -69,22 +86,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       headers: { 'x-nxopen-api-key': apiKey },
     });
 
+    // id 查詢的 400/404 是唯一需要特殊解讀成「查無此角色」的情況,其餘狀態碼交給共用分類邏輯
     if (idRes.status === 400 || idRes.status === 404) {
       res.status(404).json(errorBody('CHARACTER_NOT_FOUND', '查無此角色，請確認名稱是否正確'));
       return;
     }
-    if (idRes.status === 429) {
-      res.status(429).json(errorBody('RATE_LIMITED', '查詢過於頻繁，請稍後再試'));
-      return;
-    }
-    if (idRes.status === 401 || idRes.status === 403) {
-      console.error(`[nexon-character] NEXON rejected API key on id lookup, status ${idRes.status}`);
-      res.status(500).json(errorBody('SERVER_ERROR', '查詢服務暫時無法使用，請改用手動輸入'));
-      return;
-    }
-    if (!idRes.ok) {
-      console.error(`[nexon-character] unexpected id lookup status ${idRes.status}`);
-      res.status(502).json(errorBody('UPSTREAM_ERROR', '無法連線至查詢服務，請稍後再試'));
+    const idOutcome = await classifyUpstreamStatus(idRes, 'id lookup');
+    if (!idOutcome.ok) {
+      res.status(idOutcome.status).json(errorBody(idOutcome.error, idOutcome.message));
       return;
     }
 
@@ -94,23 +103,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
 
-    const basicRes = await fetch(
-      `${NEXON_BASE_URL}/character/basic?ocid=${encodeURIComponent(idData.ocid)}&date=${yesterdayInTaipei()}`,
-      { headers: { 'x-nxopen-api-key': apiKey } },
-    );
+    const basicRes = await fetch(`${NEXON_BASE_URL}/character/basic?ocid=${encodeURIComponent(idData.ocid)}`, {
+      headers: { 'x-nxopen-api-key': apiKey },
+    });
 
-    if (basicRes.status === 429) {
-      res.status(429).json(errorBody('RATE_LIMITED', '查詢過於頻繁，請稍後再試'));
-      return;
-    }
-    if (basicRes.status === 401 || basicRes.status === 403) {
-      console.error(`[nexon-character] NEXON rejected API key on basic lookup, status ${basicRes.status}`);
-      res.status(500).json(errorBody('SERVER_ERROR', '查詢服務暫時無法使用，請改用手動輸入'));
-      return;
-    }
-    if (!basicRes.ok) {
-      console.error(`[nexon-character] unexpected character/basic status ${basicRes.status}`);
-      res.status(502).json(errorBody('UPSTREAM_ERROR', '無法連線至查詢服務，請稍後再試'));
+    const basicOutcome = await classifyUpstreamStatus(basicRes, 'character/basic lookup');
+    if (!basicOutcome.ok) {
+      res.status(basicOutcome.status).json(errorBody(basicOutcome.error, basicOutcome.message));
       return;
     }
 
