@@ -50,6 +50,7 @@
     "prettier-plugin-tailwindcss": "^0.8.0",
     "typescript": "~6",
     "typescript-eslint": "^8",
+    "vercel": "^59.11.2",
     "vite": "^8"
   }
 }
