@@ -133,6 +133,20 @@ export const PRESET_TASKS: PresetTask[] = [
     expiresAt: '2026-09-08',
   },
   {
+    id: 'phantom-night-finale-checkin',
+    name: '幻想曲終曲簽到',
+    category: '幻影降臨之夜',
+    resetCycle: 'daily',
+    expiresAt: '2026-09-08',
+  },
+  {
+    id: 'school-invite-monster-checkin',
+    name: '2000隻怪物簽到',
+    category: '要不要一起去上學',
+    resetCycle: 'daily',
+    expiresAt: '2026-09-08',
+  },
+  {
     id: 'weekend-party-playground-coin',
     name: '派對樂園 - 領取奇蹟票卷',
     category: '派對樂園',
