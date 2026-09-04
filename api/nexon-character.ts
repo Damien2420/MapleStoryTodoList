@@ -35,16 +35,6 @@ function withImageSize(imageUrl: string): string {
   }
 }
 
-/** NEXON 資料為每日快照,只能查前一天(含以前)的資料,以台北時區為準計算「前一天」 */
-function yesterdayInTaipei(): string {
-  const taipeiNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Taipei' }));
-  taipeiNow.setDate(taipeiNow.getDate() - 1);
-  const yyyy = taipeiNow.getFullYear();
-  const mm = String(taipeiNow.getMonth() + 1).padStart(2, '0');
-  const dd = String(taipeiNow.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
-}
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') {
     res.status(405).json(errorBody('METHOD_NOT_ALLOWED', '不支援的請求方法'));
@@ -94,10 +84,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return;
     }
 
-    const basicRes = await fetch(
-      `${NEXON_BASE_URL}/character/basic?ocid=${encodeURIComponent(idData.ocid)}&date=${yesterdayInTaipei()}`,
-      { headers: { 'x-nxopen-api-key': apiKey } },
-    );
+    const basicRes = await fetch(`${NEXON_BASE_URL}/character/basic?ocid=${encodeURIComponent(idData.ocid)}`, {
+      headers: { 'x-nxopen-api-key': apiKey },
+    });
 
     if (basicRes.status === 429) {
       res.status(429).json(errorBody('RATE_LIMITED', '查詢過於頻繁，請稍後再試'));
