@@ -55,7 +55,7 @@ function CycleRow({
           </span>
         </>
       ) : (
-        <span className="flex-1 text-[11px] text-muted-foreground/50">此週期無此類項目</span>
+        <span className="flex-1 text-[11px] text-muted-foreground">此週期無此類項目</span>
       )}
     </div>
   );

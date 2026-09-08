@@ -65,7 +65,7 @@ export function TaskItem({ task }: { task: CharacterTask }) {
       className={cn(
         'group flex cursor-pointer flex-col gap-1 rounded-lg px-2 py-2.5 transition-colors hover:bg-muted/60 sm:flex-row sm:items-center sm:gap-3',
         task.checked && 'opacity-60',
-        weekendClosed && 'cursor-not-allowed opacity-50 hover:bg-transparent',
+        weekendClosed && 'cursor-not-allowed hover:bg-transparent',
       )}
       onClick={handleToggle}
     >
@@ -81,7 +81,14 @@ export function TaskItem({ task }: { task: CharacterTask }) {
         </span>
 
         <div className="min-w-0 flex-1 truncate text-sm leading-snug font-medium">
-          <span className={cn(task.checked && 'line-through decoration-muted-foreground')}>{task.name}</span>
+          <span
+            className={cn(
+              task.checked && 'line-through decoration-muted-foreground',
+              weekendClosed && 'text-muted-foreground',
+            )}
+          >
+            {task.name}
+          </span>
         </div>
       </div>
 
