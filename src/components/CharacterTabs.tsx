@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ChevronLeft, ChevronRight, Loader2, Plus } from 'lucide-react';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,7 +28,6 @@ import { flattenBossSelections } from '@/lib/bossCatalog';
 export function CharacterTabs() {
   const characters = useCharacterStore((s) => s.characters);
   const activeCharacterId = useCharacterStore((s) => s.activeCharacterId);
-  const setActiveCharacter = useCharacterStore((s) => s.setActiveCharacter);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const flow = useAddCharacterFlow(() => setDialogOpen(false));
@@ -109,20 +108,21 @@ export function CharacterTabs() {
           ref={trackRef}
           className="flex flex-nowrap items-center gap-2 overflow-x-auto border-b border-border [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
-          <Tabs value={activeCharacterId ?? undefined} onValueChange={setActiveCharacter} className="contents">
-            {/* line variant = 底線式分頁;底線與選中文字改用金黃(secondary-foreground 深淺主題各自有足夠對比) */}
-            <TabsList variant="line" className="contents">
-              {characters.map((character) => (
-                <TabsTrigger
-                  key={character.id}
-                  value={character.id}
-                  className="shrink-0 px-3 py-2 text-sm font-medium transition-colors data-active:font-semibold data-active:text-secondary-foreground after:rounded-full after:bg-secondary-foreground group-data-horizontal/tabs:after:bottom-0 group-data-horizontal/tabs:after:h-[2.5px]"
-                >
-                  {character.name}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
+          {/* line variant = 底線式分頁;底線與選中文字改用金黃(secondary-foreground 深淺主題各自有足夠對比) */}
+          <TabsList variant="line" className="contents" aria-label="角色選擇">
+            {characters.map((character) => (
+              <TabsTrigger
+                key={character.id}
+                value={character.id}
+                // 目前只會渲染「選中角色」對應的那個 TabsContent(其餘角色的內容不會一併掛載),
+                // 所以只有選中中的分頁能指到真實存在的 id;其餘分頁不給 aria-controls,避免指向不存在的元素
+                aria-controls={character.id === activeCharacterId ? `character-panel-${character.id}` : undefined}
+                className="shrink-0 px-3 py-2 text-sm font-medium transition-colors data-active:font-semibold data-active:text-secondary-foreground after:rounded-full after:bg-secondary-foreground group-data-horizontal/tabs:after:bottom-0 group-data-horizontal/tabs:after:h-[2.5px]"
+              >
+                {character.name}
+              </TabsTrigger>
+            ))}
+          </TabsList>
         </div>
       </div>
 
