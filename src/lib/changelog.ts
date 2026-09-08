@@ -10,6 +10,14 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '1.3.2',
+    date: '2026-09-05',
+    changes: [
+      '修正特定時間查詢角色資料時，無法查詢的問題',
+      '修正翻譯導致畫面當機的問題',
+    ],
+  },
+  {
     version: '1.3.1',
     date: '2026-08-19',
     changes: [
