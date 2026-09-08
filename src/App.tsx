@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { Header } from '@/components/Header';
+import { AnnouncementBar } from '@/components/AnnouncementBar';
 import { CharacterTabs } from '@/components/CharacterTabs';
 import { CharacterHeader } from '@/components/CharacterHeader';
 import { FirstCharacterOnboarding } from '@/components/FirstCharacterOnboarding';
@@ -46,6 +47,7 @@ export function App() {
     <TooltipProvider>
       <div className="flex min-h-svh flex-col bg-background">
         <Header onGoHome={() => setShowBackupPage(false)} onOpenDataManagement={() => setShowBackupPage(true)} />
+        <AnnouncementBar />
 
         {showBackupPage ? (
           <Suspense fallback={<div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">載入中…</div>}>
