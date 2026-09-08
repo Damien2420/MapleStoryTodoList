@@ -122,19 +122,21 @@
     --cycle-season-foreground: oklch(0.45 0.02 70);
     --cycle-weekend: oklch(0.92 0.06 300);
     --cycle-weekend-foreground: oklch(0.42 0.12 300);
-    /* 難度語意色:簡單→終極沿楓橘色相(hue 35-36)遞增彩度、降低明度,不另開新色相,避免跟 destructive 混淆 */
-    --difficulty-easy: oklch(0.94 0.02 35);
-    --difficulty-easy-foreground: oklch(0.46 0.03 40);
-    --difficulty-normal: oklch(0.93 0.045 36);
-    --difficulty-normal-foreground: oklch(0.44 0.06 38);
-    --difficulty-hard: oklch(0.92 0.075 36);
-    --difficulty-hard-foreground: oklch(0.42 0.09 37);
-    --difficulty-chaos: oklch(0.9 0.11 36);
-    --difficulty-chaos-foreground: oklch(0.4 0.13 36);
-    --difficulty-extreme: oklch(0.88 0.145 36);
-    --difficulty-extreme-foreground: oklch(0.37 0.16 35);
-    --difficulty-ultimate: oklch(0.85 0.18 35);
-    --difficulty-ultimate-foreground: oklch(0.34 0.19 35);
+    /* 難度語意色:簡單→終極沿暖色調做真正的色相位移(金黃 75→終極深紫 284),彩度同步遞增;
+       高難度那三級(渾沌/極限/終極)間距刻意拉大到 28-40 度,避免擠在同一段桃紅/紫色系裡分不出來,
+       低難度三級維持 25 度即可(黃橘紅本身區辨度就高);刻意繞開 destructive 的紅色帶(hue 15-18) */
+    --difficulty-easy: oklch(0.94 0.05 75);
+    --difficulty-easy-foreground: oklch(0.44 0.08 75);
+    --difficulty-normal: oklch(0.92 0.08 50);
+    --difficulty-normal-foreground: oklch(0.42 0.1 50);
+    --difficulty-hard: oklch(0.895 0.11 25);
+    --difficulty-hard-foreground: oklch(0.41 0.12 25);
+    --difficulty-chaos: oklch(0.865 0.14 345);
+    --difficulty-chaos-foreground: oklch(0.4 0.16 345);
+    --difficulty-extreme: oklch(0.84 0.15 312);
+    --difficulty-extreme-foreground: oklch(0.4 0.17 312);
+    --difficulty-ultimate: oklch(0.815 0.16 284);
+    --difficulty-ultimate-foreground: oklch(0.38 0.18 284);
 }
 
 .dark {
@@ -182,18 +184,18 @@
     --cycle-season-foreground: oklch(0.8 0.02 85);
     --cycle-weekend: oklch(0.35 0.08 300);
     --cycle-weekend-foreground: oklch(0.88 0.09 300);
-    --difficulty-easy: oklch(0.26 0.02 36);
-    --difficulty-easy-foreground: oklch(0.72 0.03 40);
-    --difficulty-normal: oklch(0.28 0.045 36);
-    --difficulty-normal-foreground: oklch(0.76 0.06 39);
-    --difficulty-hard: oklch(0.3 0.075 37);
-    --difficulty-hard-foreground: oklch(0.8 0.09 38);
-    --difficulty-chaos: oklch(0.32 0.105 37);
-    --difficulty-chaos-foreground: oklch(0.84 0.11 38);
-    --difficulty-extreme: oklch(0.35 0.14 38);
-    --difficulty-extreme-foreground: oklch(0.87 0.14 38);
-    --difficulty-ultimate: oklch(0.38 0.17 38);
-    --difficulty-ultimate-foreground: oklch(0.9 0.17 38);
+    --difficulty-easy: oklch(0.27 0.045 75);
+    --difficulty-easy-foreground: oklch(0.78 0.06 75);
+    --difficulty-normal: oklch(0.29 0.065 50);
+    --difficulty-normal-foreground: oklch(0.8 0.08 50);
+    --difficulty-hard: oklch(0.31 0.09 25);
+    --difficulty-hard-foreground: oklch(0.82 0.1 25);
+    --difficulty-chaos: oklch(0.33 0.115 345);
+    --difficulty-chaos-foreground: oklch(0.85 0.13 345);
+    --difficulty-extreme: oklch(0.35 0.13 312);
+    --difficulty-extreme-foreground: oklch(0.87 0.14 312);
+    --difficulty-ultimate: oklch(0.37 0.14 284);
+    --difficulty-ultimate-foreground: oklch(0.89 0.15 284);
 }
 
 @layer base {

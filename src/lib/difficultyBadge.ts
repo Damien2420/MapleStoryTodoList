@@ -3,8 +3,8 @@ import type { BossDifficulty } from '@/types';
 /**
  * BOSS 難度標籤對應的語意色 Badge class(楓葉森林配色)。
  *
- * 簡單→終極沿楓橘色相(hue 35-36)遞增彩度、降低明度做漸層,難度越高視覺越濃烈,
- * 刻意不用跟週期 badge 不同的新色相,也不借用 destructive 的紅色系,避免「難度」跟「逾期警示」混淆。
+ * 簡單→終極沿暖色調做真正的色相位移(金黃→橘→酒紫),搭配彩度遞增,讓六個難度一眼就能分辨,
+ * 不只是靠明度深淺;刻意繞開 destructive 的紅色帶(hue 15-18),避免「難度」跟「逾期警示」混淆。
  * 顏色定義在 index.css 的 --difficulty-* token,深淺主題各自調校。
  */
 export const DIFFICULTY_BADGE_CLASSES: Record<BossDifficulty, string> = {
