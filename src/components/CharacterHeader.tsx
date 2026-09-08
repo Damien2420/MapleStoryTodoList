@@ -108,7 +108,7 @@ export function CharacterHeader({ character }: { character: Character }) {
         className="min-w-0 flex-1 border-t border-border pt-4 lg:border-t-0 lg:border-l lg:pt-0 lg:pr-8 lg:pl-6"
       />
 
-      <div className="absolute top-2 right-2 hidden items-center gap-1 lg:flex">
+      <div className="absolute top-2 right-2 hidden flex-col items-center gap-1 lg:flex">
         <Tooltip>
           <TooltipTrigger asChild>
               <Button
