@@ -84,7 +84,8 @@ function CycleCard({
   bossTotal?: number;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-2 rounded-lg border border-border bg-card p-2.5">
+    // basis 對應 2 欄(手機)/4 欄(桌面)等寬切法,flex-1 讓卡片數量變少時自動長大填滿整排,不會卡在靠左
+    <div className="flex min-w-36 flex-1 basis-[calc(50%-0.3125rem)] flex-col gap-2 rounded-lg border border-border bg-card p-2.5 lg:basis-[calc(25%-0.46875rem)]">
       <div className="flex items-baseline justify-between gap-2">
         <span className={cn('text-xs font-bold', dotClassName)}>{label}</span>
         {urgentLabel && (
@@ -193,7 +194,7 @@ export function DashboardSummary({ character, className }: { character: Characte
 
   return (
     <div className={cn('flex flex-col gap-3', className)}>
-      <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+      <div className="flex flex-wrap gap-2.5">
         {dailyHasCard && (
           <CycleCard
             label="每日"
