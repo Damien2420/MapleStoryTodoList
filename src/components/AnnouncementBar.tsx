@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type MouseEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react';
 import { ChevronDown, Megaphone, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -66,7 +66,7 @@ export function AnnouncementBar() {
     };
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     function checkOverflow() {
       const el = textRef.current;
       if (!el) return;
