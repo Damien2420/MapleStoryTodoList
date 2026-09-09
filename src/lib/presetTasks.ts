@@ -17,6 +17,8 @@ export interface PresetTask {
   expiresAt?: string;
   /** 來源 id,用於建立任務時回填 CharacterTask.presetId;群組展開出的任務會設成群組 id,未設定則視為自己的 id */
   sourceId?: string;
+  /** 上架日期(YYYY-MM-DD),用於「新增任務」挑選清單判斷分類是否顯示 NEW 標籤;未設定代表不參與新舊判斷 */
+  addedAt?: string;
 }
 
 /** 奧術之河/格蘭蒂斯等地區內的單一區域,依角色等級決定是否解鎖 */
@@ -45,6 +47,8 @@ export interface PresetTaskGroup {
   active?: boolean;
   /** 活動/限時群組的最後一天(YYYY-MM-DD),當天結束後自動視為已下架;未設定代表無期限 */
   expiresAt?: string;
+  /** 上架日期(YYYY-MM-DD),用於「新增任務」挑選清單判斷分類是否顯示 NEW 標籤;未設定代表不參與新舊判斷 */
+  addedAt?: string;
 }
 
 /** 分類顯示順序:每日 -> 每週 -> 公會,未列出的分類排在最後 */
@@ -59,6 +63,17 @@ export function sortByCategoryOrder<T>(entries: [string, T][]): [string, T][] {
     const orderB = indexB === -1 ? CATEGORY_DISPLAY_ORDER.length : indexB;
     return orderA - orderB;
   });
+}
+
+/** 「新增任務」挑選清單判斷分類是否顯示 NEW 標籤的天數門檻 */
+const NEW_CATEGORY_WINDOW_DAYS = 7;
+
+/** 判斷上架日期(YYYY-MM-DD)是否落在最近 NEW_CATEGORY_WINDOW_DAYS 天內(含當天) */
+export function isRecentlyAdded(addedAt: string, now: Date = new Date()): boolean {
+  const added = new Date(addedAt);
+  added.setHours(0, 0, 0, 0);
+  const diffDays = Math.floor((now.getTime() - added.getTime()) / 86_400_000);
+  return diffDays >= 0 && diffDays < NEW_CATEGORY_WINDOW_DAYS;
 }
 
 /** 群組內角色等級可進入的區域(依 minLevel 由低到高) */

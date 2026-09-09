@@ -10,6 +10,7 @@ export const PRESET_TASKS: PresetTask[] = [
     category: '楓之谷學院',
     resetCycle: 'daily',
     expiresAt: '2026-10-20',
+    addedAt: '2026-09-09',
   },
   {
     id: 'maplestroy-academy-advanced-check-in',
@@ -18,6 +19,7 @@ export const PRESET_TASKS: PresetTask[] = [
     resetCycle: 'weekly',
     weeklyResetDay: 4,
     expiresAt: '2026-10-20',
+    addedAt: '2026-09-09',
   },
   {
     id: 'maplestroy-academy',
@@ -25,6 +27,7 @@ export const PRESET_TASKS: PresetTask[] = [
     category: '楓之谷學院',
     resetCycle: 'daily',
     expiresAt: '2026-10-20',
+    addedAt: '2026-09-09',
   },
   {
     id: 'frieren-diary-check-in',
@@ -32,6 +35,7 @@ export const PRESET_TASKS: PresetTask[] = [
     category: '葬送的芙莉蓮合作',
     resetCycle: 'daily',
     expiresAt: '2026-10-06',
+    addedAt: '2026-09-09',
   },
   {
     id: 'adventure-with-frieren',
@@ -39,6 +43,7 @@ export const PRESET_TASKS: PresetTask[] = [
     category: '葬送的芙莉蓮合作',
     resetCycle: 'daily',
     expiresAt: '2026-10-06',
+    addedAt: '2026-09-09',
   },
   { id: 'guild-weekly', name: '公會任務(水道/旗幟)', category: '公會', resetCycle: 'weekly', weeklyResetDay: 4 },
   {

@@ -1,9 +1,17 @@
 import { useMemo } from 'react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Marker, MarkerContent } from '@/components/ui/marker';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { PRESET_TASKS, PRESET_TASK_GROUPS, isPresetExpired, isPresetGroupUnlocked, sortByCategoryOrder } from '@/lib/presetTasks';
+import {
+  PRESET_TASKS,
+  PRESET_TASK_GROUPS,
+  isPresetExpired,
+  isPresetGroupUnlocked,
+  isRecentlyAdded,
+  sortByCategoryOrder,
+} from '@/lib/presetTasks';
 
 interface PresetTaskPickerProps {
   selectedIds: Set<string>;
@@ -17,9 +25,15 @@ interface PickableItem {
   name: string;
   disabled: boolean;
   disabledReason?: string;
+  addedAt?: string;
 }
 
-/** 預設任務多選清單:依分類分組顯示,勾選後可一次套用多筆任務範本;地區群組會依角色等級鎖定 */
+/** 分類內只要有任一項目最近 7 天內上架就視為新分類 */
+function isNewCategory(items: PickableItem[]): boolean {
+  return items.some((item) => item.addedAt && isRecentlyAdded(item.addedAt));
+}
+
+/** 預設任務多選清單:依分類分組顯示,勾選後可一次套用多筆任務範本;地區群組會依角色等級鎖定;7 天內新上架的分類會標示 NEW 並排到最前面 */
 export function PresetTaskPicker({ selectedIds, onToggle, characterLevel }: PresetTaskPickerProps) {
   const groupedItems = useMemo(() => {
     const map = new Map<string, PickableItem[]>();
@@ -40,6 +54,7 @@ export function PresetTaskPicker({ selectedIds, onToggle, characterLevel }: Pres
         name: group.label,
         disabled: !unlocked,
         disabledReason: unlocked ? undefined : `需要角色 ${group.zones[0].minLevel} 等後才可選擇`,
+        addedAt: group.addedAt,
       });
     }
 
@@ -49,10 +64,13 @@ export function PresetTaskPicker({ selectedIds, onToggle, characterLevel }: Pres
         id: task.id,
         name: task.name,
         disabled: false,
+        addedAt: task.addedAt,
       });
     }
 
-    return sortByCategoryOrder(Array.from(map.entries()));
+    // 新分類排最前面,彼此之間、其餘分類之間仍依原本目錄順序排列(Array.sort 為穩定排序)
+    const sorted = sortByCategoryOrder(Array.from(map.entries()));
+    return [...sorted].sort(([, itemsA], [, itemsB]) => Number(isNewCategory(itemsB)) - Number(isNewCategory(itemsA)));
   }, [characterLevel]);
 
   const selectableIds = useMemo(
@@ -83,7 +101,10 @@ export function PresetTaskPicker({ selectedIds, onToggle, characterLevel }: Pres
         {groupedItems.map(([category, items]) => (
           <div key={category} className="flex flex-col gap-1.5">
             <Marker variant="separator">
-              <MarkerContent>{category}</MarkerContent>
+              <MarkerContent className="flex items-center gap-1.5">
+                {category}
+                {isNewCategory(items) && <Badge variant="secondary">NEW</Badge>}
+              </MarkerContent>
             </Marker>
             <div className="grid grid-cols-[repeat(auto-fit,minmax(12rem,1fr))] gap-2">
               {items.map((item) => {

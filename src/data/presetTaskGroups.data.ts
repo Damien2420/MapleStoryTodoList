@@ -25,6 +25,7 @@ export const PRESET_TASK_GROUPS: PresetTaskGroup[] = [
       { name: '擊殺食夢者13500隻', minLevel: 260 },
     ],
     expiresAt: '2026-12-01',
+    addedAt: '2026-09-09',
   },
   {
     id: 'lucid-season-quests',
@@ -42,6 +43,7 @@ export const PRESET_TASK_GROUPS: PresetTaskGroup[] = [
       { name: '噩夢的根源累積擊殺200次', minLevel: 260 },
     ],
     expiresAt: '2026-12-01',
+    addedAt: '2026-09-09',
   },
   {
     id: 'challenger-s3-primal-instinct',
