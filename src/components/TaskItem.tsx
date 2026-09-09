@@ -43,7 +43,8 @@ export function TaskItem({ task }: { task: CharacterTask }) {
   // 單次/賽季不會自動重置,區塊標題的 Badge 已經標示週期,單筆任務列不重複顯示
   const showCycleLabel = task.resetCycle !== 'once' && task.resetCycle !== 'season';
   const resetImminent =
-    showCycleLabel &&
+    task.resetCycle !== 'once' &&
+    task.resetCycle !== 'season' &&
     task.resetCycle !== 'biweekly-weekend' &&
     minutesUntilReset(task.resetCycle, settings, now, task.weeklyResetDay) < 60;
   const expiresAt = task.presetId ? findPresetExpiresAt(task.presetId) : undefined;
