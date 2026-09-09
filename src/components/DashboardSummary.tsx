@@ -119,9 +119,11 @@ export function DashboardSummary({ character, className }: { character: Characte
   const dailyTasks = useMemo(() => tasks.filter((t) => t.resetCycle === 'daily'), [tasks]);
   const weeklyTasks = useMemo(() => tasks.filter((t) => t.resetCycle === 'weekly'), [tasks]);
   const monthlyTasks = useMemo(() => tasks.filter((t) => t.resetCycle === 'monthly'), [tasks]);
+  const seasonTasks = useMemo(() => tasks.filter((t) => t.resetCycle === 'season'), [tasks]);
   const dailyDoneCount = useMemo(() => dailyTasks.filter((t) => t.checked).length, [dailyTasks]);
   const weeklyDoneCount = useMemo(() => weeklyTasks.filter((t) => t.checked).length, [weeklyTasks]);
   const monthlyDoneCount = useMemo(() => monthlyTasks.filter((t) => t.checked).length, [monthlyTasks]);
+  const seasonDoneCount = useMemo(() => seasonTasks.filter((t) => t.checked).length, [seasonTasks]);
 
   const dailyBosses = useMemo(() => bosses.filter((b) => b.resetCycle === 'daily'), [bosses]);
   const weeklyBosses = useMemo(
@@ -155,12 +157,13 @@ export function DashboardSummary({ character, className }: { character: Characte
   const weeklyHasBoss = weeklyBosses.length > 0;
   const monthlyHasTask = monthlyTasks.length > 0;
   const monthlyHasBoss = monthlyBosses.length > 0;
+  const seasonHasTask = seasonTasks.length > 0;
   const seasonHasBoss = seasonBosses.length > 0;
 
   const dailyHasCard = dailyHasTask || dailyHasBoss;
   const weeklyHasCard = weeklyHasTask || weeklyHasBoss;
   const monthlyHasCard = monthlyHasTask || monthlyHasBoss;
-  const seasonHasCard = seasonHasBoss;
+  const seasonHasCard = seasonHasTask || seasonHasBoss;
 
   // 每日一定在當天結束前重置,永遠顯示急迫感標籤沒有意義,不提供;週/月改用「今天是不是重置日」判斷
   // (重置時間固定 00:00,直接比對星期幾/日期即可;賽季改用「距離賽季實際截止日期」判斷,沿用 TaskItem 既有的 expiringSoon 慣例)
@@ -181,7 +184,9 @@ export function DashboardSummary({ character, className }: { character: Characte
       .filter((d): d is string => !!d);
     return dates.length > 0 ? dates.reduce((min, d) => (d < min ? d : min)) : undefined;
   }, [seasonBosses]);
-  const seasonAllDone = seasonDoneBossCount === seasonBosses.length;
+  const seasonAllDone =
+    (!seasonHasTask || seasonDoneCount === seasonTasks.length) &&
+    (!seasonHasBoss || seasonDoneBossCount === seasonBosses.length);
   const seasonUrgent =
     seasonHasCard &&
     !seasonAllDone &&
@@ -239,8 +244,10 @@ export function DashboardSummary({ character, className }: { character: Characte
             dotClassName="text-cycle-season-foreground"
             badgeClassName="bg-cycle-season text-cycle-season-foreground"
             barClassName="bg-cycle-season-foreground"
-            bossDone={seasonDoneBossCount}
-            bossTotal={seasonBosses.length}
+            taskDone={seasonHasTask ? seasonDoneCount : undefined}
+            taskTotal={seasonHasTask ? seasonTasks.length : undefined}
+            bossDone={seasonHasBoss ? seasonDoneBossCount : undefined}
+            bossTotal={seasonHasBoss ? seasonBosses.length : undefined}
           />
         )}
       </div>

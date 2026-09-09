@@ -34,12 +34,16 @@ export function TaskItem({ task }: { task: CharacterTask }) {
   const weekendClosed = task.resetCycle === 'biweekly-weekend' && !isWeekendEventOpen(now);
   const cycleLabel =
     task.resetCycle === 'once'
-      ? '一次性'
-      : task.resetCycle === 'biweekly-weekend'
-        ? formatWeekendEventStatus(now)
-        : formatTimeUntilReset(task.resetCycle, settings, now, task.weeklyResetDay);
+      ? '單次'
+      : task.resetCycle === 'season'
+        ? '賽季'
+        : task.resetCycle === 'biweekly-weekend'
+          ? formatWeekendEventStatus(now)
+          : formatTimeUntilReset(task.resetCycle, settings, now, task.weeklyResetDay);
+  // 單次/賽季不會自動重置,區塊標題的 Badge 已經標示週期,單筆任務列不重複顯示
+  const showCycleLabel = task.resetCycle !== 'once' && task.resetCycle !== 'season';
   const resetImminent =
-    task.resetCycle !== 'once' &&
+    showCycleLabel &&
     task.resetCycle !== 'biweekly-weekend' &&
     minutesUntilReset(task.resetCycle, settings, now, task.weeklyResetDay) < 60;
   const expiresAt = task.presetId ? findPresetExpiresAt(task.presetId) : undefined;
@@ -117,19 +121,21 @@ export function TaskItem({ task }: { task: CharacterTask }) {
                 </TooltipTrigger>
                 <TooltipContent>{formatExpiryDate(expiresAt)}</TooltipContent>
               </Tooltip>
-              <span className="h-3 w-px bg-border" />
+              {showCycleLabel && <span className="h-3 w-px bg-border" />}
             </>
           )}
 
-          <span
-            className={cn(
-              'flex items-center gap-1 text-xs',
-              resetImminent ? 'font-semibold text-destructive' : 'text-muted-foreground',
-            )}
-          >
-            <RefreshCw className="size-3" />
-            {cycleLabel}
-          </span>
+          {showCycleLabel && (
+            <span
+              className={cn(
+                'flex items-center gap-1 text-xs',
+                resetImminent ? 'font-semibold text-destructive' : 'text-muted-foreground',
+              )}
+            >
+              <RefreshCw className="size-3" />
+              {cycleLabel}
+            </span>
+          )}
         </div>
 
         <Tooltip>

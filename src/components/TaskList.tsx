@@ -41,7 +41,7 @@ function hasVisibleItems(grouped: Map<string, CharacterTask[]>, filter: StatusFi
 /** 依分類渲染單一週期(每日/每週)的任務區塊清單 */
 function renderCategoryGroup(
   grouped: Map<string, CharacterTask[]>,
-  cycleLabel: '每日' | '每週' | '每月' | '週末活動',
+  cycleLabel: '每日' | '每週' | '每月' | '週末活動' | '賽季' | '單次',
   characterId: string,
   statusFilter: StatusFilter,
   collapsedSections: Set<string>,
@@ -154,14 +154,20 @@ export function TaskList({ character }: { character: Character }) {
   const weeklyTasks = useMemo(() => tasks.filter((t) => t.resetCycle === 'weekly'), [tasks]);
   const monthlyTasks = useMemo(() => tasks.filter((t) => t.resetCycle === 'monthly'), [tasks]);
   const weekendTasks = useMemo(() => tasks.filter((t) => t.resetCycle === 'biweekly-weekend'), [tasks]);
+  const seasonTasks = useMemo(() => tasks.filter((t) => t.resetCycle === 'season'), [tasks]);
+  const onceTasks = useMemo(() => tasks.filter((t) => t.resetCycle === 'once'), [tasks]);
   const dailyGrouped = useMemo(() => groupByCategory(dailyTasks), [dailyTasks]);
   const weeklyGrouped = useMemo(() => groupByCategory(weeklyTasks), [weeklyTasks]);
   const monthlyGrouped = useMemo(() => groupByCategory(monthlyTasks), [monthlyTasks]);
   const weekendGrouped = useMemo(() => groupByCategory(weekendTasks), [weekendTasks]);
+  const seasonGrouped = useMemo(() => groupByCategory(seasonTasks), [seasonTasks]);
+  const onceGrouped = useMemo(() => groupByCategory(onceTasks), [onceTasks]);
   const showDaily = hasVisibleItems(dailyGrouped, taskStatusFilter);
   const showWeekly = hasVisibleItems(weeklyGrouped, taskStatusFilter);
   const showMonthly = hasVisibleItems(monthlyGrouped, taskStatusFilter);
   const showWeekend = hasVisibleItems(weekendGrouped, taskStatusFilter);
+  const showSeason = hasVisibleItems(seasonGrouped, taskStatusFilter);
+  const showOnce = hasVisibleItems(onceGrouped, taskStatusFilter);
 
   function handleDeleteCategory(category: string) {
     const removed = removeCategoryTasks(character.id, category);
@@ -237,7 +243,29 @@ export function TaskList({ character }: { character: Character }) {
                 toggleCategoryTasks,
                 handleDeleteCategory,
               )}
-            {!showDaily && !showWeekly && !showMonthly && !showWeekend && (
+            {showSeason &&
+              renderCategoryGroup(
+                seasonGrouped,
+                '賽季',
+                character.id,
+                taskStatusFilter,
+                collapsedTaskSections,
+                toggleTaskSection,
+                toggleCategoryTasks,
+                handleDeleteCategory,
+              )}
+            {showOnce &&
+              renderCategoryGroup(
+                onceGrouped,
+                '單次',
+                character.id,
+                taskStatusFilter,
+                collapsedTaskSections,
+                toggleTaskSection,
+                toggleCategoryTasks,
+                handleDeleteCategory,
+              )}
+            {!showDaily && !showWeekly && !showMonthly && !showWeekend && !showSeason && !showOnce && (
               <p className="py-8 text-center text-sm text-muted-foreground">沒有符合篩選條件的任務</p>
             )}
           </div>

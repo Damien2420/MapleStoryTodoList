@@ -7,7 +7,8 @@ const RESET_CYCLE_LABEL: Record<ResetCycle, string> = {
   weekly: '每週',
   monthly: '每月',
   'biweekly-weekend': '週末活動',
-  once: '一次性',
+  once: '單次',
+  season: '賽季',
 };
 
 interface PresetTaskPreviewProps {
