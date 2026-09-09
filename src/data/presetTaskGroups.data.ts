@@ -1,0 +1,85 @@
+import type { PresetTaskGroup } from '@/lib/presetTasks';
+
+/** 依角色等級展開成多筆區域每日任務的預設任務群組 */
+export const PRESET_TASK_GROUPS: PresetTaskGroup[] = [
+  {
+    id: 'challenger-s3-primal-instinct',
+    label: '原始直覺',
+    pickerCategory: '職業 Re-Master 簽到',
+    taskCategory: '職業 Re-Master 簽到',
+    resetCycle: 'daily',
+    zones: [
+      { name: '原始直覺 - 凱內西斯', minLevel: 1 },
+      { name: '原始直覺 - 狂豹獵人', minLevel: 1 },
+    ],
+    expiresAt: '2026-09-08',
+  },
+  {
+    id: 'arcane-river-daily',
+    label: '奧術之河地區每日任務',
+    pickerCategory: '每日任務',
+    taskCategory: '奧術之河',
+    resetCycle: 'daily',
+    zones: [
+      { name: '消逝的旅途', minLevel: 200 },
+      { name: '啾啾愛爾蘭', minLevel: 210 },
+      { name: '拉契爾恩', minLevel: 220 },
+      { name: '阿爾卡娜', minLevel: 225 },
+      { name: '魔菈斯', minLevel: 230 },
+      { name: '艾斯佩拉', minLevel: 235 },
+      { name: '月之橋', minLevel: 245 },
+      { name: '苦痛迷宮', minLevel: 250 },
+      { name: '利曼', minLevel: 255 },
+    ],
+  },
+  {
+    id: 'grandis-daily',
+    label: '格蘭蒂斯地區每日任務',
+    pickerCategory: '每日任務',
+    taskCategory: '格蘭蒂斯',
+    resetCycle: 'daily',
+    zones: [
+      { name: '賽爾尼溫', minLevel: 260 },
+      { name: '飯店阿爾克斯', minLevel: 265 },
+      { name: '奧迪溫', minLevel: 270 },
+      { name: '桃源境', minLevel: 275 },
+      { name: '阿爾特利亞', minLevel: 280 },
+      { name: '卡爾西溫', minLevel: 285 },
+      { name: '塔拉哈特', minLevel: 290 },
+    ],
+  },
+  {
+    id: 'epic-quests-weekly',
+    label: '史詩副本',
+    pickerCategory: '每週任務',
+    taskCategory: '每週任務',
+    resetCycle: 'weekly',
+    weeklyResetDay: 4,
+    zones: [
+      { name: '史詩副本 - 高山', minLevel: 260 },
+      { name: '史詩副本 - 安格洛公司', minLevel: 270 },
+      { name: '史詩副本 - 噩夢仙境', minLevel: 280 },
+    ],
+  },
+  {
+    id: 'crimson-queens-garden',
+    label: '紅月之森',
+    pickerCategory: '每週任務',
+    taskCategory: '每週任務',
+    resetCycle: 'weekly',
+    weeklyResetDay: 4,
+    zones: [
+      { name: '紅月之森', minLevel: 250 },
+      { name: '紅月之森 公告欄', minLevel: 250 },
+    ],
+  },
+  {
+    id: 'eldath-request',
+    label: '艾爾達斯的請求(六轉素材)',
+    pickerCategory: '每週任務',
+    taskCategory: '每週任務',
+    resetCycle: 'weekly',
+    weeklyResetDay: 4,
+    zones: [{ name: '艾爾達斯的請求(六轉素材)', minLevel: 260 }],
+  },
+];
