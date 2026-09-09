@@ -4,6 +4,42 @@ import type { PresetTask } from '@/lib/presetTasks';
  * 預設任務清單:提供使用者在新增任務/建立角色時一鍵套用的常見楓之谷任務範本。
  */
 export const PRESET_TASKS: PresetTask[] = [
+  {
+    id: 'maplestroy-academy-basic-check-in',
+    name: '基礎課程 - 1000隻簽到',
+    category: '楓之谷學院',
+    resetCycle: 'daily',
+    expiresAt: '2026-10-20',
+  },
+  {
+    id: 'maplestroy-academy-advanced-check-in',
+    name: '進階課程 - 50000隻簽到',
+    category: '楓之谷學院',
+    resetCycle: 'weekly',
+    weeklyResetDay: 4,
+    expiresAt: '2026-10-20',
+  },
+  {
+    id: 'maplestroy-academy',
+    name: '要不要一起去上學 - 簽到',
+    category: '楓之谷學院',
+    resetCycle: 'daily',
+    expiresAt: '2026-10-20',
+  },
+  {
+    id: 'frieren-diary-check-in',
+    name: '冒險日誌 - 簽到',
+    category: '葬送的芙莉蓮合作',
+    resetCycle: 'daily',
+    expiresAt: '2026-10-06',
+  },
+  {
+    id: 'adventure-with-frieren',
+    name: '與芙莉蓮夥伴們的冒險 - 召喚20次',
+    category: '葬送的芙莉蓮合作',
+    resetCycle: 'daily',
+    expiresAt: '2026-10-06',
+  },
   { id: 'guild-weekly', name: '公會任務(水道/旗幟)', category: '公會', resetCycle: 'weekly', weeklyResetDay: 4 },
   {
     id: 'battlefield-dragon-slaying',
