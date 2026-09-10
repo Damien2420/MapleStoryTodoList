@@ -221,10 +221,10 @@ export function TaskList({ character }: { character: Character }) {
                 toggleCategoryTasks,
                 handleDeleteCategory,
               )}
-            {showMonthly &&
+            {showWeekend &&
               renderCategoryGroup(
-                monthlyGrouped,
-                '每月',
+                weekendGrouped,
+                '週末活動',
                 character.id,
                 taskStatusFilter,
                 collapsedTaskSections,
@@ -232,10 +232,10 @@ export function TaskList({ character }: { character: Character }) {
                 toggleCategoryTasks,
                 handleDeleteCategory,
               )}
-            {showWeekend &&
+            {showMonthly &&
               renderCategoryGroup(
-                weekendGrouped,
-                '週末活動',
+                monthlyGrouped,
+                '每月',
                 character.id,
                 taskStatusFilter,
                 collapsedTaskSections,

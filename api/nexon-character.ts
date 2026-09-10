@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import process from 'node:process';
 
 const NEXON_BASE_URL = 'https://open.api.nexon.com/maplestorytw/v1';
 
@@ -41,7 +42,12 @@ async function logUpstreamError(context: string, res: Response): Promise<void> {
   console.error(`[nexon-character] ${context}, status ${res.status}: ${body}`);
 }
 
-type UpstreamOutcome = { ok: true } | { ok: false; status: number; error: string; message: string };
+interface UpstreamOutcome {
+  ok: boolean;
+  status: number;
+  error: string;
+  message: string;
+}
 
 /**
  * 統一分類 NEXON 回應的非預期狀態碼,id 查詢與 basic 查詢共用同一套判斷,避免兩處各寫一份規則、
@@ -49,7 +55,7 @@ type UpstreamOutcome = { ok: true } | { ok: false; status: number; error: string
  * 其餘非 2xx 一律視為上游異常並記錄 body。
  */
 async function classifyUpstreamStatus(res: Response, context: string): Promise<UpstreamOutcome> {
-  if (res.ok) return { ok: true };
+  if (res.ok) return { ok: true, status: 200, error: '', message: '' };
 
   if (res.status === 429) {
     return { ok: false, status: 429, error: 'RATE_LIMITED', message: '查詢過於頻繁，請稍後再試' };
