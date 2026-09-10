@@ -28,7 +28,7 @@ export function Footer() {
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>版本更新紀錄</DialogTitle>
-            <DialogDescription>楓之谷角色任務追蹤管理的歷史版本變更內容。</DialogDescription>
+            <DialogDescription>好楓寶進度追蹤器的歷史版本變更內容。</DialogDescription>
           </DialogHeader>
           <div className="flex max-h-[60vh] flex-col gap-4 overflow-y-auto">
             {CHANGELOG.map((entry) => (

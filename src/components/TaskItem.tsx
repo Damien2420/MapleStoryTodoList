@@ -34,12 +34,17 @@ export function TaskItem({ task }: { task: CharacterTask }) {
   const weekendClosed = task.resetCycle === 'biweekly-weekend' && !isWeekendEventOpen(now);
   const cycleLabel =
     task.resetCycle === 'once'
-      ? '一次性'
-      : task.resetCycle === 'biweekly-weekend'
-        ? formatWeekendEventStatus(now)
-        : formatTimeUntilReset(task.resetCycle, settings, now, task.weeklyResetDay);
+      ? '單次'
+      : task.resetCycle === 'season'
+        ? '賽季'
+        : task.resetCycle === 'biweekly-weekend'
+          ? formatWeekendEventStatus(now)
+          : formatTimeUntilReset(task.resetCycle, settings, now, task.weeklyResetDay);
+  // 單次/賽季不會自動重置,區塊標題的 Badge 已經標示週期,單筆任務列不重複顯示
+  const showCycleLabel = task.resetCycle !== 'once' && task.resetCycle !== 'season';
   const resetImminent =
     task.resetCycle !== 'once' &&
+    task.resetCycle !== 'season' &&
     task.resetCycle !== 'biweekly-weekend' &&
     minutesUntilReset(task.resetCycle, settings, now, task.weeklyResetDay) < 60;
   const expiresAt = task.presetId ? findPresetExpiresAt(task.presetId) : undefined;
@@ -65,7 +70,7 @@ export function TaskItem({ task }: { task: CharacterTask }) {
       className={cn(
         'group flex cursor-pointer flex-col gap-1 rounded-lg px-2 py-2.5 transition-colors hover:bg-muted/60 sm:flex-row sm:items-center sm:gap-3',
         task.checked && 'opacity-60',
-        weekendClosed && 'cursor-not-allowed opacity-50 hover:bg-transparent',
+        weekendClosed && 'cursor-not-allowed hover:bg-transparent',
       )}
       onClick={handleToggle}
     >
@@ -81,7 +86,14 @@ export function TaskItem({ task }: { task: CharacterTask }) {
         </span>
 
         <div className="min-w-0 flex-1 truncate text-sm leading-snug font-medium">
-          <span className={cn(task.checked && 'line-through decoration-muted-foreground')}>{task.name}</span>
+          <span
+            className={cn(
+              task.checked && 'line-through decoration-muted-foreground',
+              weekendClosed && 'text-muted-foreground',
+            )}
+          >
+            {task.name}
+          </span>
         </div>
       </div>
 
@@ -110,19 +122,21 @@ export function TaskItem({ task }: { task: CharacterTask }) {
                 </TooltipTrigger>
                 <TooltipContent>{formatExpiryDate(expiresAt)}</TooltipContent>
               </Tooltip>
-              <span className="h-3 w-px bg-border" />
+              {showCycleLabel && <span className="h-3 w-px bg-border" />}
             </>
           )}
 
-          <span
-            className={cn(
-              'flex items-center gap-1 text-xs',
-              resetImminent ? 'font-semibold text-destructive' : 'text-muted-foreground',
-            )}
-          >
-            <RefreshCw className="size-3" />
-            {cycleLabel}
-          </span>
+          {showCycleLabel && (
+            <span
+              className={cn(
+                'flex items-center gap-1 text-xs',
+                resetImminent ? 'font-semibold text-destructive' : 'text-muted-foreground',
+              )}
+            >
+              <RefreshCw className="size-3" />
+              {cycleLabel}
+            </span>
+          )}
         </div>
 
         <Tooltip>

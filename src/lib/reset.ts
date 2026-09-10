@@ -113,7 +113,7 @@ export function needsMonthlyReset(checked: boolean, lastResetAt: string, setting
 /** 判斷單一任務是否已跨越下一次重置時間點,需要把勾選狀態清掉 */
 export function needsReset(task: CharacterTask, settings: Settings, now: Date = new Date()): boolean {
   if (!task.checked) return false;
-  if (task.resetCycle === 'once') return false;
+  if (task.resetCycle === 'once' || task.resetCycle === 'season') return false;
   if (task.resetCycle === 'monthly') return needsMonthlyReset(task.checked, task.lastResetAt, settings, now);
   if (task.resetCycle === 'biweekly-weekend') return needsWeekendEventReset(task.checked, task.lastResetAt, now);
 

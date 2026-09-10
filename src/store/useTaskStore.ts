@@ -4,6 +4,7 @@ import type { CharacterTask, ResetCycle, Settings } from '@/types';
 import { needsReset, isWeekendEventOpen } from '@/lib/reset';
 import { sortTasksByPresetOrder, type PresetTask } from '@/lib/presetTasks';
 import { trackLocalChange } from '@/lib/trackLocalChange';
+import { clearTombstone, recordTombstone, type Tombstone } from '@/lib/tombstone';
 
 export interface NewTaskInput {
   characterId: string;
@@ -16,6 +17,7 @@ export interface NewTaskInput {
 
 interface TaskState {
   tasks: CharacterTask[];
+  deletedIds: Tombstone[];
   addTask: (input: NewTaskInput) => void;
   addPresetTasks: (characterId: string, presets: PresetTask[]) => void;
   toggleTask: (id: string) => void;
@@ -34,6 +36,7 @@ export const useTaskStore = create<TaskState>()(
   persist(
     (set, get) => ({
       tasks: [],
+      deletedIds: [],
       addTask: (input) => {
         const name = input.name.trim();
         const category = input.category.trim() || '未分類';
@@ -103,20 +106,32 @@ export const useTaskStore = create<TaskState>()(
         }));
       },
       removeTask: (id) => {
-        set((state) => ({ tasks: state.tasks.filter((t) => t.id !== id) }));
+        set((state) => ({
+          tasks: state.tasks.filter((t) => t.id !== id),
+          deletedIds: recordTombstone(state.deletedIds, id),
+        }));
       },
       restoreTask: (task) => {
-        set((state) => (state.tasks.some((t) => t.id === task.id) ? state : { tasks: [...state.tasks, task] }));
+        set((state) =>
+          state.tasks.some((t) => t.id === task.id)
+            ? state
+            : { tasks: [...state.tasks, task], deletedIds: clearTombstone(state.deletedIds, task.id) },
+        );
       },
       removeCategoryTasks: (characterId, category) => {
         const removed = get().tasks.filter((t) => t.characterId === characterId && t.category === category);
         set((state) => ({
           tasks: state.tasks.filter((t) => !(t.characterId === characterId && t.category === category)),
+          deletedIds: removed.reduce((acc, t) => recordTombstone(acc, t.id), state.deletedIds),
         }));
         return removed;
       },
       removeTasksForCharacter: (characterId) => {
-        set((state) => ({ tasks: state.tasks.filter((t) => t.characterId !== characterId) }));
+        const removed = get().tasks.filter((t) => t.characterId === characterId);
+        set((state) => ({
+          tasks: state.tasks.filter((t) => t.characterId !== characterId),
+          deletedIds: removed.reduce((acc, t) => recordTombstone(acc, t.id), state.deletedIds),
+        }));
       },
       runResetCheck: (settings) => {
         const now = new Date();
@@ -137,7 +152,11 @@ export const useTaskStore = create<TaskState>()(
       name: 'maplestory-todolist-tasks',
       // schema 版本:改動 CharacterTask 持久化結構(改名/刪除/改語意)時 version +1 並補 migrate,
       // 且需同步檢查 backupPayload.ts 的 CURRENT_VERSION/MIGRATIONS 是否也要升版
-      version: 0,
+      version: 1,
+      migrate: (persistedState) => {
+        const state = persistedState as TaskState;
+        return { ...state, deletedIds: state.deletedIds ?? [] };
+      },
     },
   ),
 );

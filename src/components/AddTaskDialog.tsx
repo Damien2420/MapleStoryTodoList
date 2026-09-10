@@ -31,7 +31,8 @@ const RESET_CYCLE_LABEL: Record<Exclude<ResetCycle, 'biweekly-weekend'>, string>
   daily: '每日',
   weekly: '每週',
   monthly: '每月',
-  once: '一次性',
+  once: '單次',
+  season: '賽季',
 };
 
 const WEEKDAY_LABEL = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
