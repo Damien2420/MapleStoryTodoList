@@ -14,7 +14,6 @@ function seedBoss() {
         partySize: 1,
         checked: false,
         lastResetAt: '2026-01-01T00:00:00.000Z',
-        order: 0,
       },
     ],
     deletedIds: [],
@@ -82,5 +81,40 @@ describe('useBossStore migration v1 -> v2', () => {
     const { useBossStore: freshStore } = await import('@/store/useBossStore');
     expect(freshStore.getState().deletedIds).toEqual([]);
     expect(freshStore.getState().bosses).toHaveLength(1);
+  });
+});
+
+describe('useBossStore migration v2 -> v3', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.resetModules();
+  });
+
+  it('舊版(v2)persisted state 的 order 欄位在 migrate 後被移除,顯示順序改依 BOSS_CATALOG 目錄即時計算', async () => {
+    localStorage.setItem(
+      'maplestory-todolist-bosses',
+      JSON.stringify({
+        state: {
+          bosses: [
+            {
+              id: 'b1',
+              characterId: 'c1',
+              bossName: 'testBoss',
+              difficulty: '簡單',
+              resetCycle: 'weekly',
+              crystalValue: 100,
+              partySize: 1,
+              checked: false,
+              lastResetAt: '2026-01-01T00:00:00.000Z',
+              order: 0,
+            },
+          ],
+          deletedIds: [],
+        },
+        version: 2,
+      }),
+    );
+    const { useBossStore: freshStore } = await import('@/store/useBossStore');
+    expect(freshStore.getState().bosses[0]).not.toHaveProperty('order');
   });
 });

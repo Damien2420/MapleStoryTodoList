@@ -1,16 +1,17 @@
-import type { Character, CharacterBossTrackList, CharacterTask } from '@/types';
+import type { BossDifficulty, Character, CharacterBossTrackList, CharacterSource, CharacterTask, ResetCycle } from '@/types';
+import type { Server } from '@/lib/servers';
 import { useCharacterStore } from '@/store/useCharacterStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useBossStore } from '@/store/useBossStore';
-import { migrateBossAddPartySize, migrateCharacterAddSource } from '@/lib/schemaMigrations';
+import { migrateBossAddPartySize, migrateBossRemoveOrder, migrateCharacterAddSource } from '@/lib/schemaMigrations';
 import type { Tombstone } from '@/lib/tombstone';
 
 /** 目前 app 支援的最新備份格式版本 */
-export const CURRENT_VERSION = 4;
+export const CURRENT_VERSION = 5;
 
 export interface DriveBackupPayload {
   /** 備份格式版本,供未來相容性判斷用 */
-  version: 4;
+  version: 5;
   /** 備份建立時間(ISO 字串) */
   createdAt: string;
   characters: Character[];
@@ -21,28 +22,90 @@ export interface DriveBackupPayload {
   bossTombstones: Tombstone[];
 }
 
+/**
+ * 以下是備份格式歷史版本的欄位快照,故意完全不引用 @/types 目前的即時定義(不用 Omit<Character, ...> 這種寫法)。
+ * 原因:避免更動到實際使用的型別的屬性時，造成這裡屬性無法比對需要調整 (例如調整 CharacterBossTrackList、CharacterTask... 等等的型別時),
+ */
+interface CharacterSnapshotV1 {
+  id: string;
+  name: string;
+  server: Server;
+  level: number;
+  job: string;
+  imageUrl?: string;
+  order: number;
+}
+
+interface CharacterSnapshotV2 extends CharacterSnapshotV1 {
+  source: CharacterSource;
+}
+
+interface TaskSnapshotV1 {
+  id: string;
+  characterId: string;
+  presetId?: string;
+  name: string;
+  category: string;
+  resetCycle: ResetCycle;
+  weeklyResetDay?: number;
+  dueDate?: string;
+  checked: boolean;
+  lastResetAt: string;
+  order: number;
+}
+
+interface BossSnapshotV1 {
+  id: string;
+  characterId: string;
+  bossName: string;
+  difficulty: BossDifficulty;
+  resetCycle: 'daily' | 'weekly' | 'monthly';
+  weeklyResetDay?: number;
+  category?: 'season';
+  bossCatalogId?: string;
+  crystalValue: number;
+  checked: boolean;
+  lastResetAt: string;
+  order: number;
+}
+
+interface BossSnapshotV3 extends BossSnapshotV1 {
+  partySize: number;
+}
+
 interface DriveBackupPayloadV1 {
   version: 1;
   createdAt: string;
-  characters: Omit<Character, 'source'>[];
-  tasks: CharacterTask[];
-  bosses: Omit<CharacterBossTrackList, 'partySize'>[];
+  characters: CharacterSnapshotV1[];
+  tasks: TaskSnapshotV1[];
+  bosses: BossSnapshotV1[];
 }
 
 interface DriveBackupPayloadV2 {
   version: 2;
   createdAt: string;
-  characters: Character[];
-  tasks: CharacterTask[];
-  bosses: Omit<CharacterBossTrackList, 'partySize'>[];
+  characters: CharacterSnapshotV2[];
+  tasks: TaskSnapshotV1[];
+  bosses: BossSnapshotV1[];
 }
 
 interface DriveBackupPayloadV3 {
   version: 3;
   createdAt: string;
-  characters: Character[];
-  tasks: CharacterTask[];
-  bosses: CharacterBossTrackList[];
+  characters: CharacterSnapshotV2[];
+  tasks: TaskSnapshotV1[];
+  bosses: BossSnapshotV3[];
+}
+
+interface DriveBackupPayloadV4 {
+  version: 4;
+  createdAt: string;
+  characters: CharacterSnapshotV2[];
+  characterTombstones: Tombstone[];
+  tasks: TaskSnapshotV1[];
+  taskTombstones: Tombstone[];
+  bosses: BossSnapshotV3[];
+  bossTombstones: Tombstone[];
 }
 
 /**
@@ -51,18 +114,27 @@ interface DriveBackupPayloadV3 {
  * 轉換邏輯統一放在 src/lib/schemaMigrations.ts(首次遷移時才建立),兩側各自 .map() 呼叫共用函式,
  * 不得各自內聯撰寫重複的轉換邏輯。
  */
-const MIGRATIONS: Record<number, (old: unknown) => DriveBackupPayload | DriveBackupPayloadV2 | DriveBackupPayloadV3> = {
+const MIGRATIONS: Record<
+  number,
+  (old: unknown) => DriveBackupPayload | DriveBackupPayloadV2 | DriveBackupPayloadV3 | DriveBackupPayloadV4
+> = {
   1: (old) => {
     const payload = old as DriveBackupPayloadV1;
     return { ...payload, version: 2, characters: payload.characters.map(migrateCharacterAddSource) };
   },
   2: (old) => {
     const payload = old as DriveBackupPayloadV2;
-    return { ...payload, version: 3, bosses: payload.bosses.map(migrateBossAddPartySize) };
+    // migrateBossAddPartySize 的宣告回傳型別是 CharacterBossTrackList,
+    // 但實際上是把輸入物件原封不動展開再補 partySize,order 仍會保留在執行期的結果裡,故在此明確標注型別
+    return { ...payload, version: 3, bosses: payload.bosses.map(migrateBossAddPartySize) as BossSnapshotV3[] };
   },
   3: (old) => {
     const payload = old as DriveBackupPayloadV3;
     return { ...payload, version: 4, characterTombstones: [], taskTombstones: [], bossTombstones: [] };
+  },
+  4: (old) => {
+    const payload = old as DriveBackupPayloadV4;
+    return { ...payload, version: 5, bosses: payload.bosses.map(migrateBossRemoveOrder) };
   },
 };
 

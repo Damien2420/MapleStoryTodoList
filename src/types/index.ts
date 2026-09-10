@@ -76,5 +76,4 @@ export interface CharacterBossTrackList {
   partySize: number;
   checked: boolean;
   lastResetAt: string;
-  order: number;
 }
