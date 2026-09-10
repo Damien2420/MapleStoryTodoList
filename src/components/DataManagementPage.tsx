@@ -18,13 +18,21 @@ import {
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { getSignedInEmail, isSignedIn, requestAccessToken, signOut } from '@/lib/googleDrive';
-import { backupNow, checkBackupAvailability, restoreFromLatest, type BackupAvailability } from '@/lib/googleDriveBackup';
+import {
+  applyRestoredPayload,
+  backupNow,
+  checkBackupAvailability,
+  fetchLatestBackup,
+  type BackupAvailability,
+} from '@/lib/googleDriveBackup';
 import { buildCurrentBackupPayloadJson, parseBackupPayload } from '@/lib/backupPayload';
 import { mergeBackupPayload } from '@/lib/backupMerge';
 import { useBackupStatus } from '@/hooks/useBackupStatus';
+import { useStaleConfirm } from '@/hooks/useStaleConfirm';
 import { useCharacterStore } from '@/store/useCharacterStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useBossStore } from '@/store/useBossStore';
+import { useSettingsStore } from '@/store/useSettingsStore';
 
 const DELETE_ALL_CONFIRM_TEXT = '刪除';
 
@@ -54,7 +62,9 @@ export function DataManagementPage({ onBack }: { onBack: () => void }) {
   const [deleteAllOpen, setDeleteAllOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [backupEmptyConfirmOpen, setBackupEmptyConfirmOpen] = useState(false);
+  const backupEmptyResolveRef = useRef<((proceed: boolean) => void) | null>(null);
   const { lastBackupAt, neverBackedUp, hasUnsavedChanges } = useBackupStatus();
+  const { confirmIfStale, staleConfirmDialog } = useStaleConfirm();
 
   // 空資料防護:沒有任何紀錄時,消費資料的操作(下載備份、刪除全部)不開放;產生資料的操作(匯入)不受影響
   const hasCharacters = useCharacterStore((s) => s.characters.length > 0);
@@ -68,6 +78,13 @@ export function DataManagementPage({ onBack }: { onBack: () => void }) {
       .then(setAvailability)
       .catch(() => toast.error('無法查詢 Drive 備份狀態，請稍後再試'));
   }, [signedIn]);
+
+  useEffect(() => {
+    return () => {
+      backupEmptyResolveRef.current?.(false);
+      backupEmptyResolveRef.current = null;
+    };
+  }, []);
 
   function handleDownloadToComputer() {
     downloadTextAsFile(
@@ -89,13 +106,17 @@ export function DataManagementPage({ onBack }: { onBack: () => void }) {
     try {
       const content = await file.text();
       const payload = parseBackupPayload(content);
+      const proceed = await confirmIfStale(payload.createdAt, 'import');
+      if (!proceed) return;
       const result = mergeBackupPayload(payload);
       toast.success(
-        `已匯入:新增 ${result.addedCharacters} 個角色、${result.addedTasks} 筆任務、${result.addedBosses} 筆 BOSS 紀錄`,
+        `已匯入:新增 ${result.addedCharacters} 個角色、${result.addedTasks} 筆任務、${result.addedBosses} 筆 BOSS 紀錄` +
+          (result.removedByTombstone > 0 ? `，同步移除 ${result.removedByTombstone} 筆已刪除的紀錄` : ''),
       );
       onBack();
-    } catch {
-      toast.error('檔案格式錯誤，匯入失敗');
+    } catch (error) {
+      // JSON.parse 失敗會丟出英文的 SyntaxError,不適合直接顯示;只有版本相關的錯誤才顯示原始訊息
+      toast.error(error instanceof Error && !(error instanceof SyntaxError) ? error.message : '檔案格式錯誤，匯入失敗');
     } finally {
       setImporting(false);
     }
@@ -129,37 +150,58 @@ export function DataManagementPage({ onBack }: { onBack: () => void }) {
   }
 
   async function performBackup() {
-    setBackingUp(true);
     try {
       await backupNow();
       toast.success('備份成功');
       setAvailability(await checkBackupAvailability());
     } catch (error) {
       toast.error(error instanceof Error ? error.message : '備份失敗');
+    }
+  }
+
+  /** 跳出「目前沒有任何角色資料,確定要備份嗎」確認對話框,回傳 Promise<boolean> */
+  function confirmBackupEmpty(): Promise<boolean> {
+    return new Promise((resolve) => {
+      backupEmptyResolveRef.current = resolve;
+      setBackupEmptyConfirmOpen(true);
+    });
+  }
+
+  function resolveBackupEmpty(proceed: boolean) {
+    setBackupEmptyConfirmOpen(false);
+    backupEmptyResolveRef.current?.(proceed);
+    backupEmptyResolveRef.current = null;
+  }
+
+  async function handleBackupNow() {
+    setBackingUp(true);
+    try {
+      // 按下備份的當下先關掉任何還顯示中的刪除復原 toast,避免備份完成後使用者再點復原,
+      // 導致一筆已經同步進這次備份的刪除紀錄被無聲復活
+      toast.dismiss();
+      if (!hasAnyData) {
+        const proceed = await confirmBackupEmpty();
+        if (!proceed) return;
+      } else {
+        const proceed = await confirmIfStale(lastBackupAt, 'backup');
+        if (!proceed) return;
+      }
+      await performBackup();
     } finally {
       setBackingUp(false);
     }
   }
 
-  function handleBackupNow() {
-    if (!hasAnyData) {
-      setBackupEmptyConfirmOpen(true);
-      return;
-    }
-    performBackup();
-  }
-
-  function handleConfirmBackupEmpty() {
-    setBackupEmptyConfirmOpen(false);
-    performBackup();
-  }
-
   async function handleRestore() {
     setRestoring(true);
     try {
-      const result = await restoreFromLatest();
+      const payload = await fetchLatestBackup();
+      const proceed = await confirmIfStale(payload.createdAt, 'import');
+      if (!proceed) return;
+      const result = applyRestoredPayload(payload);
       toast.success(
-        `已還原：新增 ${result.addedCharacters} 個角色、${result.addedTasks} 筆任務、${result.addedBosses} 筆 BOSS 紀錄`,
+        `已還原：新增 ${result.addedCharacters} 個角色、${result.addedTasks} 筆任務、${result.addedBosses} 筆 BOSS 紀錄` +
+          (result.removedByTombstone > 0 ? `，同步移除 ${result.removedByTombstone} 筆已刪除的紀錄` : ''),
       );
       onBack();
     } catch (error) {
@@ -178,6 +220,7 @@ export function DataManagementPage({ onBack }: { onBack: () => void }) {
     useCharacterStore.setState({ characters: [], activeCharacterId: null });
     useTaskStore.setState({ tasks: [] });
     useBossStore.setState({ bosses: [] });
+    useSettingsStore.setState({ lastBackupAt: undefined, lastLocalChangeAt: undefined });
     setDeleteAllOpen(false);
     setDeleteConfirmText('');
     toast.success('已刪除全部角色紀錄');
@@ -365,7 +408,7 @@ export function DataManagementPage({ onBack }: { onBack: () => void }) {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={backupEmptyConfirmOpen} onOpenChange={setBackupEmptyConfirmOpen}>
+      <AlertDialog open={backupEmptyConfirmOpen} onOpenChange={(open) => !open && resolveBackupEmpty(false)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>目前沒有任何角色資料</AlertDialogTitle>
@@ -375,10 +418,12 @@ export function DataManagementPage({ onBack }: { onBack: () => void }) {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmBackupEmpty}>仍要備份</AlertDialogAction>
+            <AlertDialogAction onClick={() => resolveBackupEmpty(true)}>仍要備份</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {staleConfirmDialog}
     </div>
   );
 }
