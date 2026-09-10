@@ -209,14 +209,6 @@ export const BOSS_CATALOG: BossCatalogEntry[] = [
     ],
   },
   {
-    id: 'malitia',
-    name: '瑪莉西亞',
-    difficulties: [
-      { difficulty: '普通', crystalValue: 150_000_000, resetCycle: 'weekly', weeklyResetDay: 4, maxPartySize: 3 },
-      { difficulty: '終極', crystalValue: 1_500_000_000, resetCycle: 'weekly', weeklyResetDay: 4, maxPartySize: 3 },
-    ],
-  },
-  {
     id: 'black-mage',
     name: '黑魔法師',
     difficulties: [
@@ -293,6 +285,14 @@ export const BOSS_CATALOG: BossCatalogEntry[] = [
     difficulties: [
       { difficulty: '普通', crystalValue: 705_000_000, resetCycle: 'weekly', weeklyResetDay: 4, maxPartySize: 3 },
       { difficulty: '困難', crystalValue: 1_368_000_000, resetCycle: 'weekly', weeklyResetDay: 4, maxPartySize: 3 },
+    ],
+  },
+  {
+    id: 'malitia',
+    name: '瑪莉西亞',
+    difficulties: [
+      { difficulty: '普通', crystalValue: 150_000_000, resetCycle: 'weekly', weeklyResetDay: 4, maxPartySize: 3 },
+      { difficulty: '終極', crystalValue: 1_500_000_000, resetCycle: 'weekly', weeklyResetDay: 4, maxPartySize: 3 },
     ],
   },
   {

@@ -7,7 +7,7 @@ import { useBossStore } from '@/store/useBossStore';
 
 function emptyPayload(overrides: Partial<DriveBackupPayload> = {}): DriveBackupPayload {
   return {
-    version: 4,
+    version: 5,
     createdAt: '2026-01-01T00:00:00.000Z',
     characters: [],
     characterTombstones: [],

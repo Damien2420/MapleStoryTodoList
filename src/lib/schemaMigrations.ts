@@ -20,3 +20,13 @@ export function migrateBossAddPartySize(
   const partySize = Number(boss.partySize);
   return { ...boss, partySize: Number.isFinite(partySize) && partySize >= 1 ? Math.round(partySize) : 1 };
 }
+
+/**
+ * CharacterBossTrackList v1 → v2:移除 order 欄位,顯示順序改為每次讀取時依 BOSS_CATALOG 目錄順序即時計算
+ * (見 lib/bossCatalog.ts 的 sortTrackedBossesByCatalogOrder),不再需要持久化的排序快取值。
+ */
+export function migrateBossRemoveOrder(boss: CharacterBossTrackList & { order?: number }): CharacterBossTrackList {
+  const { order, ...rest } = boss;
+  void order;
+  return rest;
+}

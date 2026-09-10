@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { useBossStore } from '@/store/useBossStore';
 import { useListFilterStore, type BossCycleKey } from '@/store/useListFilterStore';
 import { filterItemsByStatus } from '@/lib/listFilter';
-import { findBossCatalogEntry, isCatalogEntryExpired } from '@/lib/bossCatalog';
+import { findBossCatalogEntry, isCatalogEntryExpired, sortTrackedBossesByCatalogOrder } from '@/lib/bossCatalog';
 import { CYCLE_BADGE_CLASSES } from '@/lib/cycleBadge';
 import { cn } from '@/lib/utils';
 import type { Character, CharacterBossTrackList } from '@/types';
@@ -87,9 +87,9 @@ export function BossList({ character }: { character: Character }) {
 
   const bosses = useMemo(
     () =>
-      allBosses
-        .filter((b) => b.characterId === character.id && !isBossExpired(b))
-        .sort((a, b) => a.order - b.order),
+      sortTrackedBossesByCatalogOrder(
+        allBosses.filter((b) => b.characterId === character.id && !isBossExpired(b)),
+      ),
     [allBosses, character.id],
   );
 

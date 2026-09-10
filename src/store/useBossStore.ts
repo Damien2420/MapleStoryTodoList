@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { CharacterBossTrackList, CharacterTask, Settings } from '@/types';
+import type { CharacterBossTrackList, Settings } from '@/types';
 import { needsMonthlyReset, needsReset } from '@/lib/reset';
 import {
   findBossCatalogEntry,
@@ -10,7 +10,7 @@ import {
   type BossSelection,
 } from '@/lib/bossCatalog';
 import { trackLocalChange } from '@/lib/trackLocalChange';
-import { migrateBossAddPartySize } from '@/lib/schemaMigrations';
+import { migrateBossAddPartySize, migrateBossRemoveOrder } from '@/lib/schemaMigrations';
 import { clearTombstone, recordTombstone, type Tombstone } from '@/lib/tombstone';
 
 interface BossState {
@@ -57,16 +57,12 @@ export const useBossStore = create<BossState>()(
               partySize: 1,
               checked: false,
               lastResetAt: now,
-              order: 0,
             });
           }
           const otherCharacters = state.bosses.filter((b) => b.characterId !== characterId);
           const ownExisting = state.bosses.filter((b) => b.characterId === characterId);
           // 每次加入都把「這個角色現有的 + 新增的」BOSS 依目錄順序重新排一次,不管分幾次加入都會得到同一個順序
-          const merged = sortTrackedBossesByCatalogOrder([...ownExisting, ...newBosses]).map((boss, index) => ({
-            ...boss,
-            order: index,
-          }));
+          const merged = sortTrackedBossesByCatalogOrder([...ownExisting, ...newBosses]);
           return { bosses: [...otherCharacters, ...merged] };
         });
       },
@@ -133,19 +129,7 @@ export const useBossStore = create<BossState>()(
               return boss;
             }
 
-            // needsReset 只讀取 CharacterTask 的重置相關欄位,這裡建構一個滿足型別的代理物件重用同一份判斷邏輯
-            const resetProxy: CharacterTask = {
-              id: boss.id,
-              characterId: boss.characterId,
-              name: boss.bossName,
-              category: 'boss',
-              resetCycle: boss.resetCycle,
-              weeklyResetDay: boss.weeklyResetDay,
-              checked: boss.checked,
-              lastResetAt: boss.lastResetAt,
-              order: boss.order,
-            };
-            if (needsReset(resetProxy, settings, now)) {
+            if (needsReset(boss, settings, now)) {
               changed = true;
               return { ...boss, checked: false, lastResetAt: now.toISOString() };
             }
@@ -159,7 +143,7 @@ export const useBossStore = create<BossState>()(
       name: 'maplestory-todolist-bosses',
       // schema 版本:改動 CharacterBossTrackList 持久化結構(改名/刪除/改語意)時 version +1 並補 migrate,
       // 且需同步檢查 backupPayload.ts 的 CURRENT_VERSION/MIGRATIONS 是否也要升版
-      version: 2,
+      version: 3,
       migrate: (persistedState, version) => {
         const state = persistedState as BossState;
         let migrated = state;
@@ -168,6 +152,9 @@ export const useBossStore = create<BossState>()(
         }
         if (version <= 1) {
           migrated = { ...migrated, deletedIds: [] };
+        }
+        if (version <= 2) {
+          migrated = { ...migrated, bosses: migrated.bosses.map(migrateBossRemoveOrder) };
         }
         return migrated;
       },

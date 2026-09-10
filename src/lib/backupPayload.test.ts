@@ -26,14 +26,14 @@ describe('parseBackupPayload migration v3 -> v4', () => {
       bosses: [],
     });
     const payload = parseBackupPayload(v3Json);
-    expect(payload.version).toBe(4);
+    expect(payload.version).toBe(CURRENT_VERSION);
     expect(payload.characterTombstones).toEqual([]);
     expect(payload.taskTombstones).toEqual([]);
     expect(payload.bossTombstones).toEqual([]);
     expect(payload.characters).toHaveLength(1);
   });
 
-  it('v1 舊備份可以一路升版到 v4', () => {
+  it('v1 舊備份可以一路升版到最新版本', () => {
     const v1Json = JSON.stringify({
       version: 1,
       createdAt: '2026-01-01T00:00:00.000Z',
@@ -42,9 +42,77 @@ describe('parseBackupPayload migration v3 -> v4', () => {
       bosses: [],
     });
     const payload = parseBackupPayload(v1Json);
-    expect(payload.version).toBe(4);
+    expect(payload.version).toBe(CURRENT_VERSION);
     expect(payload.characters[0].source).toBe('manual');
     expect(payload.characterTombstones).toEqual([]);
+  });
+
+  it('v1 舊備份帶 BOSS 資料時,完整走過 v1->v5 每一步遷移:補上 partySize、拿掉 order、其餘欄位不變', () => {
+    const v1Json = JSON.stringify({
+      version: 1,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      characters: [],
+      tasks: [],
+      bosses: [
+        {
+          id: 'b1',
+          characterId: 'c1',
+          bossName: 'testBoss',
+          difficulty: '簡單',
+          resetCycle: 'weekly',
+          crystalValue: 100,
+          checked: false,
+          lastResetAt: '2026-01-01T00:00:00.000Z',
+          order: 3,
+        },
+      ],
+    });
+    const payload = parseBackupPayload(v1Json);
+    expect(payload.version).toBe(CURRENT_VERSION);
+    expect(payload.bosses).toHaveLength(1);
+    expect(payload.bosses[0]).not.toHaveProperty('order');
+    expect(payload.bosses[0]).toMatchObject({
+      id: 'b1',
+      characterId: 'c1',
+      bossName: 'testBoss',
+      difficulty: '簡單',
+      resetCycle: 'weekly',
+      crystalValue: 100,
+      partySize: 1,
+      checked: false,
+      lastResetAt: '2026-01-01T00:00:00.000Z',
+    });
+  });
+});
+
+describe('parseBackupPayload migration v4 -> v5', () => {
+  it('舊版 v4 備份的 bosses 有 order 欄位,升版後被移除', () => {
+    const v4Json = JSON.stringify({
+      version: 4,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      characters: [],
+      characterTombstones: [],
+      tasks: [],
+      taskTombstones: [],
+      bosses: [
+        {
+          id: 'b1',
+          characterId: 'c1',
+          bossName: 'testBoss',
+          difficulty: '簡單',
+          resetCycle: 'weekly',
+          crystalValue: 100,
+          partySize: 1,
+          checked: false,
+          lastResetAt: '2026-01-01T00:00:00.000Z',
+          order: 0,
+        },
+      ],
+      bossTombstones: [],
+    });
+    const payload = parseBackupPayload(v4Json);
+    expect(payload.version).toBe(CURRENT_VERSION);
+    expect(payload.bosses[0]).not.toHaveProperty('order');
   });
 });
 
