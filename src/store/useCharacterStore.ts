@@ -4,6 +4,7 @@ import type { Character, CharacterSource } from '@/types';
 import type { Server } from '@/lib/servers';
 import { trackLocalChange } from '@/lib/trackLocalChange';
 import { migrateCharacterAddSource } from '@/lib/schemaMigrations';
+import { recordTombstone, type Tombstone } from '@/lib/tombstone';
 
 export interface NewCharacterInput {
   name: string;
@@ -20,6 +21,7 @@ export type CharacterUpdateInput = Partial<Pick<Character, 'name' | 'server' | '
 interface CharacterState {
   characters: Character[];
   activeCharacterId: string | null;
+  deletedIds: Tombstone[];
   /** 新增角色,回傳新角色的 id,方便呼叫端接著套用預設任務 */
   addCharacter: (input: NewCharacterInput) => string;
   /** 更新既有角色的部分欄位,用於「更新角色」按鈕(api 重新查詢或 manual 手動編輯) */
@@ -33,6 +35,7 @@ export const useCharacterStore = create<CharacterState>()(
     (set, get) => ({
       characters: [],
       activeCharacterId: null,
+      deletedIds: [],
       addCharacter: (input) => {
         const trimmed = input.name.trim();
         if (!trimmed) return '';
@@ -62,7 +65,7 @@ export const useCharacterStore = create<CharacterState>()(
           const characters = state.characters.filter((c) => c.id !== id);
           const activeCharacterId =
             state.activeCharacterId === id ? (characters[0]?.id ?? null) : state.activeCharacterId;
-          return { characters, activeCharacterId };
+          return { characters, activeCharacterId, deletedIds: recordTombstone(state.deletedIds, id) };
         });
       },
       setActiveCharacter: (id) => set({ activeCharacterId: id }),
@@ -71,13 +74,17 @@ export const useCharacterStore = create<CharacterState>()(
       name: 'maplestory-todolist-characters',
       // schema 版本:改動 Character 持久化結構(改名/刪除/改語意)時 version +1 並補 migrate,
       // 且需同步檢查 backupPayload.ts 的 CURRENT_VERSION/MIGRATIONS 是否也要升版
-      version: 1,
+      version: 2,
       migrate: (persistedState, version) => {
         const state = persistedState as CharacterState;
+        let migrated = state;
         if (version === 0) {
-          return { ...state, characters: state.characters.map(migrateCharacterAddSource) };
+          migrated = { ...migrated, characters: migrated.characters.map(migrateCharacterAddSource) };
         }
-        return state;
+        if (version <= 1) {
+          migrated = { ...migrated, deletedIds: [] };
+        }
+        return migrated;
       },
     },
   ),

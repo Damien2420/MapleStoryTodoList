@@ -11,9 +11,11 @@ import {
 } from '@/lib/bossCatalog';
 import { trackLocalChange } from '@/lib/trackLocalChange';
 import { migrateBossAddPartySize } from '@/lib/schemaMigrations';
+import { clearTombstone, recordTombstone, type Tombstone } from '@/lib/tombstone';
 
 interface BossState {
   bosses: CharacterBossTrackList[];
+  deletedIds: Tombstone[];
   addBosses: (characterId: string, selections: BossSelection[]) => void;
   toggleBoss: (id: string) => void;
   /** 將指定 id 清單內的 BOSS 一次設為同一個勾選狀態(用於「全部完成」按鈕) */
@@ -31,6 +33,7 @@ export const useBossStore = create<BossState>()(
   persist(
     (set) => ({
       bosses: [],
+      deletedIds: [],
       addBosses: (characterId, selections) => {
         if (selections.length === 0) return;
         const now = new Date().toISOString();
@@ -86,7 +89,10 @@ export const useBossStore = create<BossState>()(
         }));
       },
       removeBoss: (id) => {
-        set((state) => ({ bosses: state.bosses.filter((b) => b.id !== id) }));
+        set((state) => ({
+          bosses: state.bosses.filter((b) => b.id !== id),
+          deletedIds: recordTombstone(state.deletedIds, id),
+        }));
       },
       setBossPartySize: (id, partySize) => {
         set((state) => ({
@@ -99,10 +105,20 @@ export const useBossStore = create<BossState>()(
         }));
       },
       restoreBoss: (boss) => {
-        set((state) => (state.bosses.some((b) => b.id === boss.id) ? state : { bosses: [...state.bosses, boss] }));
+        set((state) =>
+          state.bosses.some((b) => b.id === boss.id)
+            ? state
+            : { bosses: [...state.bosses, boss], deletedIds: clearTombstone(state.deletedIds, boss.id) },
+        );
       },
       removeBossesForCharacter: (characterId) => {
-        set((state) => ({ bosses: state.bosses.filter((b) => b.characterId !== characterId) }));
+        set((state) => {
+          const removed = state.bosses.filter((b) => b.characterId === characterId);
+          return {
+            bosses: state.bosses.filter((b) => b.characterId !== characterId),
+            deletedIds: removed.reduce((acc, b) => recordTombstone(acc, b.id), state.deletedIds),
+          };
+        });
       },
       runResetCheck: (settings) => {
         const now = new Date();
@@ -143,13 +159,17 @@ export const useBossStore = create<BossState>()(
       name: 'maplestory-todolist-bosses',
       // schema 版本:改動 CharacterBossTrackList 持久化結構(改名/刪除/改語意)時 version +1 並補 migrate,
       // 且需同步檢查 backupPayload.ts 的 CURRENT_VERSION/MIGRATIONS 是否也要升版
-      version: 1,
+      version: 2,
       migrate: (persistedState, version) => {
         const state = persistedState as BossState;
+        let migrated = state;
         if (version === 0) {
-          return { ...state, bosses: state.bosses.map(migrateBossAddPartySize) };
+          migrated = { ...migrated, bosses: migrated.bosses.map(migrateBossAddPartySize) };
         }
-        return state;
+        if (version <= 1) {
+          migrated = { ...migrated, deletedIds: [] };
+        }
+        return migrated;
       },
     },
   ),
