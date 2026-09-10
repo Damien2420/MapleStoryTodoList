@@ -1,6 +1,6 @@
 import { useSettingsStore } from '@/store/useSettingsStore';
-import { buildCurrentBackupPayloadJson, parseBackupPayload } from '@/lib/backupPayload';
-import { mergeBackupPayload, type MergeResult } from '@/lib/backupMerge';
+import { buildCurrentBackupPayloadJson, parseBackupPayload, type DriveBackupPayload } from '@/lib/backupPayload';
+import { mergeBackupPayload, pruneAllTombstones, type MergeResult } from '@/lib/backupMerge';
 import { downloadFile, findFileId, uploadFile } from '@/lib/googleDrive';
 import { hasUnsavedLocalChanges } from '@/lib/backupStatus';
 
@@ -12,12 +12,17 @@ export interface BackupAvailability {
   latest: boolean;
 }
 
-/** 「這次/上次」輪替:先把目前的 backup-latest.json 內容搬去 backup-previous.json,再寫入新的 backup-latest.json */
+/**
+ * fetch → merge → push:先把 Drive 現有內容合併進本機(吸收其他裝置的新增與刪除意圖),
+ * 再把合併後的本機狀態上傳,避免整批覆蓋掉其他裝置還沒同步下來的異動。
+ * 「這次/上次」輪替:先把目前的 backup-latest.json 內容搬去 backup-previous.json,再寫入新的 backup-latest.json。
+ */
 export async function backupNow(): Promise<void> {
   const latestFileId = await findFileId(LATEST_FILE_NAME);
 
   if (latestFileId) {
     const previousContent = await downloadFile(latestFileId);
+    mergeBackupPayload(parseBackupPayload(previousContent));
     await Promise.all([
       uploadFile(PREVIOUS_FILE_NAME, previousContent),
       uploadFile(LATEST_FILE_NAME, buildCurrentBackupPayloadJson()),
@@ -26,6 +31,7 @@ export async function backupNow(): Promise<void> {
     await uploadFile(LATEST_FILE_NAME, buildCurrentBackupPayloadJson());
   }
 
+  pruneAllTombstones();
   useSettingsStore.getState().setLastBackupAt(new Date().toISOString());
 }
 
@@ -35,15 +41,21 @@ export async function checkBackupAvailability(): Promise<BackupAvailability> {
   return { latest: latestId !== undefined };
 }
 
-/** 從最新備份還原並合併進本機 store,回傳新增的角色/任務/BOSS 筆數 */
-export async function restoreFromLatest(): Promise<MergeResult> {
+/**
+ * 下載並解析 Drive 上最新的備份內容,不做任何合併。
+ * 拆成獨立函式是為了讓呼叫端能在合併前先檢查 payload.createdAt(例如判斷備份是否過時,先問使用者再決定要不要合併)。
+ */
+export async function fetchLatestBackup(): Promise<DriveBackupPayload> {
   const fileId = await findFileId(LATEST_FILE_NAME);
   if (!fileId) {
     throw new Error('尚未有備份紀錄');
   }
   const content = await downloadFile(fileId);
-  const payload = parseBackupPayload(content);
+  return parseBackupPayload(content);
+}
 
+/** 把已經下載好的備份內容合併進本機 store,回傳新增/移除的角色/任務/BOSS 筆數 */
+export function applyRestoredPayload(payload: DriveBackupPayload): MergeResult {
   const { lastBackupAt, lastLocalChangeAt } = useSettingsStore.getState();
   const hadPendingChangesBeforeRestore = hasUnsavedLocalChanges(lastBackupAt, lastLocalChangeAt);
 

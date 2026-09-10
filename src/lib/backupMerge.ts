@@ -2,43 +2,65 @@ import type { DriveBackupPayload } from '@/lib/backupPayload';
 import { useCharacterStore } from '@/store/useCharacterStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useBossStore } from '@/store/useBossStore';
+import { applyTombstones, pruneTombstones } from '@/lib/tombstone';
 
 export interface MergeResult {
   addedCharacters: number;
   addedTasks: number;
   addedBosses: number;
+  /** 因為別的裝置傳來的刪除墓碑,而在本機一併移除的筆數(角色+任務+BOSS 加總) */
+  removedByTombstone: number;
 }
 
 /**
- * 把備份內容合併進本機 store:角色/任務/BOSS 各自只新增本機不存在的 id,
- * 本機已存在的紀錄一律保留原狀、不覆寫(id 皆為 crypto.randomUUID() 產生,不會跨備份重複)。
+ * 把備份內容雙向合併進本機 store:
+ * 1. 角色/任務/BOSS 各自呼叫 applyTombstones,新增本機沒有的資料、移除已被(任一裝置)標記刪除的資料
+ * 2. 合併後的墓碑清單一併寫回 store,讓刪除意圖可以繼續往下一次備份傳遞
  */
 export function mergeBackupPayload(payload: DriveBackupPayload): MergeResult {
-  const localCharacterIds = new Set(useCharacterStore.getState().characters.map((c) => c.id));
-  const localTaskIds = new Set(useTaskStore.getState().tasks.map((t) => t.id));
-  const localBossIds = new Set(useBossStore.getState().bosses.map((b) => b.id));
+  const characterState = useCharacterStore.getState();
+  const characterResult = applyTombstones(
+    characterState.characters,
+    characterState.deletedIds,
+    payload.characters,
+    payload.characterTombstones,
+  );
 
-  const newCharacters = payload.characters.filter((c) => !localCharacterIds.has(c.id));
-  const newTasks = payload.tasks.filter((t) => !localTaskIds.has(t.id));
-  const newBosses = payload.bosses.filter((b) => !localBossIds.has(b.id));
+  const taskState = useTaskStore.getState();
+  const taskResult = applyTombstones(taskState.tasks, taskState.deletedIds, payload.tasks, payload.taskTombstones);
 
-  if (newCharacters.length > 0) {
-    useCharacterStore.setState((state) => ({
-      characters: [...state.characters, ...newCharacters],
-      // 本機原本沒有任何角色時,還原後要有一個預設選中的角色,不然畫面會一直卡在「建立第一個角色」的引導畫面
-      activeCharacterId: state.activeCharacterId ?? newCharacters[0].id,
-    }));
-  }
-  if (newTasks.length > 0) {
-    useTaskStore.setState((state) => ({ tasks: [...state.tasks, ...newTasks] }));
-  }
-  if (newBosses.length > 0) {
-    useBossStore.setState((state) => ({ bosses: [...state.bosses, ...newBosses] }));
-  }
+  const bossState = useBossStore.getState();
+  const bossResult = applyTombstones(bossState.bosses, bossState.deletedIds, payload.bosses, payload.bossTombstones);
+
+  useCharacterStore.setState((state) => ({
+    characters: characterResult.items,
+    deletedIds: characterResult.tombstones,
+    // 本機目前選中的角色如果還在(沒被移除)就維持原選取,否則(包含本機原本就沒有角色的情況)回退到第一個可用角色
+    activeCharacterId:
+      state.activeCharacterId !== null && characterResult.items.some((c) => c.id === state.activeCharacterId)
+        ? state.activeCharacterId
+        : (characterResult.items[0]?.id ?? null),
+  }));
+  useTaskStore.setState({ tasks: taskResult.items, deletedIds: taskResult.tombstones });
+  useBossStore.setState({ bosses: bossResult.items, deletedIds: bossResult.tombstones });
 
   return {
-    addedCharacters: newCharacters.length,
-    addedTasks: newTasks.length,
-    addedBosses: newBosses.length,
+    addedCharacters: characterResult.addedCount,
+    addedTasks: taskResult.addedCount,
+    addedBosses: bossResult.addedCount,
+    removedByTombstone:
+      characterResult.removedByRemoteTombstoneCount +
+      taskResult.removedByRemoteTombstoneCount +
+      bossResult.removedByRemoteTombstoneCount,
   };
+}
+
+/** 墓碑保留天數:超過這個天數的刪除紀錄視為已經傳播夠久,清掉以避免清單無限增長 */
+export const TOMBSTONE_RETENTION_DAYS = 90;
+
+/** 清除三個 store 裡超過保留天數的墓碑,在每次成功備份後呼叫 */
+export function pruneAllTombstones(retentionDays: number = TOMBSTONE_RETENTION_DAYS): void {
+  useCharacterStore.setState((state) => ({ deletedIds: pruneTombstones(state.deletedIds, retentionDays) }));
+  useTaskStore.setState((state) => ({ deletedIds: pruneTombstones(state.deletedIds, retentionDays) }));
+  useBossStore.setState((state) => ({ deletedIds: pruneTombstones(state.deletedIds, retentionDays) }));
 }

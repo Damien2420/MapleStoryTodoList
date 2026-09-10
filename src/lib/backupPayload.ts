@@ -3,18 +3,22 @@ import { useCharacterStore } from '@/store/useCharacterStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useBossStore } from '@/store/useBossStore';
 import { migrateBossAddPartySize, migrateCharacterAddSource } from '@/lib/schemaMigrations';
+import type { Tombstone } from '@/lib/tombstone';
 
 /** 目前 app 支援的最新備份格式版本 */
-export const CURRENT_VERSION = 3;
+export const CURRENT_VERSION = 4;
 
 export interface DriveBackupPayload {
   /** 備份格式版本,供未來相容性判斷用 */
-  version: 3;
+  version: 4;
   /** 備份建立時間(ISO 字串) */
   createdAt: string;
   characters: Character[];
+  characterTombstones: Tombstone[];
   tasks: CharacterTask[];
+  taskTombstones: Tombstone[];
   bosses: CharacterBossTrackList[];
+  bossTombstones: Tombstone[];
 }
 
 interface DriveBackupPayloadV1 {
@@ -33,13 +37,21 @@ interface DriveBackupPayloadV2 {
   bosses: Omit<CharacterBossTrackList, 'partySize'>[];
 }
 
+interface DriveBackupPayloadV3 {
+  version: 3;
+  createdAt: string;
+  characters: Character[];
+  tasks: CharacterTask[];
+  bosses: CharacterBossTrackList[];
+}
+
 /**
  * 每次 version 破壞性升版時,才新增一個對應的 migrate 函式,例如: 1: (old) => migrateV1ToV2(old as DriveBackupPayloadV1)
  * 若該實體(characters/tasks/bosses)在對應的 persist store(src/store/use*Store.ts)也需要同步升版,
  * 轉換邏輯統一放在 src/lib/schemaMigrations.ts(首次遷移時才建立),兩側各自 .map() 呼叫共用函式,
  * 不得各自內聯撰寫重複的轉換邏輯。
  */
-const MIGRATIONS: Record<number, (old: unknown) => DriveBackupPayload | DriveBackupPayloadV2> = {
+const MIGRATIONS: Record<number, (old: unknown) => DriveBackupPayload | DriveBackupPayloadV2 | DriveBackupPayloadV3> = {
   1: (old) => {
     const payload = old as DriveBackupPayloadV1;
     return { ...payload, version: 2, characters: payload.characters.map(migrateCharacterAddSource) };
@@ -47,6 +59,10 @@ const MIGRATIONS: Record<number, (old: unknown) => DriveBackupPayload | DriveBac
   2: (old) => {
     const payload = old as DriveBackupPayloadV2;
     return { ...payload, version: 3, bosses: payload.bosses.map(migrateBossAddPartySize) };
+  },
+  3: (old) => {
+    const payload = old as DriveBackupPayloadV3;
+    return { ...payload, version: 4, characterTombstones: [], taskTombstones: [], bossTombstones: [] };
   },
 };
 
@@ -66,17 +82,20 @@ export function migrateToLatest(payload: { version: number }): DriveBackupPayloa
   return current as DriveBackupPayload;
 }
 
-export function buildBackupPayload(
-  characters: Character[],
-  tasks: CharacterTask[],
-  bosses: CharacterBossTrackList[],
-): DriveBackupPayload {
+export interface BuildBackupPayloadInput {
+  characters: Character[];
+  characterTombstones: Tombstone[];
+  tasks: CharacterTask[];
+  taskTombstones: Tombstone[];
+  bosses: CharacterBossTrackList[];
+  bossTombstones: Tombstone[];
+}
+
+export function buildBackupPayload(input: BuildBackupPayloadInput): DriveBackupPayload {
   return {
     version: CURRENT_VERSION,
     createdAt: new Date().toISOString(),
-    characters,
-    tasks,
-    bosses,
+    ...input,
   };
 }
 
@@ -87,8 +106,12 @@ export function parseBackupPayload(content: string): DriveBackupPayload {
 
 /** 讀取目前三個 store 的資料組成備份 JSON 字串,Google Drive 備份與本機檔案下載共用同一份內容 */
 export function buildCurrentBackupPayloadJson(): string {
-  const { characters } = useCharacterStore.getState();
-  const { tasks } = useTaskStore.getState();
-  const { bosses } = useBossStore.getState();
-  return JSON.stringify(buildBackupPayload(characters, tasks, bosses), null, 2);
+  const { characters, deletedIds: characterTombstones } = useCharacterStore.getState();
+  const { tasks, deletedIds: taskTombstones } = useTaskStore.getState();
+  const { bosses, deletedIds: bossTombstones } = useBossStore.getState();
+  return JSON.stringify(
+    buildBackupPayload({ characters, characterTombstones, tasks, taskTombstones, bosses, bossTombstones }),
+    null,
+    2,
+  );
 }
