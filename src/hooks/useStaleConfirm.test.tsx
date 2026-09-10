@@ -1,4 +1,4 @@
-import { act } from 'react';
+import { act, useEffect } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
@@ -15,7 +15,9 @@ type StaleConfirmApi = ReturnType<typeof useStaleConfirm>;
 
 function TestHarness({ apiRef }: { apiRef: { current: StaleConfirmApi | null } }) {
   const api = useStaleConfirm();
-  apiRef.current = api;
+  useEffect(() => {
+    apiRef.current = api;
+  });
   return api.staleConfirmDialog;
 }
 
