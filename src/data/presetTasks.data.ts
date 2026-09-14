@@ -23,7 +23,7 @@ export const PRESET_TASKS: PresetTask[] = [
   },
   {
     id: 'maplestroy-academy',
-    name: '要不要一起去上學 - 簽到',
+    name: '我們一起去學校 - 簽到',
     category: '楓之谷學院',
     resetCycle: 'daily',
     expiresAt: '2026-10-20',
