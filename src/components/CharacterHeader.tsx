@@ -1,9 +1,13 @@
 import { useRef, useState } from 'react';
-import { Gem } from 'lucide-react';
+import { Crown, Diamond, Gem } from 'lucide-react';
 import { Trash2Icon } from './ui/trash-2-icon';
 import { RefreshCWIcon } from './ui/refresh-cw';
 import { PencilIcon } from './ui/pencil-icon';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { CYCLE_BADGE_CLASSES } from '@/lib/cycleBadge';
+import { VIP_TIER_LABELS } from '@/lib/vipBossCatalog';
+import { cn } from '@/lib/utils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,6 +33,12 @@ interface AnimatedIconHandle {
   stopAnimation: () => void;
 }
 
+/** VIP會員等級徽章的對應圖示:鑽石用鑽石、皇家用皇冠 */
+const VIP_TIER_ICONS = {
+  diamond: Diamond,
+  royal: Crown,
+} as const;
+
 /** 角色身份橫帶:左側立繪+名稱/伺服器/等級/職業,右側併入任務進度與 BOSS 收益摘要,並提供更新/刪除角色入口 */
 export function CharacterHeader({ character }: { character: Character }) {
   const removeCharacter = useCharacterStore((s) => s.removeCharacter);
@@ -40,6 +50,7 @@ export function CharacterHeader({ character }: { character: Character }) {
   const [vipDialogOpen, setVipDialogOpen] = useState(false);
   const updateLabel = character.source === 'api' ? '更新角色資料' : '編輯角色資料';
   const UpdateIcon = character.source === 'api' ? RefreshCWIcon : PencilIcon;
+  const VipTierIcon = character.vipTier && VIP_TIER_ICONS[character.vipTier];
 
   // 圖示元件預設只在滑鼠停在圖示本身(很小的範圍)時觸發動畫,這裡改用 ref 手動控制,
   // 讓滑鼠停在整個按鈕範圍就能觸發;手機/桌機版是各自獨立的元件實例,各需一組 ref。
@@ -74,6 +85,12 @@ export function CharacterHeader({ character }: { character: Character }) {
               {character.server} · Lv.{character.level}
               {character.job && ` · ${character.job}`}
             </p>
+            {character.vipTier && VipTierIcon && (
+              <Badge variant="secondary" className={cn('w-fit rounded-md', CYCLE_BADGE_CLASSES['VIP重置'])}>
+                <VipTierIcon className="size-3" />
+                {VIP_TIER_LABELS[character.vipTier]}
+              </Badge>
+            )}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1 max-[560px]:flex-col lg:hidden">

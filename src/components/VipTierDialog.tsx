@@ -11,6 +11,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
+import { VIP_TIER_LABELS } from '@/lib/vipBossCatalog';
 import { useCharacterStore } from '@/store/useCharacterStore';
 import type { Character, VipTier } from '@/types';
 
@@ -21,8 +22,8 @@ interface VipTierDialogProps {
 }
 
 const VIP_TIER_OPTIONS: { value: VipTier; label: string }[] = [
-  { value: 'diamond', label: 'VIP鑽石' },
-  { value: 'royal', label: 'VIP皇家' },
+  { value: 'diamond', label: VIP_TIER_LABELS.diamond },
+  { value: 'royal', label: VIP_TIER_LABELS.royal },
 ];
 
 /**

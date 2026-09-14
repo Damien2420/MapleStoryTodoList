@@ -3,6 +3,12 @@ import { VIP_BOSS_MAPPING } from '@/data/vipBossCatalog.data';
 
 export { VIP_BOSS_MAPPING };
 
+/** VIP會員等級對應的顯示名稱 */
+export const VIP_TIER_LABELS: Record<VipTier, string> = {
+  diamond: 'VIP鑽石',
+  royal: 'VIP皇家',
+};
+
 /** VIP重置券的等級,依序為下/中/上/終極/每月 */
 export const VIP_TICKET_LEVELS: VipTicketLevel[] = ['下', '中', '上', '終極', '每月'];
 
