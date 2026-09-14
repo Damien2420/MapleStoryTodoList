@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { CharacterBossTrackList, CharacterTask, Settings } from '@/types';
+import type { BossDifficulty, CharacterBossTrackList, CharacterTask, Settings, VipTicketLevel } from '@/types';
 import { needsMonthlyReset, needsReset } from '@/lib/reset';
 import {
   findBossCatalogEntry,
@@ -9,12 +9,21 @@ import {
   sortTrackedBossesByCatalogOrder,
   type BossSelection,
 } from '@/lib/bossCatalog';
+import { findVipMapping, getVipTicketLevelResetCycle } from '@/lib/vipBossCatalog';
 import { trackLocalChange } from '@/lib/trackLocalChange';
 import { migrateBossAddPartySize } from '@/lib/schemaMigrations';
+
+/** 使用者在新增BOSS對話框中勾選的單筆VIP重置券選取項目 */
+export interface VipBossSelection {
+  ticketLevel: VipTicketLevel;
+  bossCatalogId: string;
+  difficulty: BossDifficulty;
+}
 
 interface BossState {
   bosses: CharacterBossTrackList[];
   addBosses: (characterId: string, selections: BossSelection[]) => void;
+  addVipBosses: (characterId: string, selections: VipBossSelection[]) => void;
   toggleBoss: (id: string) => void;
   /** 將指定 id 清單內的 BOSS 一次設為同一個勾選狀態(用於「全部完成」按鈕) */
   toggleBossesByIds: (ids: string[], checked: boolean) => void;
@@ -60,6 +69,42 @@ export const useBossStore = create<BossState>()(
           const otherCharacters = state.bosses.filter((b) => b.characterId !== characterId);
           const ownExisting = state.bosses.filter((b) => b.characterId === characterId);
           // 每次加入都把「這個角色現有的 + 新增的」BOSS 依目錄順序重新排一次,不管分幾次加入都會得到同一個順序
+          const merged = sortTrackedBossesByCatalogOrder([...ownExisting, ...newBosses]).map((boss, index) => ({
+            ...boss,
+            order: index,
+          }));
+          return { bosses: [...otherCharacters, ...merged] };
+        });
+      },
+      addVipBosses: (characterId, selections) => {
+        if (selections.length === 0) return;
+        const now = new Date().toISOString();
+        set((state) => {
+          const newBosses: CharacterBossTrackList[] = [];
+          for (const selection of selections) {
+            if (!findVipMapping(selection.ticketLevel, selection.bossCatalogId, selection.difficulty)) continue;
+            const entry = findBossCatalogEntry(selection.bossCatalogId);
+            if (!entry) continue;
+            const option = findDifficultyOption(entry, selection.difficulty);
+            if (!option) continue;
+            newBosses.push({
+              id: crypto.randomUUID(),
+              characterId,
+              bossName: entry.name,
+              difficulty: selection.difficulty,
+              resetCycle: getVipTicketLevelResetCycle(selection.ticketLevel),
+              category: 'vip',
+              bossCatalogId: entry.id,
+              vipTicketLevel: selection.ticketLevel,
+              crystalValue: option.crystalValue,
+              partySize: 1,
+              checked: false,
+              lastResetAt: now,
+              order: 0,
+            });
+          }
+          const otherCharacters = state.bosses.filter((b) => b.characterId !== characterId);
+          const ownExisting = state.bosses.filter((b) => b.characterId === characterId);
           const merged = sortTrackedBossesByCatalogOrder([...ownExisting, ...newBosses]).map((boss, index) => ({
             ...boss,
             order: index,
