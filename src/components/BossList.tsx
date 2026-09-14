@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { ChevronDown, Swords } from 'lucide-react';
 import { BossItem } from '@/components/BossItem';
 import { AddBossDialog } from '@/components/AddBossDialog';
+import { VipBossSection } from '@/components/VipBossSection';
 import { StatusFilterControl } from '@/components/StatusFilterControl';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -98,19 +99,27 @@ export function BossList({ character }: { character: Character }) {
 
   const dailyBossesAll = useMemo(() => bosses.filter((b) => b.resetCycle === 'daily'), [bosses]);
   const weeklyBossesAll = useMemo(
-    () => bosses.filter((b) => b.resetCycle === 'weekly' && b.category !== 'season'),
+    () => bosses.filter((b) => b.resetCycle === 'weekly' && b.category !== 'season' && b.category !== 'vip'),
     [bosses],
   );
-  const monthlyBossesAll = useMemo(() => bosses.filter((b) => b.resetCycle === 'monthly'), [bosses]);
+  const monthlyBossesAll = useMemo(
+    () => bosses.filter((b) => b.resetCycle === 'monthly' && b.category !== 'vip'),
+    [bosses],
+  );
   const seasonBossesAll = useMemo(() => bosses.filter((b) => b.category === 'season'), [bosses]);
+  const vipBossesAll = useMemo(() => bosses.filter((b) => b.category === 'vip'), [bosses]);
 
   const dailyBosses = useMemo(() => visibleBosses.filter((b) => b.resetCycle === 'daily'), [visibleBosses]);
   const weeklyBosses = useMemo(
-    () => visibleBosses.filter((b) => b.resetCycle === 'weekly' && b.category !== 'season'),
+    () => visibleBosses.filter((b) => b.resetCycle === 'weekly' && b.category !== 'season' && b.category !== 'vip'),
     [visibleBosses],
   );
-  const monthlyBosses = useMemo(() => visibleBosses.filter((b) => b.resetCycle === 'monthly'), [visibleBosses]);
+  const monthlyBosses = useMemo(
+    () => visibleBosses.filter((b) => b.resetCycle === 'monthly' && b.category !== 'vip'),
+    [visibleBosses],
+  );
   const seasonBosses = useMemo(() => visibleBosses.filter((b) => b.category === 'season'), [visibleBosses]);
+  const vipBosses = useMemo(() => visibleBosses.filter((b) => b.category === 'vip'), [visibleBosses]);
 
   const sections: Omit<BossSectionProps, 'collapsed' | 'onToggle' | 'onToggleAll'>[] = [
     { cycleKey: 'daily', label: '每日', bosses: dailyBosses, allBosses: dailyBossesAll },
@@ -140,6 +149,17 @@ export function BossList({ character }: { character: Character }) {
           </div>
 
           <div className="flex flex-col gap-6 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+            {vipBosses.length > 0 && (
+              <VipBossSection
+                character={character}
+                vipBosses={vipBosses}
+                vipBossesAll={vipBossesAll}
+                collapsed={collapsedBossSections.has('vip')}
+                onToggle={toggleBossSection}
+                onToggleAll={toggleBossesByIds}
+              />
+            )}
+
             {visibleSections.map((section) => (
               <BossSection
                 key={section.cycleKey}
@@ -150,7 +170,7 @@ export function BossList({ character }: { character: Character }) {
               />
             ))}
 
-            {visibleSections.length === 0 && (
+            {visibleSections.length === 0 && vipBosses.length === 0 && (
               <p className="py-8 text-center text-sm text-muted-foreground">沒有符合篩選條件的 BOSS</p>
             )}
           </div>
