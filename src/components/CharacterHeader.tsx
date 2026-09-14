@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { Gem } from 'lucide-react';
 import { Trash2Icon } from './ui/trash-2-icon';
 import { RefreshCWIcon } from './ui/refresh-cw';
 import { PencilIcon } from './ui/pencil-icon';
@@ -15,6 +16,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { DashboardSummary } from '@/components/DashboardSummary';
 import { CharacterUpdateDialog } from '@/components/CharacterUpdateDialog';
+import { VipTierDialog } from '@/components/VipTierDialog';
 import { useCharacterStore } from '@/store/useCharacterStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useBossStore } from '@/store/useBossStore';
@@ -35,6 +37,7 @@ export function CharacterHeader({ character }: { character: Character }) {
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
+  const [vipDialogOpen, setVipDialogOpen] = useState(false);
   const updateLabel = character.source === 'api' ? '更新角色資料' : '編輯角色資料';
   const UpdateIcon = character.source === 'api' ? RefreshCWIcon : PencilIcon;
 
@@ -91,6 +94,17 @@ export function CharacterHeader({ character }: { character: Character }) {
             type="button"
             variant="ghost"
             size="sm"
+            className="gap-1.5 text-muted-foreground max-[560px]:w-8 max-[560px]:px-0"
+            aria-label={`設定VIP等級:${character.name}`}
+            onClick={() => setVipDialogOpen(true)}
+          >
+            <Gem className="size-4" />
+            <span className="max-[560px]:hidden">設定VIP等級</span>
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
             className="gap-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive max-[560px]:w-8 max-[560px]:px-0"
             aria-label={`刪除角色:${character.name}`}
             onClick={() => setDeleteConfirmOpen(true)}
@@ -135,6 +149,24 @@ export function CharacterHeader({ character }: { character: Character }) {
                 type="button"
                 variant="ghost"
                 size="icon"
+                className="size-8 text-muted-foreground"
+                aria-label={`設定VIP等級:${character.name}`}
+                title="設定VIP等級"
+                onClick={() => setVipDialogOpen(true)}
+              >
+                <Gem className="size-4" />
+              </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>設定VIP等級</p>
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
                 className="size-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                 aria-label={`刪除角色:${character.name}`}
                 title="刪除角色"
@@ -152,6 +184,8 @@ export function CharacterHeader({ character }: { character: Character }) {
       </div>
 
       <CharacterUpdateDialog character={character} open={updateDialogOpen} onOpenChange={setUpdateDialogOpen} />
+
+      <VipTierDialog character={character} open={vipDialogOpen} onOpenChange={setVipDialogOpen} />
 
       <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
         <AlertDialogContent>
