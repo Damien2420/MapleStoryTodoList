@@ -60,7 +60,7 @@ export interface Settings {
 export type BossDifficulty = '簡單' | '普通' | '困難' | '渾沌' | '極限' | '終極';
 
 /** VIP 會員等級,未設定代表沒有VIP資格 */
-export type VipTier = 'diamond' | 'royal';
+export type VipTier = 'gold' | 'diamond' | 'royal' | 'royalBlack';
 
 /** VIP重置券等級:下/中/上/終極為每週重置,每月為每月重置 */
 export type VipTicketLevel = '下' | '中' | '上' | '終極' | '每月';

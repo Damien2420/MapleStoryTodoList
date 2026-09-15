@@ -1,12 +1,11 @@
 import { useRef, useState } from 'react';
-import { Crown, Diamond, Gem } from 'lucide-react';
+import { ChessKing, ChessQueen, Diamond, Gem, Medal } from 'lucide-react';
 import { Trash2Icon } from './ui/trash-2-icon';
 import { RefreshCWIcon } from './ui/refresh-cw';
 import { PencilIcon } from './ui/pencil-icon';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { CYCLE_BADGE_CLASSES } from '@/lib/cycleBadge';
-import { VIP_TIER_LABELS } from '@/lib/vipBossCatalog';
+import { VIP_TIER_BADGE_CLASSES, VIP_TIER_LABELS } from '@/lib/vipBossCatalog';
 import { cn } from '@/lib/utils';
 import {
   AlertDialog,
@@ -33,10 +32,12 @@ interface AnimatedIconHandle {
   stopAnimation: () => void;
 }
 
-/** VIP會員等級徽章的對應圖示:鑽石用鑽石、皇家用皇冠 */
+/** VIP會員等級徽章的對應圖示:金牌用獎章、鑽石用鑽石、皇家用后棋、皇家黑用王棋 */
 const VIP_TIER_ICONS = {
+  gold: Medal,
   diamond: Diamond,
-  royal: Crown,
+  royal: ChessQueen,
+  royalBlack: ChessKing,
 } as const;
 
 /** 角色身份橫帶:左側立繪+名稱/伺服器/等級/職業,右側併入任務進度與 BOSS 收益摘要,並提供更新/刪除角色入口 */
@@ -86,7 +87,7 @@ export function CharacterHeader({ character }: { character: Character }) {
               {character.job && ` · ${character.job}`}
             </p>
             {character.vipTier && VipTierIcon && (
-              <Badge variant="secondary" className={cn('w-fit rounded-md', CYCLE_BADGE_CLASSES['VIP重置'])}>
+              <Badge variant="secondary" className={cn('mt-1.5 w-fit rounded-sm', VIP_TIER_BADGE_CLASSES[character.vipTier])}>
                 <VipTierIcon className="size-3" />
                 {VIP_TIER_LABELS[character.vipTier]}
               </Badge>

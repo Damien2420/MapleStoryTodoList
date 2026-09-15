@@ -28,6 +28,8 @@ interface BossState {
   /** 將指定 id 清單內的 BOSS 一次設為同一個勾選狀態(用於「全部完成」按鈕) */
   toggleBossesByIds: (ids: string[], checked: boolean) => void;
   removeBoss: (id: string) => void;
+  /** 一次刪除多筆BOSS追蹤紀錄(用於VIP等級變更時清掉未保留的BOSS) */
+  removeBossesByIds: (ids: string[]) => void;
   /** 設定指定 BOSS 追蹤紀錄的攻略人數,自動夾在 1 ~ 該難度的 maxPartySize 之間 */
   setBossPartySize: (id: string, partySize: number) => void;
   /** 還原被刪除的 BOSS(用於刪除後的 toast 還原按鈕) */
@@ -132,6 +134,11 @@ export const useBossStore = create<BossState>()(
       },
       removeBoss: (id) => {
         set((state) => ({ bosses: state.bosses.filter((b) => b.id !== id) }));
+      },
+      removeBossesByIds: (ids) => {
+        if (ids.length === 0) return;
+        const idSet = new Set(ids);
+        set((state) => ({ bosses: state.bosses.filter((b) => !idSet.has(b.id)) }));
       },
       setBossPartySize: (id, partySize) => {
         set((state) => ({

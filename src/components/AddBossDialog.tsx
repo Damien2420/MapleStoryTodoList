@@ -18,6 +18,7 @@ import {
   buildTrackedVipGroupKeys,
   buildVipSelectionKey,
   countTrackedVipBossesByLevel,
+  hasVipTicketAllocation,
   parseVipSelectionKey,
   VIP_TICKET_LEVEL_LABELS,
 } from '@/lib/vipBossCatalog';
@@ -141,7 +142,7 @@ export function AddBossDialog({ characterId }: AddBossDialogProps) {
 
             <div className="flex items-center justify-between gap-2">
               <WeeklyBossLimitHint selections={selections} trackedWeeklyCount={trackedWeeklyCount} />
-              {character?.vipTier && (
+              {hasVipTicketAllocation(character?.vipTier) && (
                 <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => setStep('vip')}>
                   <Gem className="size-4" />
                   新增VIP重置BOSS
@@ -164,7 +165,7 @@ export function AddBossDialog({ characterId }: AddBossDialogProps) {
           </div>
         )}
 
-        {step === 'vip' && character?.vipTier && (
+        {step === 'vip' && character && hasVipTicketAllocation(character.vipTier) && (
           <div className="space-y-4">
             <DialogHeader>
               <Button
