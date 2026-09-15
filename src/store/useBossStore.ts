@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { BossDifficulty, CharacterBossTrackList, CharacterTask, Settings, VipTicketLevel } from '@/types';
+import type { BossDifficulty, CharacterBossTrackList, Settings, VipTicketLevel } from '@/types';
 import { needsMonthlyReset, needsReset } from '@/lib/reset';
 import {
   findBossCatalogEntry,
@@ -101,15 +101,11 @@ export const useBossStore = create<BossState>()(
               partySize: 1,
               checked: false,
               lastResetAt: now,
-              order: 0,
             });
           }
           const otherCharacters = state.bosses.filter((b) => b.characterId !== characterId);
           const ownExisting = state.bosses.filter((b) => b.characterId === characterId);
-          const merged = sortTrackedBossesByCatalogOrder([...ownExisting, ...newBosses]).map((boss, index) => ({
-            ...boss,
-            order: index,
-          }));
+          const merged = sortTrackedBossesByCatalogOrder([...ownExisting, ...newBosses]);
           return { bosses: [...otherCharacters, ...merged] };
         });
       },
