@@ -127,10 +127,13 @@ export function DashboardSummary({ character, className }: { character: Characte
 
   const dailyBosses = useMemo(() => bosses.filter((b) => b.resetCycle === 'daily'), [bosses]);
   const weeklyBosses = useMemo(
-    () => bosses.filter((b) => b.resetCycle === 'weekly' && b.category !== 'season'),
+    () => bosses.filter((b) => b.resetCycle === 'weekly' && b.category !== 'season' && b.category !== 'vip'),
     [bosses],
   );
-  const monthlyBosses = useMemo(() => bosses.filter((b) => b.resetCycle === 'monthly'), [bosses]);
+  const monthlyBosses = useMemo(
+    () => bosses.filter((b) => b.resetCycle === 'monthly' && b.category !== 'vip'),
+    [bosses],
+  );
   const seasonBosses = useMemo(() => bosses.filter((b) => b.category === 'season'), [bosses]);
   // 討伐進度:該週期已勾選(已討伐)的 BOSS 數 / 該週期未下架的追蹤中 BOSS 總數
   const dailyDoneBossCount = useMemo(() => dailyBosses.filter((b) => b.checked).length, [dailyBosses]);

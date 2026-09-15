@@ -9,6 +9,7 @@ import {
   type BossCatalogEntry,
   type BossDifficultyOption,
 } from '@/lib/bossCatalog';
+import { DIFFICULTY_BADGE_CLASSES } from '@/lib/difficultyBadge';
 import type { BossDifficulty } from '@/types';
 
 interface BossCatalogPickerProps {
@@ -132,7 +133,7 @@ export function BossCatalogPicker({
                             'rounded-md border px-2.5 py-2 text-xs font-medium outline-none transition-all focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
                             !disabled && 'hover:scale-105 active:scale-95',
                             active
-                              ? 'border-primary bg-primary text-primary-foreground'
+                              ? cn('border-transparent', DIFFICULTY_BADGE_CLASSES[option.difficulty])
                               : disabled
                                 ? 'cursor-not-allowed border-input text-muted-foreground opacity-50'
                                 : 'border-input text-muted-foreground hover:border-primary/50 hover:bg-muted/60',

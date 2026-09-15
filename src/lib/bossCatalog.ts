@@ -68,7 +68,13 @@ export function countWeeklyBossSelections(selections: Map<string, Set<BossDiffic
 export function countTrackedWeeklyBosses(bosses: CharacterBossTrackList[], characterId: string): number {
   let count = 0;
   for (const boss of bosses) {
-    if (boss.characterId !== characterId || boss.resetCycle !== 'weekly' || boss.category === 'season') continue;
+    if (
+      boss.characterId !== characterId ||
+      boss.resetCycle !== 'weekly' ||
+      boss.category === 'season' ||
+      boss.category === 'vip'
+    )
+      continue;
     if (boss.bossCatalogId) {
       const entry = findBossCatalogEntry(boss.bossCatalogId);
       if (entry && isCatalogEntryExpired(entry)) continue;

@@ -1,8 +1,12 @@
 import { useRef, useState } from 'react';
+import { ChessKing, ChessQueen, Diamond, Gem, Medal } from 'lucide-react';
 import { Trash2Icon } from './ui/trash-2-icon';
 import { RefreshCWIcon } from './ui/refresh-cw';
 import { PencilIcon } from './ui/pencil-icon';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { VIP_TIER_BADGE_CLASSES, VIP_TIER_LABELS } from '@/lib/vipBossCatalog';
+import { cn } from '@/lib/utils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,6 +19,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { DashboardSummary } from '@/components/DashboardSummary';
 import { CharacterUpdateDialog } from '@/components/CharacterUpdateDialog';
+import { VipTierDialog } from '@/components/VipTierDialog';
 import { useCharacterStore } from '@/store/useCharacterStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useBossStore } from '@/store/useBossStore';
@@ -27,6 +32,14 @@ interface AnimatedIconHandle {
   stopAnimation: () => void;
 }
 
+/** VIP會員等級徽章的對應圖示:金牌用獎章、鑽石用鑽石、皇家用后棋、皇家黑用王棋 */
+const VIP_TIER_ICONS = {
+  gold: Medal,
+  diamond: Diamond,
+  royal: ChessQueen,
+  royalBlack: ChessKing,
+} as const;
+
 /** 角色身份橫帶:左側立繪+名稱/伺服器/等級/職業,右側併入任務進度與 BOSS 收益摘要,並提供更新/刪除角色入口 */
 export function CharacterHeader({ character }: { character: Character }) {
   const removeCharacter = useCharacterStore((s) => s.removeCharacter);
@@ -35,8 +48,10 @@ export function CharacterHeader({ character }: { character: Character }) {
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
+  const [vipDialogOpen, setVipDialogOpen] = useState(false);
   const updateLabel = character.source === 'api' ? '更新角色資料' : '編輯角色資料';
   const UpdateIcon = character.source === 'api' ? RefreshCWIcon : PencilIcon;
+  const VipTierIcon = character.vipTier && VIP_TIER_ICONS[character.vipTier];
 
   // 圖示元件預設只在滑鼠停在圖示本身(很小的範圍)時觸發動畫,這裡改用 ref 手動控制,
   // 讓滑鼠停在整個按鈕範圍就能觸發;手機/桌機版是各自獨立的元件實例,各需一組 ref。
@@ -71,6 +86,12 @@ export function CharacterHeader({ character }: { character: Character }) {
               {character.server} · Lv.{character.level}
               {character.job && ` · ${character.job}`}
             </p>
+            {character.vipTier && VipTierIcon && (
+              <Badge variant="secondary" className={cn('mt-1.5 w-fit rounded-sm', VIP_TIER_BADGE_CLASSES[character.vipTier])}>
+                <VipTierIcon className="size-3" />
+                {VIP_TIER_LABELS[character.vipTier]}
+              </Badge>
+            )}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1 max-[560px]:flex-col lg:hidden">
@@ -86,6 +107,17 @@ export function CharacterHeader({ character }: { character: Character }) {
           >
             <UpdateIcon ref={mobileUpdateIconRef} size={16} />
             <span className="max-[560px]:hidden">{updateLabel}</span>
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="gap-1.5 text-muted-foreground max-[560px]:w-8 max-[560px]:px-0"
+            aria-label={`設定VIP等級:${character.name}`}
+            onClick={() => setVipDialogOpen(true)}
+          >
+            <Gem className="size-4" />
+            <span className="max-[560px]:hidden">設定VIP等級</span>
           </Button>
           <Button
             type="button"
@@ -135,6 +167,24 @@ export function CharacterHeader({ character }: { character: Character }) {
                 type="button"
                 variant="ghost"
                 size="icon"
+                className="size-8 text-muted-foreground"
+                aria-label={`設定VIP等級:${character.name}`}
+                title="設定VIP等級"
+                onClick={() => setVipDialogOpen(true)}
+              >
+                <Gem className="size-4" />
+              </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>設定VIP等級</p>
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
                 className="size-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                 aria-label={`刪除角色:${character.name}`}
                 title="刪除角色"
@@ -152,6 +202,8 @@ export function CharacterHeader({ character }: { character: Character }) {
       </div>
 
       <CharacterUpdateDialog character={character} open={updateDialogOpen} onOpenChange={setUpdateDialogOpen} />
+
+      <VipTierDialog character={character} open={vipDialogOpen} onOpenChange={setVipDialogOpen} />
 
       <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
         <AlertDialogContent>

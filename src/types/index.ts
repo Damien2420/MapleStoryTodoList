@@ -24,6 +24,8 @@ export interface Character {
   imageUrl?: string;
   order: number;
   source: CharacterSource;
+  /** VIP會員等級,未設定代表沒有VIP資格;只會影響「新增BOSS」對話框裡是否顯示VIP重置區塊 */
+  vipTier?: VipTier;
 }
 
 /** 角色底下的實際任務(勾選狀態、重置時間都是角色獨立的) */
@@ -57,6 +59,12 @@ export interface Settings {
 /** BOSS 難度 */
 export type BossDifficulty = '簡單' | '普通' | '困難' | '渾沌' | '極限' | '終極';
 
+/** VIP 會員等級,未設定代表沒有VIP資格 */
+export type VipTier = 'gold' | 'diamond' | 'royal' | 'royalBlack';
+
+/** VIP重置券等級:下/中/上/終極為每週重置,每月為每月重置 */
+export type VipTicketLevel = '下' | '中' | '上' | '終極' | '每月';
+
 /** 角色底下實際追蹤的 BOSS 討伐記錄,獨立於任務系統之外 */
 export interface CharacterBossTrackList {
   id: string;
@@ -66,10 +74,12 @@ export interface CharacterBossTrackList {
   resetCycle: 'daily' | 'weekly' | 'monthly';
   /** 週王的重置星期幾(0=日~6=六),未設定則沿用全域設定 */
   weeklyResetDay?: number;
-  /** 顯示分類:賽季王會歸類到獨立的「賽季」區塊,但實際重置週期仍依 resetCycle 判斷 */
-  category?: 'season';
+  /** 顯示分類:賽季王/VIP重置王會歸類到獨立區塊,但實際重置週期仍依 resetCycle 判斷 */
+  category?: 'season' | 'vip';
   /** 建立當下對應的目錄 id,用來之後查目錄判斷是否已下架;上線前建立的舊紀錄可能沒有此欄位 */
   bossCatalogId?: string;
+  /** 用哪個VIP重置券等級加入的,只有 category === 'vip' 才會有值 */
+  vipTicketLevel?: VipTicketLevel;
   /** 預估收益,套用時帶入參考值,使用者可事後手動覆寫 */
   crystalValue: number;
   /** 本次攻略的實際人數,用於平分結晶收益;預設 1(單人) */

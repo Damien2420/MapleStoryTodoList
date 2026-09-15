@@ -33,6 +33,17 @@
     --color-cycle-once-foreground: var(--cycle-once-foreground);
     --color-cycle-weekend: var(--cycle-weekend);
     --color-cycle-weekend-foreground: var(--cycle-weekend-foreground);
+    --color-cycle-vip: var(--cycle-vip);
+    --color-cycle-vip-foreground: var(--cycle-vip-foreground);
+    --color-vip-accent-text: var(--vip-accent-text);
+    --color-vip-gold: var(--vip-gold);
+    --color-vip-gold-foreground: var(--vip-gold-foreground);
+    --color-vip-diamond: var(--vip-diamond);
+    --color-vip-diamond-foreground: var(--vip-diamond-foreground);
+    --color-vip-royal: var(--vip-royal);
+    --color-vip-royal-foreground: var(--vip-royal-foreground);
+    --color-vip-royal-black: var(--vip-royal-black);
+    --color-vip-royal-black-foreground: var(--vip-royal-black-foreground);
     --color-difficulty-easy: var(--difficulty-easy);
     --color-difficulty-easy-foreground: var(--difficulty-easy-foreground);
     --color-difficulty-normal: var(--difficulty-normal);
@@ -126,6 +137,19 @@
     --cycle-once-foreground: oklch(0.42 0.06 250);
     --cycle-weekend: oklch(0.92 0.06 300);
     --cycle-weekend-foreground: oklch(0.42 0.12 300);
+    --cycle-vip: oklch(0.9 0.05 190);
+    --cycle-vip-foreground: oklch(0.38 0.09 190);
+    /* VIP券等級標籤直接顯示在卡片底色上(非徽章組合),低彩度紫呼應VIP皇家但刻意壓低存在感,不搶子標題的風頭 */
+    --vip-accent-text: oklch(0.46 0.05 275);
+    /* VIP等級徽章依等級各自指定色,淺/深主題共用同一組(不隨主題調整) */
+    --vip-gold: #FFE599;
+    --vip-gold-foreground: #6B4E17;
+    --vip-diamond: #DAEEF3;
+    --vip-diamond-foreground: #1F5F73;
+    --vip-royal: #434343;
+    --vip-royal-foreground: #F4F4F4;
+    --vip-royal-black: #351C75;
+    --vip-royal-black-foreground: #F1EAFB;
     /* 難度語意色:簡單→終極沿暖色調做真正的色相位移(金黃 75→終極深紫 284),彩度同步遞增;
        高難度那三級(渾沌/極限/終極)間距刻意拉大到 28-40 度,避免擠在同一段桃紅/紫色系裡分不出來,
        低難度三級維持 25 度即可(黃橘紅本身區辨度就高);刻意繞開 destructive 的紅色帶(hue 15-18) */
@@ -190,6 +214,9 @@
     --cycle-once-foreground: oklch(0.85 0.05 250);
     --cycle-weekend: oklch(0.35 0.08 300);
     --cycle-weekend-foreground: oklch(0.88 0.09 300);
+    --cycle-vip: oklch(0.32 0.06 190);
+    --cycle-vip-foreground: oklch(0.86 0.08 190);
+    --vip-accent-text: oklch(0.75 0.05 275);
     --difficulty-easy: oklch(0.27 0.045 75);
     --difficulty-easy-foreground: oklch(0.78 0.06 75);
     --difficulty-normal: oklch(0.29 0.065 50);

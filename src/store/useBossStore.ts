@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { CharacterBossTrackList, Settings } from '@/types';
+import type { BossDifficulty, CharacterBossTrackList, CharacterTask, Settings, VipTicketLevel } from '@/types';
 import { needsMonthlyReset, needsReset } from '@/lib/reset';
 import {
   findBossCatalogEntry,
@@ -9,18 +9,29 @@ import {
   sortTrackedBossesByCatalogOrder,
   type BossSelection,
 } from '@/lib/bossCatalog';
+import { findVipMapping, getVipTicketLevelResetCycle } from '@/lib/vipBossCatalog';
 import { trackLocalChange } from '@/lib/trackLocalChange';
 import { migrateBossAddPartySize, migrateBossRemoveOrder } from '@/lib/schemaMigrations';
 import { clearTombstone, recordTombstone, type Tombstone } from '@/lib/tombstone';
+
+/** 使用者在新增BOSS對話框中勾選的單筆VIP重置券選取項目 */
+export interface VipBossSelection {
+  ticketLevel: VipTicketLevel;
+  bossCatalogId: string;
+  difficulty: BossDifficulty;
+}
 
 interface BossState {
   bosses: CharacterBossTrackList[];
   deletedIds: Tombstone[];
   addBosses: (characterId: string, selections: BossSelection[]) => void;
+  addVipBosses: (characterId: string, selections: VipBossSelection[]) => void;
   toggleBoss: (id: string) => void;
   /** 將指定 id 清單內的 BOSS 一次設為同一個勾選狀態(用於「全部完成」按鈕) */
   toggleBossesByIds: (ids: string[], checked: boolean) => void;
   removeBoss: (id: string) => void;
+  /** 一次刪除多筆BOSS追蹤紀錄(用於VIP等級變更時清掉未保留的BOSS) */
+  removeBossesByIds: (ids: string[]) => void;
   /** 設定指定 BOSS 追蹤紀錄的攻略人數,自動夾在 1 ~ 該難度的 maxPartySize 之間 */
   setBossPartySize: (id: string, partySize: number) => void;
   /** 還原被刪除的 BOSS(用於刪除後的 toast 還原按鈕) */
@@ -66,6 +77,42 @@ export const useBossStore = create<BossState>()(
           return { bosses: [...otherCharacters, ...merged] };
         });
       },
+      addVipBosses: (characterId, selections) => {
+        if (selections.length === 0) return;
+        const now = new Date().toISOString();
+        set((state) => {
+          const newBosses: CharacterBossTrackList[] = [];
+          for (const selection of selections) {
+            if (!findVipMapping(selection.ticketLevel, selection.bossCatalogId, selection.difficulty)) continue;
+            const entry = findBossCatalogEntry(selection.bossCatalogId);
+            if (!entry) continue;
+            const option = findDifficultyOption(entry, selection.difficulty);
+            if (!option) continue;
+            newBosses.push({
+              id: crypto.randomUUID(),
+              characterId,
+              bossName: entry.name,
+              difficulty: selection.difficulty,
+              resetCycle: getVipTicketLevelResetCycle(selection.ticketLevel),
+              category: 'vip',
+              bossCatalogId: entry.id,
+              vipTicketLevel: selection.ticketLevel,
+              crystalValue: option.crystalValue,
+              partySize: 1,
+              checked: false,
+              lastResetAt: now,
+              order: 0,
+            });
+          }
+          const otherCharacters = state.bosses.filter((b) => b.characterId !== characterId);
+          const ownExisting = state.bosses.filter((b) => b.characterId === characterId);
+          const merged = sortTrackedBossesByCatalogOrder([...ownExisting, ...newBosses]).map((boss, index) => ({
+            ...boss,
+            order: index,
+          }));
+          return { bosses: [...otherCharacters, ...merged] };
+        });
+      },
       toggleBoss: (id) => {
         set((state) => ({
           bosses: state.bosses.map((b) =>
@@ -89,6 +136,11 @@ export const useBossStore = create<BossState>()(
           bosses: state.bosses.filter((b) => b.id !== id),
           deletedIds: recordTombstone(state.deletedIds, id),
         }));
+      },
+      removeBossesByIds: (ids) => {
+        if (ids.length === 0) return;
+        const idSet = new Set(ids);
+        set((state) => ({ bosses: state.bosses.filter((b) => !idSet.has(b.id)) }));
       },
       setBossPartySize: (id, partySize) => {
         set((state) => ({

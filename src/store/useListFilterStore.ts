@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import type { StatusFilter } from '@/lib/listFilter';
 
 /** BOSS 清單的週期分組鍵(賽季是顯示分類,非實際重置週期) */
-export type BossCycleKey = 'daily' | 'weekly' | 'monthly' | 'season';
+export type BossCycleKey = 'daily' | 'weekly' | 'monthly' | 'season' | 'vip';
 
 interface ListFilterState {
   /** 任務清單:完成狀態篩選 */
