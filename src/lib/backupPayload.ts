@@ -182,7 +182,14 @@ export function buildCurrentBackupPayloadJson(): string {
   const { tasks, deletedIds: taskTombstones } = useTaskStore.getState();
   const { bosses, deletedIds: bossTombstones } = useBossStore.getState();
   return JSON.stringify(
-    buildBackupPayload({ characters, characterTombstones, tasks, taskTombstones, bosses, bossTombstones }),
+    buildBackupPayload({
+      characters,
+      characterTombstones,
+      tasks,
+      taskTombstones,
+      bosses,
+      bossTombstones,
+    }),
     null,
     2,
   );
