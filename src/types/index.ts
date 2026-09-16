@@ -24,7 +24,18 @@ export interface Character {
   imageUrl?: string;
   order: number;
   source: CharacterSource;
+  /** 所屬帳號 id,null 代表尚未歸類到任何帳號(未歸類) */
+  accountId: string | null;
   /** VIP會員等級,未設定代表沒有VIP資格;只會影響「新增BOSS」對話框裡是否顯示VIP重置區塊 */
+  vipTier?: VipTier;
+}
+
+/** 使用者自訂的角色分組,對應現實中的一個 MapleStory 帳號(一個帳號底下可以有多個角色) */
+export interface Account {
+  id: string;
+  name: string;
+  order: number;
+  /** VIP會員等級,未設定代表這個帳號沒有VIP資格;VIP資格屬於整個帳號,而非個別角色 */
   vipTier?: VipTier;
 }
 

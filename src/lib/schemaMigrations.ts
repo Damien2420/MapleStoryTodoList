@@ -1,4 +1,4 @@
-import type { BossDifficulty, CharacterBossTrackList, CharacterSource, VipTicketLevel } from '@/types';
+import type { BossDifficulty, Character, CharacterBossTrackList, CharacterSource, VipTicketLevel } from '@/types';
 import type { Server } from '@/lib/servers';
 
 /**
@@ -21,7 +21,7 @@ export interface CharacterBeforeSource {
   order: number;
 }
 
-/** Character 新增 source 之後的形狀 */
+/** Character 新增 source 之後、accountId 之前的形狀 */
 export interface CharacterWithSource extends CharacterBeforeSource {
   source: CharacterSource;
 }
@@ -31,6 +31,13 @@ export function migrateCharacterAddSource(
   character: CharacterBeforeSource & Partial<Pick<CharacterWithSource, 'source'>>,
 ): CharacterWithSource {
   return { ...character, source: character.source ?? 'manual' };
+}
+
+/** Character v2 → v3:新增 accountId 欄位,舊資料查無所屬帳號一律視為未歸類 */
+export function migrateCharacterAddAccountId(
+  character: CharacterWithSource & Partial<Pick<Character, 'accountId'>>,
+): Character {
+  return { ...character, accountId: character.accountId ?? null };
 }
 
 /** CharacterBossTrackList v0 : 新增 partySize 欄位之前的舊資料形狀(此時仍保留後來才移除的 order 欄位) */

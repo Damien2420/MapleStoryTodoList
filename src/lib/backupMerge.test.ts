@@ -4,10 +4,11 @@ import { mergeBackupPayload, pruneAllTombstones, TOMBSTONE_RETENTION_DAYS } from
 import { useCharacterStore } from '@/store/useCharacterStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useBossStore } from '@/store/useBossStore';
+import { useAccountStore } from '@/store/useAccountStore';
 
 function emptyPayload(overrides: Partial<DriveBackupPayload> = {}): DriveBackupPayload {
   return {
-    version: 5,
+    version: 6,
     createdAt: '2026-01-01T00:00:00.000Z',
     characters: [],
     characterTombstones: [],
@@ -15,6 +16,8 @@ function emptyPayload(overrides: Partial<DriveBackupPayload> = {}): DriveBackupP
     taskTombstones: [],
     bosses: [],
     bossTombstones: [],
+    accounts: [],
+    accountTombstones: [],
     ...overrides,
   };
 }
@@ -24,11 +27,14 @@ describe('mergeBackupPayload', () => {
     useCharacterStore.setState({ characters: [], activeCharacterId: null, deletedIds: [] });
     useTaskStore.setState({ tasks: [], deletedIds: [] });
     useBossStore.setState({ bosses: [], deletedIds: [] });
+    useAccountStore.setState({ accounts: [], deletedIds: [] });
   });
 
   it('新增遠端有、本機沒有的角色/任務/BOSS,並回報新增筆數', () => {
     const payload = emptyPayload({
-      characters: [{ id: 'c1', name: 'A', server: '艾麗亞', level: 1, job: 'Warrior', order: 0, source: 'manual' }],
+      characters: [
+        { id: 'c1', name: 'A', server: '艾麗亞', level: 1, job: 'Warrior', order: 0, source: 'manual', accountId: null },
+      ],
       tasks: [
         {
           id: 't1',
@@ -43,13 +49,30 @@ describe('mergeBackupPayload', () => {
       ],
     });
     const result = mergeBackupPayload(payload);
-    expect(result).toEqual({ addedCharacters: 1, addedTasks: 1, addedBosses: 0, removedByTombstone: 0 });
+    expect(result).toEqual({ addedCharacters: 1, addedTasks: 1, addedBosses: 0, addedAccounts: 0, removedByTombstone: 0 });
     expect(useCharacterStore.getState().activeCharacterId).toBe('c1');
+  });
+
+  it('新增遠端有、本機沒有的帳號,並回報新增筆數', () => {
+    const payload = emptyPayload({ accounts: [{ id: 'a1', name: '主力練功', order: 0 }] });
+    const result = mergeBackupPayload(payload);
+    expect(result.addedAccounts).toBe(1);
+    expect(useAccountStore.getState().accounts).toEqual([{ id: 'a1', name: '主力練功', order: 0 }]);
+  });
+
+  it('遠端帳號墓碑會移除本機對應的帳號,並計入 removedByTombstone', () => {
+    useAccountStore.setState({ accounts: [{ id: 'a1', name: '主力練功', order: 0 }], deletedIds: [] });
+    const payload = emptyPayload({ accountTombstones: [{ id: 'a1', deletedAt: '2026-02-01T00:00:00.000Z' }] });
+    const result = mergeBackupPayload(payload);
+    expect(result.removedByTombstone).toBe(1);
+    expect(useAccountStore.getState().accounts).toEqual([]);
   });
 
   it('本機原本沒有任何角色,合併新增角色後自動選中第一個', () => {
     const payload = emptyPayload({
-      characters: [{ id: 'c1', name: 'A', server: '艾麗亞', level: 1, job: 'Warrior', order: 0, source: 'manual' }],
+      characters: [
+        { id: 'c1', name: 'A', server: '艾麗亞', level: 1, job: 'Warrior', order: 0, source: 'manual', accountId: null },
+      ],
     });
     mergeBackupPayload(payload);
     expect(useCharacterStore.getState().activeCharacterId).toBe('c1');
@@ -58,8 +81,8 @@ describe('mergeBackupPayload', () => {
   it('遠端墓碑會移除本機目前選中、但已被其他裝置刪除的角色,並回退到下一個角色', () => {
     useCharacterStore.setState({
       characters: [
-        { id: 'c1', name: 'A', server: '艾麗亞', level: 1, job: 'Warrior', order: 0, source: 'manual' },
-        { id: 'c2', name: 'B', server: '艾麗亞', level: 1, job: 'Warrior', order: 1, source: 'manual' },
+        { id: 'c1', name: 'A', server: '艾麗亞', level: 1, job: 'Warrior', order: 0, source: 'manual', accountId: null },
+        { id: 'c2', name: 'B', server: '艾麗亞', level: 1, job: 'Warrior', order: 1, source: 'manual', accountId: null },
       ],
       activeCharacterId: 'c1',
       deletedIds: [],
@@ -83,11 +106,13 @@ describe('pruneAllTombstones', () => {
     useCharacterStore.setState({ characters: [], activeCharacterId: null, deletedIds: tombstones });
     useTaskStore.setState({ tasks: [], deletedIds: tombstones });
     useBossStore.setState({ bosses: [], deletedIds: tombstones });
+    useAccountStore.setState({ accounts: [], deletedIds: tombstones });
 
     pruneAllTombstones();
 
     expect(useCharacterStore.getState().deletedIds.map((t) => t.id)).toEqual(['recent']);
     expect(useTaskStore.getState().deletedIds.map((t) => t.id)).toEqual(['recent']);
     expect(useBossStore.getState().deletedIds.map((t) => t.id)).toEqual(['recent']);
+    expect(useAccountStore.getState().deletedIds.map((t) => t.id)).toEqual(['recent']);
   });
 });

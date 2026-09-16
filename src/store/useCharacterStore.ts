@@ -3,7 +3,12 @@ import { persist } from 'zustand/middleware';
 import type { Character, CharacterSource } from '@/types';
 import type { Server } from '@/lib/servers';
 import { trackLocalChange } from '@/lib/trackLocalChange';
-import { type CharacterBeforeSource, migrateCharacterAddSource } from '@/lib/schemaMigrations';
+import {
+  type CharacterBeforeSource,
+  type CharacterWithSource,
+  migrateCharacterAddAccountId,
+  migrateCharacterAddSource,
+} from '@/lib/schemaMigrations';
 import { recordTombstone, type Tombstone } from '@/lib/tombstone';
 
 export interface NewCharacterInput {
@@ -17,7 +22,7 @@ export interface NewCharacterInput {
 
 /** 更新角色資料時可覆寫的欄位:api 來源會全部帶入,manual 來源只會帶名字/伺服器/等級/職業 */
 export type CharacterUpdateInput = Partial<
-  Pick<Character, 'name' | 'server' | 'level' | 'job' | 'imageUrl' | 'vipTier'>
+  Pick<Character, 'name' | 'server' | 'level' | 'job' | 'imageUrl' | 'vipTier' | 'accountId'>
 >;
 
 interface CharacterState {
@@ -50,6 +55,7 @@ export const useCharacterStore = create<CharacterState>()(
           imageUrl: input.imageUrl,
           order: get().characters.length,
           source: input.source,
+          accountId: null,
         };
         set((state) => ({
           characters: [...state.characters, character],
@@ -76,7 +82,7 @@ export const useCharacterStore = create<CharacterState>()(
       name: 'maplestory-todolist-characters',
       // schema 版本:改動 Character 持久化結構(改名/刪除/改語意)時 version +1 並補 migrate,
       // 且需同步檢查 backupPayload.ts 的 CURRENT_VERSION/MIGRATIONS 是否也要升版
-      version: 2,
+      version: 3,
       migrate: (persistedState, version) => {
         const state = persistedState as Omit<CharacterState, 'characters' | 'deletedIds'> & {
           characters: unknown[];
@@ -85,6 +91,9 @@ export const useCharacterStore = create<CharacterState>()(
         let characters = state.characters;
         if (version === 0) {
           characters = (characters as CharacterBeforeSource[]).map(migrateCharacterAddSource);
+        }
+        if (version <= 2) {
+          characters = (characters as CharacterWithSource[]).map(migrateCharacterAddAccountId);
         }
         return {
           ...state,
