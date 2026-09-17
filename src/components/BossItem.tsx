@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Hourglass, Minus, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -13,8 +14,16 @@ import type { CharacterBossTrackList } from '@/types';
 import { useBossStore } from '@/store/useBossStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
-/** 單一 BOSS 討伐列:勾選框 + 王名稱 + 難度標籤 + 攻略人數控制 + 唯讀的收益數字 + 刪除鈕 */
-export function BossItem({ boss }: { boss: CharacterBossTrackList }) {
+/** 單一 BOSS 討伐列:勾選框 + 王名稱 + 難度標籤 + 攻略人數控制 + 唯讀的收益數字 + 刪除鈕
+ * 以 React.memo 包裝:boss/hideRevenue 沒變就不重新渲染,避免清單中其他列的 store 更新連帶讓每一列都重繪 */
+export const BossItem = memo(function BossItem({
+  boss,
+  hideRevenue,
+}: {
+  boss: CharacterBossTrackList;
+  /** 這隻週王未上榜每週收益上限前 WEEKLY_BOSS_LIMIT 名,由呼叫端算好傳入,隱藏收益數字改顯示提示文字 */
+  hideRevenue?: boolean;
+}) {
   const toggleBoss = useBossStore((s) => s.toggleBoss);
   const removeBoss = useBossStore((s) => s.removeBoss);
   const restoreBoss = useBossStore((s) => s.restoreBoss);
@@ -169,11 +178,15 @@ export function BossItem({ boss }: { boss: CharacterBossTrackList }) {
             <>
               {showStepper && <div className="@min-[400px]:hidden @min-[640px]:mr-4 @min-[640px]:flex">{stepperControl}</div>}
 
-              <span className="flex items-center gap-1 text-xs tabular-nums whitespace-nowrap text-muted-foreground @min-[640px]:w-[14em]">
-                <img src="/coin.png" alt="" className="size-4 shrink-0" />
-                {formatCrystalValue(getEffectiveCrystalValue(boss))}
-                {boss.partySize > 1 && <span className="shrink-0">(每人)</span>}
-              </span>
+              {hideRevenue ? (
+                <span className="text-xs whitespace-nowrap text-muted-foreground @min-[640px]:w-[14em]">不計入收益</span>
+              ) : (
+                <span className="flex items-center gap-1 text-xs tabular-nums whitespace-nowrap text-muted-foreground @min-[640px]:w-[14em]">
+                  <img src="/coin.png" alt="" className="size-4 shrink-0" />
+                  {formatCrystalValue(getEffectiveCrystalValue(boss))}
+                  {boss.partySize > 1 && <span className="shrink-0">(每人)</span>}
+                </span>
+              )}
             </>
           )}
         </div>
@@ -192,4 +205,4 @@ export function BossItem({ boss }: { boss: CharacterBossTrackList }) {
       <div className="hidden @min-[640px]:ml-auto @min-[640px]:block">{deleteButton}</div>
     </div>
   );
-}
+});
