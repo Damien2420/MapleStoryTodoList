@@ -3,13 +3,21 @@ import { ChevronDown, Swords } from 'lucide-react';
 import { BossItem } from '@/components/BossItem';
 import { AddBossDialog } from '@/components/AddBossDialog';
 import { VipBossSection } from '@/components/VipBossSection';
+import { WeeklyRevenueCapHint } from '@/components/WeeklyRevenueCapHint';
 import { StatusFilterControl } from '@/components/StatusFilterControl';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useBossStore } from '@/store/useBossStore';
 import { useListFilterStore, type BossCycleKey } from '@/store/useListFilterStore';
 import { filterItemsByStatus } from '@/lib/listFilter';
-import { findBossCatalogEntry, isCatalogEntryExpired, sortTrackedBossesByCatalogOrder } from '@/lib/bossCatalog';
+import {
+  findBossCatalogEntry,
+  getWeeklyRevenueCountedIds,
+  isCatalogEntryExpired,
+  isWeeklyRevenueExcluded,
+  sortTrackedBossesByCatalogOrder,
+  WEEKLY_BOSS_LIMIT,
+} from '@/lib/bossCatalog';
 import { CYCLE_BADGE_CLASSES } from '@/lib/cycleBadge';
 import { cn } from '@/lib/utils';
 import type { Character, CharacterBossTrackList } from '@/types';
@@ -28,50 +36,76 @@ interface BossSectionProps {
   bosses: CharacterBossTrackList[];
   /** 該週期區塊未套用篩選的完整 BOSS 清單,全部完成按鈕的顯示/切換以此為準 */
   allBosses: CharacterBossTrackList[];
+  /** 計入本週收益上限的 BOSS id 集合(含一般週王+VIP週重置王合併排名後的前 WEEKLY_BOSS_LIMIT 名),非每週區塊傳入也不影響顯示 */
+  weeklyRevenueCountedIds: Set<string>;
   collapsed: boolean;
   onToggle: (cycle: BossCycleKey) => void;
   onToggleAll: (ids: string[], checked: boolean) => void;
 }
 
 /** 單一週期(每日/每週/每月/賽季)的 BOSS 區塊,標題可收合;BOSS 數 >= 2 時提供全部完成按鈕 */
-function BossSection({ cycleKey, label, bosses, allBosses, collapsed, onToggle, onToggleAll }: BossSectionProps) {
+function BossSection({
+  cycleKey,
+  label,
+  bosses,
+  allBosses,
+  weeklyRevenueCountedIds,
+  collapsed,
+  onToggle,
+  onToggleAll,
+}: BossSectionProps) {
   const allDone = allBosses.length > 0 && allBosses.every((b) => b.checked);
 
   return (
     <section className="flex flex-col gap-1 rounded-lg border border-border bg-card px-3 py-2.5">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+        <h3 className="flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground">
           <button
             type="button"
             aria-expanded={!collapsed}
             aria-label={collapsed ? `展開${label}區塊` : `收合${label}區塊`}
-            className="flex size-5 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+            className="flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
             onClick={() => onToggle(cycleKey)}
           >
             <ChevronDown className={cn('size-4 transition-transform', collapsed && '-rotate-90')} />
           </button>
-          <Badge variant="secondary" className={CYCLE_BADGE_CLASSES[label]}>
+          <Badge variant="secondary" className={cn('shrink-0', CYCLE_BADGE_CLASSES[label])}>
             {label}
           </Badge>
+          {/* 用緊湊的計數徽章取代整句提示,才不會在窄容器跟標題、按鈕搶版面而被迫換行 */}
+          {cycleKey === 'weekly' && (
+            <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">
+              週王上限 {weeklyRevenueCountedIds.size}/{WEEKLY_BOSS_LIMIT}
+            </span>
+          )}
         </h3>
         {allBosses.length >= 2 && (
           <Button
             type="button"
             variant="ghost"
             size="xs"
-            className="text-primary hover:text-primary hover:bg-primary/10"
+            className="shrink-0 text-primary hover:text-primary hover:bg-primary/10"
             onClick={() => onToggleAll(allBosses.map((b) => b.id), !allDone)}
           >
             {allDone ? '取消全部' : '全部完成'}
           </Button>
         )}
       </div>
+      
       {!collapsed && (
-        <div className="flex flex-col divide-y divide-border">
-          {bosses.map((boss) => (
-            <BossItem key={boss.id} boss={boss} />
-          ))}
-        </div>
+        <>
+          {cycleKey === 'weekly' && <WeeklyRevenueCapHint />}
+          <div className="flex flex-col divide-y divide-border">
+            {bosses.map((boss) => (
+              <BossItem
+                key={boss.id}
+                boss={boss}
+                hideRevenue={isWeeklyRevenueExcluded(boss, weeklyRevenueCountedIds)}
+              />
+            ))}
+          </div>
+        </>
+        
       )}
     </section>
   );
@@ -87,10 +121,7 @@ export function BossList({ character }: { character: Character }) {
   const toggleBossSection = useListFilterStore((s) => s.toggleBossSection);
 
   const bosses = useMemo(
-    () =>
-      sortTrackedBossesByCatalogOrder(
-        allBosses.filter((b) => b.characterId === character.id && !isBossExpired(b)),
-      ),
+    () => sortTrackedBossesByCatalogOrder(allBosses.filter((b) => b.characterId === character.id && !isBossExpired(b))),
     [allBosses, character.id],
   );
 
@@ -108,6 +139,12 @@ export function BossList({ character }: { character: Character }) {
   );
   const seasonBossesAll = useMemo(() => bosses.filter((b) => b.category === 'season'), [bosses]);
   const vipBossesAll = useMemo(() => bosses.filter((b) => b.category === 'vip'), [bosses]);
+  // 每週收益上限一律以未套用完成狀態篩選的完整清單計算,不受目前「未完成/已完成」篩選顯示影響
+  const vipWeeklyBossesAll = useMemo(() => vipBossesAll.filter((b) => b.resetCycle === 'weekly'), [vipBossesAll]);
+  const weeklyRevenueCountedIds = useMemo(
+    () => getWeeklyRevenueCountedIds([...weeklyBossesAll, ...vipWeeklyBossesAll]),
+    [weeklyBossesAll, vipWeeklyBossesAll],
+  );
 
   const dailyBosses = useMemo(() => visibleBosses.filter((b) => b.resetCycle === 'daily'), [visibleBosses]);
   const weeklyBosses = useMemo(
@@ -122,10 +159,10 @@ export function BossList({ character }: { character: Character }) {
   const vipBosses = useMemo(() => visibleBosses.filter((b) => b.category === 'vip'), [visibleBosses]);
 
   const sections: Omit<BossSectionProps, 'collapsed' | 'onToggle' | 'onToggleAll'>[] = [
-    { cycleKey: 'daily', label: '每日', bosses: dailyBosses, allBosses: dailyBossesAll },
-    { cycleKey: 'weekly', label: '每週', bosses: weeklyBosses, allBosses: weeklyBossesAll },
-    { cycleKey: 'monthly', label: '每月', bosses: monthlyBosses, allBosses: monthlyBossesAll },
-    { cycleKey: 'season', label: '賽季', bosses: seasonBosses, allBosses: seasonBossesAll },
+    { cycleKey: 'daily', label: '每日', bosses: dailyBosses, allBosses: dailyBossesAll, weeklyRevenueCountedIds },
+    { cycleKey: 'weekly', label: '每週', bosses: weeklyBosses, allBosses: weeklyBossesAll, weeklyRevenueCountedIds },
+    { cycleKey: 'monthly', label: '每月', bosses: monthlyBosses, allBosses: monthlyBossesAll, weeklyRevenueCountedIds },
+    { cycleKey: 'season', label: '賽季', bosses: seasonBosses, allBosses: seasonBossesAll, weeklyRevenueCountedIds },
   ];
   const visibleSections = sections.filter((s) => s.bosses.length > 0);
 
@@ -154,6 +191,7 @@ export function BossList({ character }: { character: Character }) {
                 character={character}
                 vipBosses={vipBosses}
                 vipBossesAll={vipBossesAll}
+                weeklyRevenueCountedIds={weeklyRevenueCountedIds}
                 collapsed={collapsedBossSections.has('vip')}
                 onToggle={toggleBossSection}
                 onToggleAll={toggleBossesByIds}
