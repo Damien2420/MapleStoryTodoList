@@ -11,7 +11,12 @@ import {
 } from '@/lib/bossCatalog';
 import { findVipMapping, getVipTicketLevelResetCycle } from '@/lib/vipBossCatalog';
 import { trackLocalChange } from '@/lib/trackLocalChange';
-import { migrateBossAddPartySize, migrateBossRemoveOrder } from '@/lib/schemaMigrations';
+import {
+  type BossBeforePartySize,
+  type BossWithPartySize,
+  migrateBossAddPartySize,
+  migrateBossRemoveOrder,
+} from '@/lib/schemaMigrations';
 import { clearTombstone, recordTombstone, type Tombstone } from '@/lib/tombstone';
 
 /** 使用者在新增BOSS對話框中勾選的單筆VIP重置券選取項目 */
@@ -193,18 +198,22 @@ export const useBossStore = create<BossState>()(
       // 且需同步檢查 backupPayload.ts 的 CURRENT_VERSION/MIGRATIONS 是否也要升版
       version: 3,
       migrate: (persistedState, version) => {
-        const state = persistedState as BossState;
-        let migrated = state;
+        const state = persistedState as Omit<BossState, 'bosses' | 'deletedIds'> & {
+          bosses: unknown[];
+          deletedIds?: Tombstone[];
+        };
+        let bosses = state.bosses;
         if (version === 0) {
-          migrated = { ...migrated, bosses: migrated.bosses.map(migrateBossAddPartySize) };
-        }
-        if (version <= 1) {
-          migrated = { ...migrated, deletedIds: [] };
+          bosses = (bosses as BossBeforePartySize[]).map(migrateBossAddPartySize);
         }
         if (version <= 2) {
-          migrated = { ...migrated, bosses: migrated.bosses.map(migrateBossRemoveOrder) };
+          bosses = (bosses as BossWithPartySize[]).map(migrateBossRemoveOrder);
         }
-        return migrated;
+        return {
+          ...state,
+          deletedIds: version <= 1 ? [] : (state.deletedIds ?? []),
+          bosses: bosses as CharacterBossTrackList[],
+        };
       },
     },
   ),

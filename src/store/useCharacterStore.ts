@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware';
 import type { Character, CharacterSource } from '@/types';
 import type { Server } from '@/lib/servers';
 import { trackLocalChange } from '@/lib/trackLocalChange';
-import { migrateCharacterAddSource } from '@/lib/schemaMigrations';
+import { type CharacterBeforeSource, migrateCharacterAddSource } from '@/lib/schemaMigrations';
 import { recordTombstone, type Tombstone } from '@/lib/tombstone';
 
 export interface NewCharacterInput {
@@ -16,7 +16,9 @@ export interface NewCharacterInput {
 }
 
 /** 更新角色資料時可覆寫的欄位:api 來源會全部帶入,manual 來源只會帶名字/伺服器/等級/職業 */
-export type CharacterUpdateInput = Partial<Pick<Character, 'name' | 'server' | 'level' | 'job' | 'imageUrl' | 'vipTier'>>;
+export type CharacterUpdateInput = Partial<
+  Pick<Character, 'name' | 'server' | 'level' | 'job' | 'imageUrl' | 'vipTier'>
+>;
 
 interface CharacterState {
   characters: Character[];
@@ -76,15 +78,19 @@ export const useCharacterStore = create<CharacterState>()(
       // 且需同步檢查 backupPayload.ts 的 CURRENT_VERSION/MIGRATIONS 是否也要升版
       version: 2,
       migrate: (persistedState, version) => {
-        const state = persistedState as CharacterState;
-        let migrated = state;
+        const state = persistedState as Omit<CharacterState, 'characters' | 'deletedIds'> & {
+          characters: unknown[];
+          deletedIds?: Tombstone[];
+        };
+        let characters = state.characters;
         if (version === 0) {
-          migrated = { ...migrated, characters: migrated.characters.map(migrateCharacterAddSource) };
+          characters = (characters as CharacterBeforeSource[]).map(migrateCharacterAddSource);
         }
-        if (version <= 1) {
-          migrated = { ...migrated, deletedIds: [] };
-        }
-        return migrated;
+        return {
+          ...state,
+          deletedIds: version <= 1 ? [] : (state.deletedIds ?? []),
+          characters: characters as Character[],
+        };
       },
     },
   ),

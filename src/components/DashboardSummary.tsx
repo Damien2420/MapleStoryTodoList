@@ -6,7 +6,12 @@ import { useBossStore } from '@/store/useBossStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useNow } from '@/hooks/useNow';
 import { isPresetExpired } from '@/lib/presetTasks';
-import { findBossCatalogEntry, getEffectiveCrystalValue, isCatalogEntryExpired } from '@/lib/bossCatalog';
+import {
+  findBossCatalogEntry,
+  getEffectiveCrystalValue,
+  getWeeklyRevenueCountedIds,
+  isCatalogEntryExpired,
+} from '@/lib/bossCatalog';
 import { formatCrystalValue } from '@/lib/formatCrystal';
 import { hoursUntilExpiry } from '@/lib/reset';
 import type { Character, CharacterTask } from '@/types';
@@ -84,8 +89,8 @@ function CycleCard({
   bossTotal?: number;
 }) {
   return (
-    // basis 對應 2 欄(手機)/4 欄(桌面)等寬切法,flex-1 讓卡片數量變少時自動長大填滿整排,不會卡在靠左
-    <div className="flex min-w-36 flex-1 basis-[calc(50%-0.3125rem)] flex-col gap-2 rounded-lg border border-border bg-card p-2.5 lg:basis-[calc(25%-0.46875rem)]">
+    // basis 對應 2 欄(手機)/3 欄(桌面)等寬切法,flex-1 讓卡片數量不足整排時自動長大填滿,不會卡在靠左
+    <div className="flex min-w-36 flex-1 basis-[calc(50%-0.3125rem)] flex-col gap-2 rounded-lg border border-border bg-card p-2.5 lg:basis-[calc(33.3333%-0.41667rem)]">
       <div className="flex items-baseline justify-between gap-2">
         <span className={cn('text-xs font-bold', dotClassName)}>{label}</span>
         {urgentLabel && (
@@ -135,23 +140,38 @@ export function DashboardSummary({ character, className }: { character: Characte
     [bosses],
   );
   const seasonBosses = useMemo(() => bosses.filter((b) => b.category === 'season'), [bosses]);
+  const vipBosses = useMemo(() => bosses.filter((b) => b.category === 'vip'), [bosses]);
+  // VIP重置券裡「下/中/上/終極」是每週重置,跟一般週王共用同一個每週收益上限;「每月」不受週上限限制,收益併入每月討伐收益
+  const vipWeeklyBosses = useMemo(() => vipBosses.filter((b) => b.resetCycle === 'weekly'), [vipBosses]);
+  const vipMonthlyBosses = useMemo(() => vipBosses.filter((b) => b.resetCycle === 'monthly'), [vipBosses]);
   // 討伐進度:該週期已勾選(已討伐)的 BOSS 數 / 該週期未下架的追蹤中 BOSS 總數
   const dailyDoneBossCount = useMemo(() => dailyBosses.filter((b) => b.checked).length, [dailyBosses]);
   const weeklyDoneBossCount = useMemo(() => weeklyBosses.filter((b) => b.checked).length, [weeklyBosses]);
   const monthlyDoneBossCount = useMemo(() => monthlyBosses.filter((b) => b.checked).length, [monthlyBosses]);
   const seasonDoneBossCount = useMemo(() => seasonBosses.filter((b) => b.checked).length, [seasonBosses]);
+  const vipDoneBossCount = useMemo(() => vipBosses.filter((b) => b.checked).length, [vipBosses]);
   // 收益只計入已勾選(已討伐)的 BOSS,未勾選不算;收益依攻略人數平分後計算
   const dailyTotal = useMemo(
     () => dailyBosses.reduce((sum, b) => sum + (b.checked ? getEffectiveCrystalValue(b) : 0), 0),
     [dailyBosses],
   );
-  const weeklyTotal = useMemo(
-    () => weeklyBosses.reduce((sum, b) => sum + (b.checked ? getEffectiveCrystalValue(b) : 0), 0),
-    [weeklyBosses],
-  );
+  // 每週收益上限是一般週王+VIP週重置王共用同一個名額,已討伐的王依結晶價值取前 WEEKLY_BOSS_LIMIT 名計入收益
+  const weeklyTotal = useMemo(() => {
+    const weeklyEligibleBosses = [...weeklyBosses, ...vipWeeklyBosses];
+    const countedIds = getWeeklyRevenueCountedIds(weeklyEligibleBosses);
+    return weeklyEligibleBosses.reduce(
+      (sum, b) => sum + (countedIds.has(b.id) ? getEffectiveCrystalValue(b) : 0),
+      0,
+    );
+  }, [weeklyBosses, vipWeeklyBosses]);
+  // 每月收益不受週上限限制,一般月王 + VIP每月重置王一起計算,不單獨拆出VIP那一行
   const monthlyTotal = useMemo(
-    () => monthlyBosses.reduce((sum, b) => sum + (b.checked ? getEffectiveCrystalValue(b) : 0), 0),
-    [monthlyBosses],
+    () =>
+      [...monthlyBosses, ...vipMonthlyBosses].reduce(
+        (sum, b) => sum + (b.checked ? getEffectiveCrystalValue(b) : 0),
+        0,
+      ),
+    [monthlyBosses, vipMonthlyBosses],
   );
 
   const dailyHasTask = dailyTasks.length > 0;
@@ -162,11 +182,15 @@ export function DashboardSummary({ character, className }: { character: Characte
   const monthlyHasBoss = monthlyBosses.length > 0;
   const seasonHasTask = seasonTasks.length > 0;
   const seasonHasBoss = seasonBosses.length > 0;
+  const vipHasBoss = vipBosses.length > 0;
+  // 本月討伐收益行是否顯示:一般月王或VIP每月重置王任一有追蹤即顯示(兩者收益已併計)
+  const monthlyHasRevenue = monthlyHasBoss || vipMonthlyBosses.length > 0;
 
   const dailyHasCard = dailyHasTask || dailyHasBoss;
   const weeklyHasCard = weeklyHasTask || weeklyHasBoss;
   const monthlyHasCard = monthlyHasTask || monthlyHasBoss;
   const seasonHasCard = seasonHasTask || seasonHasBoss;
+  const vipHasCard = vipHasBoss;
 
   // 每日一定在當天結束前重置,永遠顯示急迫感標籤沒有意義,不提供;週/月改用「今天是不是重置日」判斷
   // (重置時間固定 00:00,直接比對星期幾/日期即可;賽季改用「距離賽季實際截止日期」判斷,沿用 TaskItem 既有的 expiringSoon 慣例)
@@ -196,9 +220,9 @@ export function DashboardSummary({ character, className }: { character: Characte
     seasonExpiresAt !== undefined &&
     hoursUntilExpiry(seasonExpiresAt, now) < EXPIRY_IMMINENT_HOURS;
 
-  const hasRevenue = dailyHasBoss || weeklyHasBoss || monthlyHasBoss;
+  const hasRevenue = dailyHasBoss || weeklyHasBoss || monthlyHasRevenue;
 
-  if (!dailyHasCard && !weeklyHasCard && !monthlyHasCard && !seasonHasCard) return null;
+  if (!dailyHasCard && !weeklyHasCard && !monthlyHasCard && !seasonHasCard && !vipHasCard) return null;
 
   return (
     <div className={cn('flex flex-col gap-3', className)}>
@@ -253,6 +277,15 @@ export function DashboardSummary({ character, className }: { character: Characte
             bossTotal={seasonHasBoss ? seasonBosses.length : undefined}
           />
         )}
+        {vipHasCard && (
+          <CycleCard
+            label="VIP重置"
+            dotClassName="text-cycle-vip-foreground"
+            barClassName="bg-cycle-vip-foreground"
+            bossDone={vipDoneBossCount}
+            bossTotal={vipBosses.length}
+          />
+        )}
       </div>
 
       {hasRevenue && (
@@ -279,7 +312,7 @@ export function DashboardSummary({ character, className }: { character: Characte
               </span>
             </div>
           )}
-          {monthlyHasBoss && (
+          {monthlyHasRevenue && (
             <div className="flex items-center justify-between gap-2 text-xs">
               <span className="flex min-w-0 items-center gap-1 truncate text-muted-foreground">
                 <img src="/Intense_Power_Crystal_(Monthly).png" alt="" className="size-3.5 shrink-0" />

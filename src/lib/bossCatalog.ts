@@ -136,6 +136,35 @@ export function getEffectiveCrystalValue(boss: Pick<CharacterBossTrackList, 'cry
   return Math.round(boss.crystalValue / boss.partySize);
 }
 
+/**
+ * 每週結晶收益上限是「已討伐」的每週王(一般週王 + VIP每週重置券王,不含VIP每月券/賽季王)共用同一個名額,
+ * 依結晶價值由高到低排序,只有前 WEEKLY_BOSS_LIMIT 名算收益,其餘視為賣不掉;未勾選的王不佔名額也不參與排序。
+ *
+ * @param weeklyBosses 一般週王(不含賽季/VIP) + VIP每週重置券王(不含VIP每月券)的合併清單
+ * @returns 計入本週收益上限的 BOSS id 集合
+ */
+export function getWeeklyRevenueCountedIds(
+  weeklyBosses: Pick<CharacterBossTrackList, 'id' | 'checked' | 'crystalValue' | 'partySize'>[],
+): Set<string> {
+  const topRanked = weeklyBosses
+    .filter((b) => b.checked)
+    .sort((a, b) => getEffectiveCrystalValue(b) - getEffectiveCrystalValue(a))
+    .slice(0, WEEKLY_BOSS_LIMIT);
+  return new Set(topRanked.map((b) => b.id));
+}
+
+/**
+ * 判斷單一 BOSS 討伐列在清單上是否該隱藏收益數字。只套用在每週類型 BOSS(一般週王/VIP每週重置王),
+ * 未上榜前 WEEKLY_BOSS_LIMIT 名的「已討伐」王視為賣不掉;未勾選的王不受影響,仍顯示參考價值。
+ */
+export function isWeeklyRevenueExcluded(
+  boss: Pick<CharacterBossTrackList, 'id' | 'resetCycle' | 'category' | 'checked'>,
+  weeklyRevenueCountedIds: Set<string>,
+): boolean {
+  if (boss.resetCycle !== 'weekly' || boss.category === 'season') return false;
+  return boss.checked && !weeklyRevenueCountedIds.has(boss.id);
+}
+
 /** 查詢指定 BOSS 追蹤紀錄可設定的最大攻略人數;查無對應目錄項目(舊資料或已下架)時 fallback 為 6 */
 export function getMaxPartySize(boss: Pick<CharacterBossTrackList, 'bossCatalogId' | 'difficulty'>): number {
   if (!boss.bossCatalogId) return 6;
