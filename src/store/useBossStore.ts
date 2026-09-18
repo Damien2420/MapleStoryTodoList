@@ -11,6 +11,7 @@ import {
 } from '@/lib/bossCatalog';
 import { findVipMapping, getVipTicketLevelResetCycle } from '@/lib/vipBossCatalog';
 import { trackLocalChange } from '@/lib/trackLocalChange';
+import { syncAcrossTabs } from '@/lib/crossTabSync';
 import {
   type BossBeforePartySize,
   type BossWithPartySize,
@@ -220,3 +221,4 @@ export const useBossStore = create<BossState>()(
 );
 
 trackLocalChange(useBossStore, (s) => s.bosses);
+syncAcrossTabs(useBossStore, 'maplestory-todolist-bosses');

@@ -4,6 +4,7 @@ import type { CharacterTask, ResetCycle, Settings } from '@/types';
 import { needsReset, isWeekendEventOpen } from '@/lib/reset';
 import { sortTasksByPresetOrder, type PresetTask } from '@/lib/presetTasks';
 import { trackLocalChange } from '@/lib/trackLocalChange';
+import { syncAcrossTabs } from '@/lib/crossTabSync';
 import { clearTombstone, recordTombstone, type Tombstone } from '@/lib/tombstone';
 
 export interface NewTaskInput {
@@ -162,3 +163,4 @@ export const useTaskStore = create<TaskState>()(
 );
 
 trackLocalChange(useTaskStore, (s) => s.tasks);
+syncAcrossTabs(useTaskStore, 'maplestory-todolist-tasks');

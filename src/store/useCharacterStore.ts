@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import type { Character, CharacterSource } from '@/types';
 import type { Server } from '@/lib/servers';
 import { trackLocalChange } from '@/lib/trackLocalChange';
+import { syncAcrossTabs } from '@/lib/crossTabSync';
 import {
   type CharacterBeforeSource,
   type CharacterWithSource,
@@ -106,3 +107,4 @@ export const useCharacterStore = create<CharacterState>()(
 );
 
 trackLocalChange(useCharacterStore, (s) => s.characters);
+syncAcrossTabs(useCharacterStore, 'maplestory-todolist-characters');
