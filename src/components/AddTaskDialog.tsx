@@ -1,8 +1,7 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { format, parse } from 'date-fns';
 import { ArrowLeft, CalendarIcon, ListPlus, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -24,6 +23,9 @@ import { TASK_NAME_MAX_LENGTH, TASK_CATEGORY_MAX_LENGTH, type ResetCycle } from 
 import { useCharacterStore } from '@/store/useCharacterStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useTaskStore } from '@/store/useTaskStore';
+
+/** react-day-picker 只有這個對話框的日期選擇會用到,延遲載入以避免拖累首屏與 dev 模式模組數量 */
+const Calendar = lazy(() => import('@/components/ui/calendar').then((m) => ({ default: m.Calendar })));
 
 const DUE_DATE_FORMAT = 'yyyy-MM-dd';
 
@@ -331,11 +333,19 @@ export function AddTaskDialog({ characterId, existingCategories }: AddTaskDialog
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={dueDate ? parse(dueDate, DUE_DATE_FORMAT, new Date()) : undefined}
-                    onSelect={(date) => setDueDate(date ? format(date, DUE_DATE_FORMAT) : '')}
-                  />
+                  <Suspense
+                    fallback={
+                      <div className="flex h-[286px] w-[252px] items-center justify-center text-sm text-muted-foreground">
+                        載入中...
+                      </div>
+                    }
+                  >
+                    <Calendar
+                      mode="single"
+                      selected={dueDate ? parse(dueDate, DUE_DATE_FORMAT, new Date()) : undefined}
+                      onSelect={(date) => setDueDate(date ? format(date, DUE_DATE_FORMAT) : '')}
+                    />
+                  </Suspense>
                   {dueDate && (
                     <div className="border-t border-border p-2">
                       <Button
