@@ -144,6 +144,11 @@ export function isPresetExpired(presetId: string, now: Date = new Date()): boole
   return false;
 }
 
+/** 任務對應的預設範本是否已下架(沒有 presetId 的任務視為未下架) */
+export function isTaskExpired(task: Pick<CharacterTask, 'presetId'>, now: Date = new Date()): boolean {
+  return task.presetId ? isPresetExpired(task.presetId, now) : false;
+}
+
 /** 依 presetId(單筆任務或群組的 id)查找對應來源的 expiresAt;查無來源或未設定回傳 undefined */
 export function findPresetExpiresAt(presetId: string): string | undefined {
   const task = PRESET_TASKS.find((t) => t.id === presetId);

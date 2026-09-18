@@ -11,9 +11,8 @@ import { useBossStore } from '@/store/useBossStore';
 import { useListFilterStore, type BossCycleKey } from '@/store/useListFilterStore';
 import { filterItemsByStatus } from '@/lib/listFilter';
 import {
-  findBossCatalogEntry,
   getWeeklyRevenueCountedIds,
-  isCatalogEntryExpired,
+  isBossExpired,
   isWeeklyRevenueExcluded,
   sortTrackedBossesByCatalogOrder,
   WEEKLY_BOSS_LIMIT,
@@ -21,13 +20,6 @@ import {
 import { CYCLE_BADGE_CLASSES } from '@/lib/cycleBadge';
 import { cn } from '@/lib/utils';
 import type { Character, CharacterBossTrackList } from '@/types';
-
-/** BOSS 討伐記錄對應的目錄項目是否已下架(沒有 bossCatalogId 視為未下架) */
-function isBossExpired(boss: { bossCatalogId?: string }): boolean {
-  if (!boss.bossCatalogId) return false;
-  const entry = findBossCatalogEntry(boss.bossCatalogId);
-  return entry ? isCatalogEntryExpired(entry) : false;
-}
 
 interface BossSectionProps {
   cycleKey: BossCycleKey;
