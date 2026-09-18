@@ -5,6 +5,7 @@ import type { DriveBackupPayload } from '@/lib/backupPayload';
 import { useCharacterStore } from '@/store/useCharacterStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useBossStore } from '@/store/useBossStore';
+import { useAccountStore } from '@/store/useAccountStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
 vi.mock('@/lib/googleDrive', () => ({
@@ -41,6 +42,7 @@ describe('backupNow', () => {
     useCharacterStore.setState({ characters: [], activeCharacterId: null, deletedIds: [] });
     useTaskStore.setState({ tasks: [], deletedIds: [] });
     useBossStore.setState({ bosses: [], deletedIds: [] });
+    useAccountStore.setState({ accounts: [], deletedIds: [] });
     useSettingsStore.setState({ lastBackupAt: undefined, lastLocalChangeAt: undefined });
   });
 
@@ -109,7 +111,7 @@ describe('backupNow', () => {
 
 function emptyPayload(overrides: Partial<DriveBackupPayload> = {}): DriveBackupPayload {
   return {
-    version: 5,
+    version: 6,
     createdAt: '2026-01-01T00:00:00.000Z',
     characters: [],
     characterTombstones: [],
@@ -117,6 +119,8 @@ function emptyPayload(overrides: Partial<DriveBackupPayload> = {}): DriveBackupP
     taskTombstones: [],
     bosses: [],
     bossTombstones: [],
+    accounts: [],
+    accountTombstones: [],
     ...overrides,
   };
 }
@@ -147,6 +151,7 @@ describe('applyRestoredPayload', () => {
     useCharacterStore.setState({ characters: [], activeCharacterId: null, deletedIds: [] });
     useTaskStore.setState({ tasks: [], deletedIds: [] });
     useBossStore.setState({ bosses: [], deletedIds: [] });
+    useAccountStore.setState({ accounts: [], deletedIds: [] });
     useSettingsStore.setState({ lastBackupAt: undefined, lastLocalChangeAt: undefined });
   });
 

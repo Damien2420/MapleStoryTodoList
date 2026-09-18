@@ -10,6 +10,8 @@ describe('buildBackupPayload', () => {
       taskTombstones: [],
       bosses: [],
       bossTombstones: [],
+      accounts: [],
+      accountTombstones: [],
     });
     expect(payload.version).toBe(CURRENT_VERSION);
     expect(payload.characterTombstones).toEqual([{ id: 'c1', deletedAt: '2026-01-01T00:00:00.000Z' }]);
@@ -113,6 +115,26 @@ describe('parseBackupPayload migration v4 -> v5', () => {
     const payload = parseBackupPayload(v4Json);
     expect(payload.version).toBe(CURRENT_VERSION);
     expect(payload.bosses[0]).not.toHaveProperty('order');
+  });
+});
+
+describe('parseBackupPayload migration v5 -> v6', () => {
+  it('舊版 v5 備份(沒有帳號欄位)升版後帳號與帳號墓碑皆為空陣列,其餘資料不受影響', () => {
+    const v5Json = JSON.stringify({
+      version: 5,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      characters: [{ id: 'c1', name: 'A', server: '艾麗亞', level: 1, job: 'Warrior', order: 0, source: 'manual' }],
+      characterTombstones: [],
+      tasks: [],
+      taskTombstones: [],
+      bosses: [],
+      bossTombstones: [],
+    });
+    const payload = parseBackupPayload(v5Json);
+    expect(payload.version).toBe(CURRENT_VERSION);
+    expect(payload.accounts).toEqual([]);
+    expect(payload.accountTombstones).toEqual([]);
+    expect(payload.characters).toHaveLength(1);
   });
 });
 

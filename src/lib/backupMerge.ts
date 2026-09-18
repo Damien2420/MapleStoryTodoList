@@ -2,13 +2,15 @@ import type { DriveBackupPayload } from '@/lib/backupPayload';
 import { useCharacterStore } from '@/store/useCharacterStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useBossStore } from '@/store/useBossStore';
+import { useAccountStore } from '@/store/useAccountStore';
 import { applyTombstones, pruneTombstones } from '@/lib/tombstone';
 
 export interface MergeResult {
   addedCharacters: number;
   addedTasks: number;
   addedBosses: number;
-  /** 因為別的裝置傳來的刪除墓碑,而在本機一併移除的筆數(角色+任務+BOSS 加總) */
+  addedAccounts: number;
+  /** 因為別的裝置傳來的刪除墓碑,而在本機一併移除的筆數(角色+任務+BOSS+帳號加總) */
   removedByTombstone: number;
 }
 
@@ -32,6 +34,14 @@ export function mergeBackupPayload(payload: DriveBackupPayload): MergeResult {
   const bossState = useBossStore.getState();
   const bossResult = applyTombstones(bossState.bosses, bossState.deletedIds, payload.bosses, payload.bossTombstones);
 
+  const accountState = useAccountStore.getState();
+  const accountResult = applyTombstones(
+    accountState.accounts,
+    accountState.deletedIds,
+    payload.accounts,
+    payload.accountTombstones,
+  );
+
   useCharacterStore.setState((state) => ({
     characters: characterResult.items,
     deletedIds: characterResult.tombstones,
@@ -43,15 +53,18 @@ export function mergeBackupPayload(payload: DriveBackupPayload): MergeResult {
   }));
   useTaskStore.setState({ tasks: taskResult.items, deletedIds: taskResult.tombstones });
   useBossStore.setState({ bosses: bossResult.items, deletedIds: bossResult.tombstones });
+  useAccountStore.setState({ accounts: accountResult.items, deletedIds: accountResult.tombstones });
 
   return {
     addedCharacters: characterResult.addedCount,
     addedTasks: taskResult.addedCount,
     addedBosses: bossResult.addedCount,
+    addedAccounts: accountResult.addedCount,
     removedByTombstone:
       characterResult.removedByRemoteTombstoneCount +
       taskResult.removedByRemoteTombstoneCount +
-      bossResult.removedByRemoteTombstoneCount,
+      bossResult.removedByRemoteTombstoneCount +
+      accountResult.removedByRemoteTombstoneCount,
   };
 }
 
@@ -63,4 +76,5 @@ export function pruneAllTombstones(retentionDays: number = TOMBSTONE_RETENTION_D
   useCharacterStore.setState((state) => ({ deletedIds: pruneTombstones(state.deletedIds, retentionDays) }));
   useTaskStore.setState((state) => ({ deletedIds: pruneTombstones(state.deletedIds, retentionDays) }));
   useBossStore.setState((state) => ({ deletedIds: pruneTombstones(state.deletedIds, retentionDays) }));
+  useAccountStore.setState((state) => ({ deletedIds: pruneTombstones(state.deletedIds, retentionDays) }));
 }
