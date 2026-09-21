@@ -1,10 +1,12 @@
 import { useRef } from 'react';
+import { NavLink } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { HomeIcon } from '@/components/ui/home';
 import { SettingsIcon } from '@/components/ui/settings';
 import { SunIcon } from '@/components/ui/sun';
 import { MoonIcon } from '@/components/ui/moon';
 import { useTheme } from '@/components/theme-provider';
+import { ROUTES } from '@/lib/routes';
 
 // 頂欄是深森綠底,ghost 按鈕預設的 hover:bg-muted 會出錯,統一改走 sidebar token
 const HEADER_BUTTON_CLASSES =
@@ -37,13 +39,14 @@ function ThemeToggle() {
   );
 }
 
-interface HeaderProps {
-  onGoHome: () => void;
-  onOpenDataManagement: () => void;
-}
+// 目前角色頁就是首頁;角色進度看板上線後(Phase B §8)改成 '/'
+const HOME_PATH = ROUTES.character;
 
-/** 全站頂部導覽列:標題、首頁/資料管理按鈕、主題切換 */
-export function Header({ onGoHome, onOpenDataManagement }: HeaderProps) {
+// NavLink 在目前頁面時會自動加上 aria-current="page",直接拿來當作目前頁的樣式
+const NAV_ACTIVE_CLASSES = 'aria-[current=page]:bg-sidebar-accent aria-[current=page]:text-sidebar-accent-foreground';
+
+/** 全站頂部導覽列:標題、首頁/資料管理連結、主題切換 */
+export function Header() {
   const homeIconRef = useRef<AnimatedIconHandle>(null);
   const settingsIconRef = useRef<AnimatedIconHandle>(null);
 
@@ -57,30 +60,26 @@ export function Header({ onGoHome, onOpenDataManagement }: HeaderProps) {
       </div>
 
       <div className="flex items-center justify-center gap-3 sm:justify-self-center">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className={`gap-1.5 ${HEADER_BUTTON_CLASSES}`}
-          aria-label="回到記錄首頁"
-          onClick={onGoHome}
-          onMouseEnter={() => homeIconRef.current?.startAnimation()}
-          onMouseLeave={() => homeIconRef.current?.stopAnimation()}
-        >
-          <HomeIcon ref={homeIconRef} size={16} />
-          首頁
+        <Button asChild variant="ghost" size="sm" className={`gap-1.5 ${HEADER_BUTTON_CLASSES} ${NAV_ACTIVE_CLASSES}`}>
+          <NavLink
+            to={HOME_PATH}
+            aria-label="回到記錄首頁"
+            onMouseEnter={() => homeIconRef.current?.startAnimation()}
+            onMouseLeave={() => homeIconRef.current?.stopAnimation()}
+          >
+            <HomeIcon ref={homeIconRef} size={16} />
+            首頁
+          </NavLink>
         </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className={`gap-1.5 ${HEADER_BUTTON_CLASSES}`}
-          onClick={onOpenDataManagement}
-          onMouseEnter={() => settingsIconRef.current?.startAnimation()}
-          onMouseLeave={() => settingsIconRef.current?.stopAnimation()}
-        >
-          <SettingsIcon ref={settingsIconRef} size={16} />
-          資料管理
+        <Button asChild variant="ghost" size="sm" className={`gap-1.5 ${HEADER_BUTTON_CLASSES} ${NAV_ACTIVE_CLASSES}`}>
+          <NavLink
+            to={ROUTES.backup}
+            onMouseEnter={() => settingsIconRef.current?.startAnimation()}
+            onMouseLeave={() => settingsIconRef.current?.stopAnimation()}
+          >
+            <SettingsIcon ref={settingsIconRef} size={16} />
+            資料管理
+          </NavLink>
         </Button>
       </div>
 

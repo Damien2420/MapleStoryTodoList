@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { format } from 'date-fns';
 import { AlertTriangle, ArrowLeft, Cloud, CloudUpload, Download, LogIn, LogOut, RotateCcw, Trash2, Upload, UserRound } from 'lucide-react';
 import { toast } from 'sonner';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { ROUTES } from '@/lib/routes';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
@@ -47,8 +49,10 @@ function downloadTextAsFile(content: string, fileName: string) {
   URL.revokeObjectURL(url);
 }
 
-/** 資料管理頁面:本機/Google Drive 備份與還原、清除全部紀錄,取代主畫面內容顯示(非對話框),由 App.tsx 動態載入 */
-export function DataManagementPage({ onBack }: { onBack: () => void }) {
+/** 資料管理頁面(路由 /backup):本機/Google Drive 備份與還原、清除全部紀錄,取代主畫面內容顯示(非對話框),由 App.tsx 動態載入 */
+export function DataManagementPage() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
 
@@ -93,6 +97,18 @@ export function DataManagementPage({ onBack }: { onBack: () => void }) {
     );
   }
 
+  // 返回鈕:站內導覽進來的(key 不是 'default')就回上一頁;直接開書籤或重新整理沒有站內上一頁,改導向首頁,避免 navigate(-1) 把人丟出網站
+  function handleBack() {
+    if (location.key !== 'default') navigate(-1);
+    else navigate(ROUTES.root);
+  }
+
+  // 匯入/還原/刪除全部這類會改資料的操作完成後離開:用 replace 取代 /backup 這一筆歷史,
+  // 否則使用者按返回會回到剛執行完破壞性操作的頁面
+  function leaveAfterDataChange() {
+    navigate(ROUTES.root, { replace: true });
+  }
+
   function handleChooseFile() {
     fileInputRef.current?.click();
   }
@@ -113,7 +129,7 @@ export function DataManagementPage({ onBack }: { onBack: () => void }) {
         `已匯入:新增 ${result.addedCharacters} 個角色、${result.addedTasks} 筆任務、${result.addedBosses} 筆 BOSS 紀錄` +
           (result.removedByTombstone > 0 ? `，同步移除 ${result.removedByTombstone} 筆已刪除的紀錄` : ''),
       );
-      onBack();
+      leaveAfterDataChange();
     } catch (error) {
       // JSON.parse 失敗會丟出英文的 SyntaxError,不適合直接顯示;只有版本相關的錯誤才顯示原始訊息
       toast.error(error instanceof Error && !(error instanceof SyntaxError) ? error.message : '檔案格式錯誤，匯入失敗');
@@ -203,7 +219,7 @@ export function DataManagementPage({ onBack }: { onBack: () => void }) {
         `已還原：新增 ${result.addedCharacters} 個角色、${result.addedTasks} 筆任務、${result.addedBosses} 筆 BOSS 紀錄` +
           (result.removedByTombstone > 0 ? `，同步移除 ${result.removedByTombstone} 筆已刪除的紀錄` : ''),
       );
-      onBack();
+      leaveAfterDataChange();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : '還原失敗');
     } finally {
@@ -224,7 +240,7 @@ export function DataManagementPage({ onBack }: { onBack: () => void }) {
     setDeleteAllOpen(false);
     setDeleteConfirmText('');
     toast.success('已刪除全部角色紀錄');
-    onBack();
+    leaveAfterDataChange();
   }
 
   return (
@@ -234,7 +250,7 @@ export function DataManagementPage({ onBack }: { onBack: () => void }) {
         variant="ghost"
         size="sm"
         className="absolute top-4 left-2 gap-1 text-muted-foreground sm:left-4"
-        onClick={onBack}
+        onClick={handleBack}
       >
         <ArrowLeft className="size-3.5" />
         返回

@@ -1,20 +1,16 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
-import { Header } from '@/components/Header';
-import { AnnouncementBar } from '@/components/AnnouncementBar';
-import { CharacterTabs } from '@/components/CharacterTabs';
-import { CharacterHeader } from '@/components/CharacterHeader';
-import { FirstCharacterOnboarding } from '@/components/FirstCharacterOnboarding';
-import { TaskList } from '@/components/TaskList';
-import { BossList } from '@/components/BossList';
-import { BackupStatusBar } from '@/components/BackupStatusBar';
-import { Footer } from '@/components/Footer';
+import { lazy, Suspense, useEffect } from 'react';
+import { Navigate, Route, Routes } from 'react-router-dom';
+import { AppLayout } from '@/components/AppLayout';
+import { CharacterGuard } from '@/components/CharacterGuard';
+import { CharacterPage } from '@/components/CharacterPage';
+import { LoadingIndicator } from '@/components/LoadingIndicator';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { useCharacterStore } from '@/store/useCharacterStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useBossStore } from '@/store/useBossStore';
+import { REDIRECT_NAV_STATE } from '@/hooks/useRouteChangeEffects';
+import { ROUTES } from '@/lib/routes';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { Analytics } from '@vercel/analytics/react';
 
@@ -23,15 +19,9 @@ const DataManagementPage = lazy(() => import('@/components/DataManagementPage'))
 const RESET_CHECK_INTERVAL_MS = 60_000;
 
 export function App() {
-  const characters = useCharacterStore((s) => s.characters);
-  const activeCharacterId = useCharacterStore((s) => s.activeCharacterId);
-  const setActiveCharacter = useCharacterStore((s) => s.setActiveCharacter);
   const settings = useSettingsStore((s) => s.settings);
   const runTaskResetCheck = useTaskStore((s) => s.runResetCheck);
   const runBossResetCheck = useBossStore((s) => s.runResetCheck);
-  const [showBackupPage, setShowBackupPage] = useState(false);
-
-  const activeCharacter = characters.find((c) => c.id === activeCharacterId);
 
   useEffect(() => {
     runTaskResetCheck(settings);
@@ -45,51 +35,34 @@ export function App() {
 
   return (
     <TooltipProvider>
-      <div className="flex min-h-svh flex-col bg-background">
-        <Header onGoHome={() => setShowBackupPage(false)} onOpenDataManagement={() => setShowBackupPage(true)} />
-        <AnnouncementBar />
-
-        {showBackupPage ? (
-          <Suspense fallback={<div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">載入中…</div>}>
-            <DataManagementPage onBack={() => setShowBackupPage(false)} />
-          </Suspense>
-        ) : characters.length === 0 || !activeCharacter ? (
-          <FirstCharacterOnboarding onImport={() => setShowBackupPage(true)} />
-        ) : (
-          <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6">
-            <Tabs value={activeCharacterId ?? undefined} onValueChange={setActiveCharacter} className="contents">
-              <CharacterTabs />
-              <TabsContent
-                value={activeCharacter.id}
-                id={`character-panel-${activeCharacter.id}`}
-                className="contents"
-              >
-                <CharacterHeader character={activeCharacter} />
-                <BackupStatusBar onOpenBackupPage={() => setShowBackupPage(true)} />
-                <Tabs defaultValue="tasks" className="gap-4">
-                  <TabsList className="mx-auto lg:hidden" aria-label="清單類型切換">
-                    <TabsTrigger value="tasks">任務清單</TabsTrigger>
-                    <TabsTrigger value="bosses">BOSS 清單</TabsTrigger>
-                  </TabsList>
-                  <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                    <TabsContent value="tasks" forceMount className="mt-0 hidden data-[state=active]:block lg:block">
-                      <TaskList character={activeCharacter} />
-                    </TabsContent>
-                    <TabsContent value="bosses" forceMount className="mt-0 hidden data-[state=active]:block lg:block">
-                      <BossList character={activeCharacter} />
-                    </TabsContent>
+      <Routes>
+        <Route element={<AppLayout />}>
+          {/* 資料管理刻意放在 CharacterGuard 外:沒有角色時也要能進來匯入備份 */}
+          <Route
+            path={ROUTES.backup}
+            element={
+              <Suspense
+                fallback={
+                  <div className="flex flex-1 items-center justify-center">
+                    <LoadingIndicator />
                   </div>
-                </Tabs>
-              </TabsContent>
-            </Tabs>
-          </main>
-        )}
-
-        <Footer />
-      </div>
+                }
+              >
+                <DataManagementPage />
+              </Suspense>
+            }
+          />
+          <Route element={<CharacterGuard />}>
+            {/* 角色進度看板上線後(Phase B §8),這一行換成 <CharacterBoardPage /> */}
+            <Route path={ROUTES.root} element={<Navigate to={ROUTES.character} replace state={REDIRECT_NAV_STATE} />} />
+            <Route path={ROUTES.character} element={<CharacterPage />} />
+          </Route>
+          <Route path="*" element={<Navigate to={ROUTES.root} replace state={REDIRECT_NAV_STATE} />} />
+        </Route>
+      </Routes>
       <Toaster position="bottom-center" />
-      <Analytics/>
-      <SpeedInsights/>
+      <Analytics />
+      <SpeedInsights />
     </TooltipProvider>
   );
 }

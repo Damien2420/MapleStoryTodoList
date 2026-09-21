@@ -2,5 +2,6 @@
   "framework": "vite",
   "installCommand": "pnpm install",
   "buildCommand": "pnpm build",
-  "devCommand": "pnpm exec vite --port $PORT"
+  "devCommand": "pnpm exec vite --port $PORT",
+  "rewrites": [{ "source": "/((?!api/|assets/).*)", "destination": "/index.html" }]
 }

@@ -20,6 +20,7 @@ import { PresetTaskPreview } from '@/components/PresetTaskPreview';
 import { BossCatalogPicker, WeeklyBossLimitHint } from '@/components/BossCatalogPicker';
 import { BossSelectionPreview } from '@/components/BossSelectionPreview';
 import { useCharacterStore } from '@/store/useCharacterStore';
+import { useActiveCharacter } from '@/hooks/useActiveCharacter';
 import { useAddCharacterFlow } from '@/hooks/useAddCharacterFlow';
 import { resolveSelectedPresetTasks } from '@/lib/presetTasks';
 import { flattenBossSelections } from '@/lib/bossCatalog';
@@ -27,7 +28,7 @@ import { flattenBossSelections } from '@/lib/bossCatalog';
 /** 角色分頁列:切換目前檢視的角色,並提供新增/刪除角色的入口 */
 export function CharacterTabs() {
   const characters = useCharacterStore((s) => s.characters);
-  const activeCharacterId = useCharacterStore((s) => s.activeCharacterId);
+  const activeCharacterId = useActiveCharacter()?.id;
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const flow = useAddCharacterFlow(() => setDialogOpen(false));

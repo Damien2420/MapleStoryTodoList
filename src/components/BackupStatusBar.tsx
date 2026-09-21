@@ -1,15 +1,18 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { AlertTriangle, CloudUpload, X } from 'lucide-react';
 import { useBackupStatus } from '@/hooks/useBackupStatus';
 import { cn } from '@/lib/utils';
+import { ROUTES } from '@/lib/routes';
 
 // 記錄「使用者關閉當下的訊息內容」,存在模組層級而非元件內部 state,
 // 這樣切換到匯入/備份頁面導致這個元件 unmount 再 remount 時,關閉狀態不會被重置(整頁重新整理才會reset)
 let lastDismissedMessage: string | null = null;
 
 /** 主畫面常駐的備份狀態列:反映有沒有備份過、上次備份時間、備份後本機資料是否又有變動,可手動關閉,狀態改變後會重新顯示 */
-export function BackupStatusBar({ onOpenBackupPage }: { onOpenBackupPage: () => void }) {
+export function BackupStatusBar() {
+  const navigate = useNavigate();
   const { lastBackupAt, neverBackedUp, hasUnsavedChanges } = useBackupStatus();
   const isWarning = neverBackedUp || hasUnsavedChanges;
 
@@ -36,7 +39,7 @@ export function BackupStatusBar({ onOpenBackupPage }: { onOpenBackupPage: () => 
     >
       <button
         type="button"
-        onClick={onOpenBackupPage}
+        onClick={() => navigate(ROUTES.backup)}
         className={cn(
           'flex min-w-0 flex-1 items-center gap-1.5 rounded text-left outline-none max-[400px]:items-start focus-visible:ring-3 focus-visible:ring-ring/50',
           isWarning ? 'hover:text-amber-800 dark:hover:text-amber-300' : 'hover:text-foreground',
