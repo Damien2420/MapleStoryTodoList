@@ -4,6 +4,7 @@ import { ArrowLeft, CalendarIcon, ListPlus, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { LoadingIndicator } from '@/components/LoadingIndicator';
 import {
   Dialog,
   DialogContent,
@@ -335,8 +336,8 @@ export function AddTaskDialog({ characterId, existingCategories }: AddTaskDialog
                 <PopoverContent className="w-auto p-0" align="start">
                   <Suspense
                     fallback={
-                      <div className="flex h-[286px] w-[252px] items-center justify-center text-sm text-muted-foreground">
-                        載入中...
+                      <div className="flex h-[286px] w-[252px] items-center justify-center">
+                        <LoadingIndicator />
                       </div>
                     }
                   >
