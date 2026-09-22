@@ -226,7 +226,7 @@ export const BOSS_CATALOG: BossCatalogEntry[] = [
   },
   {
     id: 'seren',
-    name: '賽蓮',
+    name: '受選的賽蓮',
     difficulties: [
       { difficulty: '普通', crystalValue: 114_980_000, resetCycle: 'weekly', weeklyResetDay: 4, maxPartySize: 6 },
       { difficulty: '困難', crystalValue: 271_600_000, resetCycle: 'weekly', weeklyResetDay: 4, maxPartySize: 6 },
@@ -273,7 +273,7 @@ export const BOSS_CATALOG: BossCatalogEntry[] = [
   },
   {
     id: 'baldrix',
-    name: '巴德洛斯',
+    name: '巴德利斯',
     difficulties: [
       { difficulty: '普通', crystalValue: 560_000_000, resetCycle: 'weekly', weeklyResetDay: 4, maxPartySize: 3 },
       { difficulty: '困難', crystalValue: 840_000_000, resetCycle: 'weekly', weeklyResetDay: 4, maxPartySize: 3 },
