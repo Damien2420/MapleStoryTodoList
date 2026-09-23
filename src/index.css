@@ -36,6 +36,8 @@
     --color-cycle-vip: var(--cycle-vip);
     --color-cycle-vip-foreground: var(--cycle-vip-foreground);
     --color-vip-accent-text: var(--vip-accent-text);
+    --color-vip-silver: var(--vip-silver);
+    --color-vip-silver-foreground: var(--vip-silver-foreground);
     --color-vip-gold: var(--vip-gold);
     --color-vip-gold-foreground: var(--vip-gold-foreground);
     --color-vip-diamond: var(--vip-diamond);
@@ -142,6 +144,8 @@
     /* VIP券等級標籤直接顯示在卡片底色上(非徽章組合),低彩度紫呼應VIP皇家但刻意壓低存在感,不搶子標題的風頭 */
     --vip-accent-text: oklch(0.46 0.05 275);
     /* VIP等級徽章依等級各自指定色,淺/深主題共用同一組(不隨主題調整) */
+    --vip-silver: #E3E3E3;
+    --vip-silver-foreground: #4A4A4A;
     --vip-gold: #FFE599;
     --vip-gold-foreground: #6B4E17;
     --vip-diamond: #DAEEF3;

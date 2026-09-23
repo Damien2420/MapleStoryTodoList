@@ -5,6 +5,7 @@ export { VIP_BOSS_MAPPING };
 
 /** VIP會員等級對應的顯示名稱 */
 export const VIP_TIER_LABELS: Record<VipTier, string> = {
+  silver: 'VIP銀牌',
   gold: 'VIP金牌',
   diamond: 'VIP鑽石',
   royal: 'VIP皇家',
@@ -13,6 +14,7 @@ export const VIP_TIER_LABELS: Record<VipTier, string> = {
 
 /** VIP會員等級徽章的底色/文字色 class,各等級指定色,不隨淺/深主題調整 */
 export const VIP_TIER_BADGE_CLASSES: Record<VipTier, string> = {
+  silver: 'border-transparent bg-vip-silver text-vip-silver-foreground',
   gold: 'border-transparent bg-vip-gold text-vip-gold-foreground',
   diamond: 'border-transparent bg-vip-diamond text-vip-diamond-foreground',
   royal: 'border-transparent bg-vip-royal text-vip-royal-foreground',
@@ -37,8 +39,9 @@ export interface VipBossMapping {
   difficulties: BossDifficulty[];
 }
 
-/** 各VIP等級每週(終極/每月除外)可用的重置券張數配置,累加制;黃金沒有任何配額,皇家黑比照皇家、不額外增加 */
+/** 各VIP等級每週(終極/每月除外)可用的重置券張數配置,累加制;銀牌與黃金沒有任何配額,皇家黑比照皇家、不額外增加 */
 export const VIP_TIER_ALLOCATIONS: Record<VipTier, Record<VipTicketLevel, number>> = {
+  silver: { 下: 0, 中: 0, 上: 0, 終極: 0, 每月: 0 },
   gold: { 下: 0, 中: 0, 上: 0, 終極: 0, 每月: 0 },
   diamond: { 下: 1, 中: 1, 上: 1, 終極: 0, 每月: 0 },
   royal: { 下: 1, 中: 3, 上: 1, 終極: 1, 每月: 1 },
@@ -91,17 +94,51 @@ export function countVipSelectionsForLevel(selections: Set<string>, level: VipTi
   return count;
 }
 
-/** 計算指定角色「已追蹤中」的VIP BOSS,依券等級分組計數 */
+/**
+ * 計算一組角色「已追蹤中」的VIP BOSS,依券等級分組計數。
+ * VIP重置券配額屬於整個帳號、由帳號底下所有角色共用,所以帳號層的用量要傳入帳號內全部角色的 id。
+ * @param bosses 所有 BOSS 追蹤紀錄
+ * @param characterIds 要納入統計的角色 id
+ * @returns 各券等級目前已被使用的張數
+ */
+export function countTrackedVipBossesByLevelForCharacters(
+  bosses: CharacterBossTrackList[],
+  characterIds: ReadonlySet<string>,
+): Record<VipTicketLevel, number> {
+  const counts: Record<VipTicketLevel, number> = { 下: 0, 中: 0, 上: 0, 終極: 0, 每月: 0 };
+  for (const boss of bosses) {
+    if (!characterIds.has(boss.characterId) || boss.category !== 'vip' || !boss.vipTicketLevel) continue;
+    counts[boss.vipTicketLevel]++;
+  }
+  return counts;
+}
+
+/** 計算單一角色「已追蹤中」的VIP BOSS,依券等級分組計數(單一角色的用量,用於帳號總覽的逐角色明細) */
 export function countTrackedVipBossesByLevel(
   bosses: CharacterBossTrackList[],
   characterId: string,
 ): Record<VipTicketLevel, number> {
-  const counts: Record<VipTicketLevel, number> = { 下: 0, 中: 0, 上: 0, 終極: 0, 每月: 0 };
-  for (const boss of bosses) {
-    if (boss.characterId !== characterId || boss.category !== 'vip' || !boss.vipTicketLevel) continue;
-    counts[boss.vipTicketLevel]++;
+  return countTrackedVipBossesByLevelForCharacters(bosses, new Set([characterId]));
+}
+
+/**
+ * 把各券等級的用量與配額各自加總,得到「VIP 重置券 已用/總數」。
+ * @param tier 帳號的VIP等級;未設定時配額為 0
+ * @param countsByLevel 各券等級目前的用量
+ * @returns used 為已用張數合計,cap 為配額合計
+ */
+export function summarizeVipQuota(
+  tier: VipTier | undefined,
+  countsByLevel: Record<VipTicketLevel, number>,
+): { used: number; cap: number } {
+  const allocation = getVipAllocation(tier);
+  let used = 0;
+  let cap = 0;
+  for (const level of VIP_TICKET_LEVELS) {
+    used += countsByLevel[level];
+    cap += allocation[level];
   }
-  return counts;
+  return { used, cap };
 }
 
 /** 蒐集指定角色「追蹤中」的VIP群組鍵,用於在新增BOSS對話框中鎖住已追蹤的VIP項目 */

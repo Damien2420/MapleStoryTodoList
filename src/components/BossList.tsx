@@ -7,7 +7,9 @@ import { WeeklyRevenueCapHint } from '@/components/WeeklyRevenueCapHint';
 import { StatusFilterControl } from '@/components/StatusFilterControl';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { useAccountStore } from '@/store/useAccountStore';
 import { useBossStore } from '@/store/useBossStore';
+import { useCharacterStore } from '@/store/useCharacterStore';
 import { useListFilterStore, type BossCycleKey } from '@/store/useListFilterStore';
 import { filterItemsByStatus } from '@/lib/listFilter';
 import {
@@ -18,6 +20,7 @@ import {
   WEEKLY_BOSS_LIMIT,
 } from '@/lib/bossCatalog';
 import { CYCLE_BADGE_CLASSES } from '@/lib/cycleBadge';
+import { countTrackedVipBossesByLevelForCharacters, getVipAllocation } from '@/lib/vipBossCatalog';
 import { cn } from '@/lib/utils';
 import type { Character, CharacterBossTrackList } from '@/types';
 
@@ -107,6 +110,8 @@ function BossSection({
 export function BossList({ character }: { character: Character }) {
   const allBosses = useBossStore((s) => s.bosses);
   const toggleBossesByIds = useBossStore((s) => s.toggleBossesByIds);
+  const characters = useCharacterStore((s) => s.characters);
+  const account = useAccountStore((s) => s.accounts.find((a) => a.id === character.accountId));
   const bossStatusFilter = useListFilterStore((s) => s.bossStatusFilter);
   const collapsedBossSections = useListFilterStore((s) => s.collapsedBossSections);
   const setBossStatusFilter = useListFilterStore((s) => s.setBossStatusFilter);
@@ -137,6 +142,13 @@ export function BossList({ character }: { character: Character }) {
     () => getWeeklyRevenueCountedIds([...weeklyBossesAll, ...vipWeeklyBossesAll]),
     [weeklyBossesAll, vipWeeklyBossesAll],
   );
+
+  // VIP 配額是帳號共用的:配額取自所屬帳號,用量要合計帳號內所有角色
+  const vipAllocation = useMemo(() => getVipAllocation(account?.vipTier), [account?.vipTier]);
+  const vipUsedByLevel = useMemo(() => {
+    const memberIds = new Set(account ? characters.filter((c) => c.accountId === account.id).map((c) => c.id) : [character.id]);
+    return countTrackedVipBossesByLevelForCharacters(allBosses, memberIds);
+  }, [allBosses, characters, account, character.id]);
 
   const dailyBosses = useMemo(() => visibleBosses.filter((b) => b.resetCycle === 'daily'), [visibleBosses]);
   const weeklyBosses = useMemo(
@@ -180,7 +192,8 @@ export function BossList({ character }: { character: Character }) {
           <div className="flex flex-col gap-6 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
             {vipBosses.length > 0 && (
               <VipBossSection
-                character={character}
+                allocation={vipAllocation}
+                usedByLevel={vipUsedByLevel}
                 vipBosses={vipBosses}
                 vipBossesAll={vipBossesAll}
                 weeklyRevenueCountedIds={weeklyRevenueCountedIds}

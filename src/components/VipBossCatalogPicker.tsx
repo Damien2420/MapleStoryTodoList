@@ -16,23 +16,27 @@ import {
 import type { BossDifficulty, VipTicketLevel, VipTier } from '@/types';
 
 interface VipBossCatalogPickerProps {
+  /** 所屬帳號的VIP等級(VIP 屬於帳號,不是角色) */
   vipTier: VipTier | undefined;
   /** 目前已選取的VIP選取鍵集合(buildVipSelectionKey 格式) */
   selections: Set<string>;
   onToggle: (level: VipTicketLevel, bossCatalogId: string, difficulty: BossDifficulty) => void;
   /** 該角色已追蹤中的VIP群組鍵,對應項目鎖住 */
   trackedGroupKeys: Set<string>;
-  /** 該角色已追蹤中的VIP BOSS,依券等級分組計數 */
+  /** 整個帳號(所有角色合計)已追蹤中的VIP BOSS,依券等級分組計數;配額是帳號共用的 */
   trackedCountsByLevel: Record<VipTicketLevel, number>;
+  /** 使用者點了「配額已用完」的項目時呼叫;不直接停用按鈕,而是讓呼叫端解釋為什麼加不進去 */
+  onQuotaBlocked: (level: VipTicketLevel) => void;
 }
 
-/** VIP重置券BOSS勾選清單:只在角色設定過VIP等級時渲染,依券等級分組,只顯示分配張數 > 0 的等級 */
+/** VIP重置券BOSS勾選清單:只在所屬帳號設定過VIP等級時渲染,依券等級分組,只顯示分配張數 > 0 的等級 */
 export function VipBossCatalogPicker({
   vipTier,
   selections,
   onToggle,
   trackedGroupKeys,
   trackedCountsByLevel,
+  onQuotaBlocked,
 }: VipBossCatalogPickerProps) {
   const [collapsedLevels, setCollapsedLevels] = useState<Set<VipTicketLevel>>(new Set());
 
@@ -106,14 +110,20 @@ export function VipBossCatalogPicker({
                             const key = buildVipSelectionKey(level, bossCatalogId, difficulty);
                             const active = selections.has(key);
                             const trackedLocked = trackedGroupKeys.has(key);
-                            const disabled = trackedLocked || (!active && full);
+                            // 已追蹤中的項目直接鎖住;配額用完只是「視覺上停用」但仍可點擊,
+                            // 點下去由呼叫端解釋原因(配額是帳號共用的,使用者需要知道是誰佔用了)
+                            const quotaBlocked = !active && full;
+                            const disabled = trackedLocked || quotaBlocked;
                             return (
                               <button
                                 key={key}
                                 type="button"
-                                disabled={disabled}
+                                disabled={trackedLocked}
+                                aria-disabled={quotaBlocked || undefined}
                                 title={trackedLocked ? '此券等級已在追蹤中' : undefined}
-                                onClick={() => onToggle(level, bossCatalogId, difficulty)}
+                                onClick={() =>
+                                  quotaBlocked ? onQuotaBlocked(level) : onToggle(level, bossCatalogId, difficulty)
+                                }
                                 className={cn(
                                   'rounded-md border px-2.5 py-2 text-xs font-medium outline-none transition-all focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
                                   !disabled && 'hover:scale-105 active:scale-95',

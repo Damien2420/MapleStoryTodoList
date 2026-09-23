@@ -23,7 +23,7 @@ export interface NewCharacterInput {
 
 /** 更新角色資料時可覆寫的欄位:api 來源會全部帶入,manual 來源只會帶名字/伺服器/等級/職業 */
 export type CharacterUpdateInput = Partial<
-  Pick<Character, 'name' | 'server' | 'level' | 'job' | 'imageUrl' | 'vipTier' | 'accountId'>
+  Pick<Character, 'name' | 'server' | 'level' | 'job' | 'imageUrl' | 'accountId'>
 >;
 
 interface CharacterState {

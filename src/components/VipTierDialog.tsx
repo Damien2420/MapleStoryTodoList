@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, CircleCheckBig, CircleX } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { DIFFICULTY_BADGE_CLASSES } from '@/lib/difficultyBadge';
 import { cn } from '@/lib/utils';
+import { VIP_TIER_ICONS } from '@/lib/vipTierIcons';
 import {
   getVipAllocation,
   hasVipTicketAllocation,
@@ -21,12 +22,13 @@ import {
   VIP_TIER_BADGE_CLASSES,
   VIP_TIER_LABELS,
 } from '@/lib/vipBossCatalog';
+import { useAccountStore } from '@/store/useAccountStore';
 import { useBossStore } from '@/store/useBossStore';
 import { useCharacterStore } from '@/store/useCharacterStore';
-import type { Character, CharacterBossTrackList, VipTicketLevel, VipTier } from '@/types';
+import type { Account, CharacterBossTrackList, VipTicketLevel, VipTier } from '@/types';
 
 interface VipTierDialogProps {
-  character: Character;
+  account: Account;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -40,15 +42,22 @@ interface OverflowGroup {
   bosses: CharacterBossTrackList[];
 }
 
-const VIP_TIER_OPTIONS: { value: VipTier; label: string }[] = [
-  { value: 'gold', label: VIP_TIER_LABELS.gold },
-  { value: 'diamond', label: VIP_TIER_LABELS.diamond },
-  { value: 'royal', label: VIP_TIER_LABELS.royal },
-  { value: 'royalBlack', label: VIP_TIER_LABELS.royalBlack },
+/** 選等級按鈕依 2 / 3 分成兩列排版 */
+const VIP_TIER_ROWS: { value: VipTier; label: string }[][] = [
+  [
+    { value: 'silver', label: VIP_TIER_LABELS.silver },
+    { value: 'gold', label: VIP_TIER_LABELS.gold },
+  ],
+  [
+    { value: 'diamond', label: VIP_TIER_LABELS.diamond },
+    { value: 'royal', label: VIP_TIER_LABELS.royal },
+    { value: 'royalBlack', label: VIP_TIER_LABELS.royalBlack },
+  ],
 ];
 
 /** 選等級按鈕未選中時的 hover 外框顏色,比照該等級的VIP Badge底色 */
 const VIP_TIER_HOVER_BORDER_CLASSES: Record<VipTier, string> = {
+  silver: 'hover:border-vip-silver',
   gold: 'hover:border-vip-gold',
   diamond: 'hover:border-vip-diamond',
   royal: 'hover:border-vip-royal',
@@ -56,22 +65,24 @@ const VIP_TIER_HOVER_BORDER_CLASSES: Record<VipTier, string> = {
 };
 
 /**
- * VIP等級設定彈窗:依序提供金牌/鑽石/皇家/皇家黑四個選項，所有角色預設都是無VIP。
+ * 帳號的VIP等級設定彈窗:依序提供金牌/鑽石/皇家/皇家黑四個選項，帳號預設是無VIP。
+ * VIP等級與重置券配額屬於整個帳號,由帳號底下所有角色共用,所以追蹤中的VIP BOSS一律指帳號內所有角色的總和。
  * 金牌與皇家黑純粹是顯示用等級，沒有額外的VIP重置券配額(皇家黑比照皇家)。
  *
  * 降級或移除VIP時，若目前追蹤中的VIP BOSS數量超過新等級的重置券配額，會套用以下動作:
  * 1. select-keep:列出配額不夠的券等級，讓使用者勾選要保留哪些BOSS(不可超過新上限)
  * 2. confirm:顯示最終會保留的完整清單與將被移除的數量,確認後才真的套用
- * 移除VIP資格時，若該角色目前有追蹤中的VIP BOSS，則改進 remove-confirm 提示使用者會清空，確認後才移除。
+ * 移除VIP資格時，若該帳號目前有追蹤中的VIP BOSS，則改進 remove-confirm 提示使用者會清空，確認後才移除。
  * 選的等級跟目前相同、或新等級配額足夠時，維持原本「選了就套用」的單步驟行為。
  */
-export function VipTierDialog({ character, open, onOpenChange }: VipTierDialogProps) {
-  const updateCharacter = useCharacterStore((s) => s.updateCharacter);
+export function VipTierDialog({ account, open, onOpenChange }: VipTierDialogProps) {
+  const updateAccount = useAccountStore((s) => s.updateAccount);
+  const characters = useCharacterStore((s) => s.characters);
   const bosses = useBossStore((s) => s.bosses);
   const removeBossesByIds = useBossStore((s) => s.removeBossesByIds);
 
   const [step, setStep] = useState<Step>('pick');
-  const [selected, setSelected] = useState<VipTier | undefined>(character.vipTier);
+  const [selected, setSelected] = useState<VipTier | undefined>(account.vipTier);
   const [pendingTier, setPendingTier] = useState<VipTier | undefined>(undefined);
   const [overflowGroups, setOverflowGroups] = useState<OverflowGroup[]>([]);
   const [keepSelections, setKeepSelections] = useState<Set<string>>(new Set());
@@ -85,15 +96,31 @@ export function VipTierDialog({ character, open, onOpenChange }: VipTierDialogPr
     setPrevOpen(open);
     if (open) {
       setStep('pick');
-      setSelected(character.vipTier);
+      setSelected(account.vipTier);
       setPendingTier(undefined);
       setOverflowGroups([]);
       setKeepSelections(new Set());
     }
   }
 
+  // 帳號底下的角色:id 用來統計整個帳號追蹤中的VIP BOSS,名稱用來在清單裡標示每一筆屬於哪隻角色
+  const memberNames = useMemo(
+    () => new Map(characters.filter((c) => c.accountId === account.id).map((c) => [c.id, c.name])),
+    [characters, account.id],
+  );
+
   function trackedVipBosses(): CharacterBossTrackList[] {
-    return bosses.filter((b) => b.characterId === character.id && b.category === 'vip' && b.vipTicketLevel);
+    return bosses.filter((b) => memberNames.has(b.characterId) && b.category === 'vip' && b.vipTicketLevel);
+  }
+
+  /** BOSS 名稱加上所屬角色名稱,帳號有多隻角色時才分得出每一筆是誰的 */
+  function bossLabel(boss: CharacterBossTrackList, className?: string) {
+    return (
+      <span className={cn('flex-1', className)}>
+        {boss.bossName}
+        <span className="ml-1.5 text-xs text-muted-foreground">{memberNames.get(boss.characterId)}</span>
+      </span>
+    );
   }
 
   function computeOverflowGroups(tier: VipTier): OverflowGroup[] {
@@ -108,14 +135,14 @@ export function VipTierDialog({ character, open, onOpenChange }: VipTierDialogPr
 
   function applyTierChange(tier: VipTier, removeIds: string[]) {
     if (removeIds.length > 0) removeBossesByIds(removeIds);
-    updateCharacter(character.id, { vipTier: tier });
-    toast(`已將「${character.name}」設定為${VIP_TIER_LABELS[tier]}`);
+    updateAccount(account.id, { vipTier: tier });
+    toast(`已將「${account.name}」設定為${VIP_TIER_LABELS[tier]}`);
     onOpenChange(false);
   }
 
   function handleConfirmPick() {
     if (!selected) return;
-    if (selected === character.vipTier) {
+    if (selected === account.vipTier) {
       onOpenChange(false);
       return;
     }
@@ -133,8 +160,8 @@ export function VipTierDialog({ character, open, onOpenChange }: VipTierDialogPr
 
   function handleRemoveClick() {
     if (trackedVipBosses().length === 0) {
-      updateCharacter(character.id, { vipTier: undefined });
-      toast(`已移除「${character.name}」的VIP資格`);
+      updateAccount(account.id, { vipTier: undefined });
+      toast(`已移除「${account.name}」的VIP資格`);
       onOpenChange(false);
       return;
     }
@@ -144,8 +171,8 @@ export function VipTierDialog({ character, open, onOpenChange }: VipTierDialogPr
   function handleConfirmRemove() {
     const ids = trackedVipBosses().map((b) => b.id);
     removeBossesByIds(ids);
-    updateCharacter(character.id, { vipTier: undefined });
-    toast(`已移除「${character.name}」的VIP資格,並清除 ${ids.length} 筆VIP重置紀錄`);
+    updateAccount(account.id, { vipTier: undefined });
+    toast(`已移除「${account.name}」的VIP資格，並清除 ${ids.length} 筆VIP重置紀錄`);
     onOpenChange(false);
   }
 
@@ -200,6 +227,7 @@ export function VipTierDialog({ character, open, onOpenChange }: VipTierDialogPr
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        className="sm:max-w-lg"
         showCloseButton={!isDismissLocked}
         onPointerDownOutside={(e) => {
           if (isDismissLocked) e.preventDefault();
@@ -210,29 +238,35 @@ export function VipTierDialog({ character, open, onOpenChange }: VipTierDialogPr
             <DialogHeader>
               <DialogTitle>設定VIP等級</DialogTitle>
               <DialogDescription>
+                VIP等級屬於整個帳號，「{account.name}」底下的所有角色共用同一份重置券數量。
               </DialogDescription>
             </DialogHeader>
 
-            <div className="grid grid-cols-2 gap-2 sm:flex">
-              {VIP_TIER_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => setSelected(option.value)}
-                  className={cn(
-                    'flex-1 rounded-lg border px-3 py-2.5 text-sm font-medium outline-none transition-all focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
-                    selected === option.value
-                      ? VIP_TIER_BADGE_CLASSES[option.value]
-                      : cn('border-input text-muted-foreground hover:bg-muted/60', VIP_TIER_HOVER_BORDER_CLASSES[option.value]),
-                  )}
-                >
-                  {option.label}
-                </button>
+            <div className="flex flex-col gap-2">
+              {VIP_TIER_ROWS.map((row) => (
+                <div key={row.map((option) => option.value).join('-')} className="flex gap-2">
+                  {row.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setSelected(option.value)}
+                      className={cn(
+                        'flex flex-1 items-center justify-center gap-1.5 rounded-lg border px-3 py-2.5 text-sm font-medium outline-none transition-all focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
+                        selected === option.value
+                          ? VIP_TIER_BADGE_CLASSES[option.value]
+                          : cn('border-input text-muted-foreground hover:bg-muted/60', VIP_TIER_HOVER_BORDER_CLASSES[option.value]),
+                      )}
+                    >
+                      <img src={VIP_TIER_ICONS[option.value]} alt="" className="size-4" />
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
               ))}
             </div>
 
-            <div className={cn('flex flex-col-reverse gap-2 sm:flex-row', character.vipTier ? 'sm:justify-between' : 'sm:justify-end')}>
-              {character.vipTier && (
+            <div className={cn('flex flex-col-reverse gap-2 sm:flex-row', account.vipTier ? 'sm:justify-between' : 'sm:justify-end')}>
+              {account.vipTier && (
                 <Button type="button" variant="destructive" onClick={handleRemoveClick}>
                   移除VIP
                 </Button>
@@ -264,7 +298,7 @@ export function VipTierDialog({ character, open, onOpenChange }: VipTierDialogPr
               </Button>
               <DialogTitle>選擇要保留的BOSS</DialogTitle>
               <DialogDescription>
-                改成{VIP_TIER_LABELS[pendingTier]}後，
+                改成「{VIP_TIER_LABELS[pendingTier]}」後，
                 以下等級的重置券數量不夠涵蓋目前追蹤中的BOSS，請選擇要保留哪些。
               </DialogDescription>
             </DialogHeader>
@@ -294,7 +328,7 @@ export function VipTierDialog({ character, open, onOpenChange }: VipTierDialogPr
                             )}
                           >
                             <Checkbox checked={checked} disabled={disabled} onCheckedChange={() => toggleKeep(boss.id)} />
-                            <span className="flex-1">{boss.bossName}</span>
+                            {bossLabel(boss)}
                             <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-xs font-normal', DIFFICULTY_BADGE_CLASSES[boss.difficulty])}>
                               {boss.difficulty}
                             </span>
@@ -321,9 +355,9 @@ export function VipTierDialog({ character, open, onOpenChange }: VipTierDialogPr
         {step === 'confirm' && pendingTier && (
           <>
             <DialogHeader>
-              <DialogTitle>確認變更VIP等級</DialogTitle>
+              <DialogTitle>確認變更 VIP 等級</DialogTitle>
               <DialogDescription>
-                「{character.name}」的VIP等級將變更為{VIP_TIER_LABELS[pendingTier]}，以下是變更後的追蹤清單。
+                「{account.name}」的 VIP 等級將變更為{VIP_TIER_LABELS[pendingTier]}，以下是變更後的追蹤清單。
               </DialogDescription>
             </DialogHeader>
 
@@ -352,7 +386,7 @@ export function VipTierDialog({ character, open, onOpenChange }: VipTierDialogPr
                                 className="flex items-center gap-2 rounded-lg border border-border bg-popover px-3 py-2 text-sm"
                               >
                                 <CircleCheckBig className="size-4 shrink-0 text-cycle-weekly-foreground" />
-                                <span className="flex-1">{boss.bossName}</span>
+                                {bossLabel(boss)}
                                 <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-xs font-normal', DIFFICULTY_BADGE_CLASSES[boss.difficulty])}>
                                   {boss.difficulty}
                                 </span>
@@ -383,7 +417,7 @@ export function VipTierDialog({ character, open, onOpenChange }: VipTierDialogPr
                         className="flex items-center gap-2 rounded-lg border border-border bg-popover px-3 py-2 text-sm"
                       >
                         <CircleX className="size-4 shrink-0 text-destructive" />
-                        <span className="flex-1 text-muted-foreground">{boss.bossName}</span>
+                        {bossLabel(boss, 'text-muted-foreground')}
                         <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-xs font-normal', DIFFICULTY_BADGE_CLASSES[boss.difficulty])}>
                           {boss.difficulty}
                         </span>
@@ -412,9 +446,9 @@ export function VipTierDialog({ character, open, onOpenChange }: VipTierDialogPr
         {step === 'remove-confirm' && (
           <>
             <DialogHeader>
-              <DialogTitle>移除VIP資格</DialogTitle>
+              <DialogTitle>移除 VIP</DialogTitle>
               <DialogDescription>
-                移除「{character.name}」的VIP資格將清除目前VIP重置區域的所有BOSS(共 {trackedVipBosses().length} 隻),此動作無法復原。
+                移除「{account.name}」的 VIP 資格將清除帳號底下所有角色目前 VIP 區域的 BOSS (共 {trackedVipBosses().length} 隻)，此動作無法復原。
               </DialogDescription>
             </DialogHeader>
 
