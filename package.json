@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "vite",
+    "dev:vercel": "vercel dev --local-config vercel-dev.json --listen 3000",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "format": "prettier --write \"**/*.{ts,tsx}\"",

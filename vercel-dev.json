@@ -1,0 +1,4 @@
+{
+  "framework": "vite",
+  "devCommand": "pnpm exec vite --port $PORT"
+}
