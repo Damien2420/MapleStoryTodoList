@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppLayout } from '@/components/AppLayout';
 import { CharacterGuard } from '@/components/CharacterGuard';
+import { CharacterBoardPage } from '@/components/CharacterBoardPage';
 import { CharacterPage } from '@/components/CharacterPage';
 import { LoadingIndicator } from '@/components/LoadingIndicator';
 import { Toaster } from '@/components/ui/sonner';
@@ -53,8 +54,7 @@ export function App() {
             }
           />
           <Route element={<CharacterGuard />}>
-            {/* 角色進度看板上線後(Phase B §8),這一行換成 <CharacterBoardPage /> */}
-            <Route path={ROUTES.root} element={<Navigate to={ROUTES.character} replace state={REDIRECT_NAV_STATE} />} />
+            <Route path={ROUTES.root} element={<CharacterBoardPage />} />
             <Route path={ROUTES.character} element={<CharacterPage />} />
           </Route>
           <Route path="*" element={<Navigate to={ROUTES.root} replace state={REDIRECT_NAV_STATE} />} />

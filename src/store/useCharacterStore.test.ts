@@ -102,3 +102,76 @@ describe('useCharacterStore accountId', () => {
     expect(useCharacterStore.getState().characters.find((c) => c.id === id)?.accountId).toBeNull();
   });
 });
+
+describe('useCharacterStore assignCharactersToAccount', () => {
+  beforeEach(() => {
+    useCharacterStore.setState({ characters: [], activeCharacterId: null, deletedIds: [] });
+  });
+
+  function addCharacter(name: string): string {
+    return useCharacterStore.getState().addCharacter({ name, server: '艾麗亞', level: 1, job: 'Warrior', source: 'manual' });
+  }
+
+  it('一次把多隻角色歸到同一個帳號,沒被選的角色不受影響', () => {
+    const [a, b, c] = [addCharacter('A'), addCharacter('B'), addCharacter('C')];
+    useCharacterStore.getState().assignCharactersToAccount([a, c], 'acc-1');
+
+    const byId = Object.fromEntries(useCharacterStore.getState().characters.map((ch) => [ch.id, ch.accountId]));
+    expect(byId).toEqual({ [a]: 'acc-1', [b]: null, [c]: 'acc-1' });
+  });
+
+  it('只觸發一次 store 更新,不論傳入幾隻角色', () => {
+    const ids = [addCharacter('A'), addCharacter('B'), addCharacter('C')];
+    let updateCount = 0;
+    const unsubscribe = useCharacterStore.subscribe(() => {
+      updateCount += 1;
+    });
+    useCharacterStore.getState().assignCharactersToAccount(ids, 'acc-1');
+    unsubscribe();
+    expect(updateCount).toBe(1);
+  });
+
+  it('accountId 傳 null 可以把角色移出帳號', () => {
+    const id = addCharacter('A');
+    useCharacterStore.getState().assignCharactersToAccount([id], 'acc-1');
+    useCharacterStore.getState().assignCharactersToAccount([id], null);
+    expect(useCharacterStore.getState().characters[0].accountId).toBeNull();
+  });
+
+  it('傳入不存在的 id 不會爆,也不會新增資料', () => {
+    const id = addCharacter('A');
+    useCharacterStore.getState().assignCharactersToAccount(['ghost'], 'acc-1');
+    expect(useCharacterStore.getState().characters).toHaveLength(1);
+    expect(useCharacterStore.getState().characters[0].accountId).toBeNull();
+    expect(useCharacterStore.getState().characters[0].id).toBe(id);
+  });
+});
+
+describe('useCharacterStore applyCharacterLayout', () => {
+  beforeEach(() => {
+    useCharacterStore.setState({ characters: [], activeCharacterId: null, deletedIds: [] });
+  });
+
+  function addCharacter(name: string): string {
+    return useCharacterStore.getState().addCharacter({ name, server: '艾麗亞', level: 1, job: 'Warrior', source: 'manual' });
+  }
+
+  it('依排列結果更新 accountId 與 order,且只觸發一次 store 更新', () => {
+    const [a, b, c] = [addCharacter('A'), addCharacter('B'), addCharacter('C')];
+    let updateCount = 0;
+    const unsubscribe = useCharacterStore.subscribe(() => {
+      updateCount += 1;
+    });
+    useCharacterStore.getState().applyCharacterLayout([
+      { accountId: 'acc-1', characterIds: [c, a] },
+      { accountId: null, characterIds: [b] },
+    ]);
+    unsubscribe();
+
+    const { characters } = useCharacterStore.getState();
+    const inAccount = characters.filter((ch) => ch.accountId === 'acc-1').sort((p, q) => p.order - q.order);
+    expect(inAccount.map((ch) => ch.id)).toEqual([c, a]);
+    expect(characters.find((ch) => ch.id === b)?.accountId).toBeNull();
+    expect(updateCount).toBe(1);
+  });
+});

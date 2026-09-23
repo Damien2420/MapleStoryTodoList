@@ -11,6 +11,7 @@ import {
   migrateCharacterAddSource,
 } from '@/lib/schemaMigrations';
 import { recordTombstone, type Tombstone } from '@/lib/tombstone';
+import { applyCharacterLayout, type CharacterContainer } from '@/lib/accountLayout';
 
 export interface NewCharacterInput {
   name: string;
@@ -34,6 +35,18 @@ interface CharacterState {
   addCharacter: (input: NewCharacterInput) => string;
   /** 更新既有角色的部分欄位,用於「更新角色」按鈕(api 重新查詢或 manual 手動編輯) */
   updateCharacter: (id: string, patch: CharacterUpdateInput) => void;
+  /**
+   * 一次把多隻角色歸到同一個帳號(accountId 傳 null 代表移出帳號)。
+   * 一次 set() 寫入,不論傳幾隻都只有一次 store 更新與一次 re-render;
+   * 迴圈呼叫 updateCharacter 會是 N 次寫入,trackLocalChange 也會每次都蓋一次 lastLocalChangeAt。
+   * 不存在的 id 直接略過。
+   */
+  assignCharactersToAccount: (ids: string[], accountId: string | null) => void;
+  /**
+   * 把拖曳排出來的結果一次寫回:更新被提到的角色的 accountId 與 order(細節見 applyCharacterLayout)。
+   * 看板的「排序角色」與管理帳號彈窗共用;一次 set(),不論搬幾隻都只有一次 store 更新。
+   */
+  applyCharacterLayout: (containers: CharacterContainer[]) => void;
   removeCharacter: (id: string) => void;
   setActiveCharacter: (id: string) => void;
 }
@@ -68,6 +81,15 @@ export const useCharacterStore = create<CharacterState>()(
         set((state) => ({
           characters: state.characters.map((c) => (c.id === id ? { ...c, ...patch } : c)),
         }));
+      },
+      assignCharactersToAccount: (ids, accountId) => {
+        const idSet = new Set(ids);
+        set((state) => ({
+          characters: state.characters.map((c) => (idSet.has(c.id) ? { ...c, accountId } : c)),
+        }));
+      },
+      applyCharacterLayout: (containers) => {
+        set((state) => ({ characters: applyCharacterLayout(state.characters, containers) }));
       },
       removeCharacter: (id) => {
         set((state) => {

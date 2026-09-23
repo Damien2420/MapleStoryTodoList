@@ -15,7 +15,9 @@ export function useDocumentTitle() {
   const hasCharacters = useCharacterStore((s) => s.characters.length > 0);
 
   useEffect(() => {
-    const page = pathname === ROUTES.backup ? '備份與還原' : hasCharacters ? '角色進度' : '建立第一個角色';
+    let page = '建立第一個角色';
+    if (pathname === ROUTES.backup) page = '備份與還原';
+    else if (hasCharacters) page = pathname === ROUTES.root ? '進度看板' : '角色進度';
     document.title = `${page} | ${APP_TITLE}`;
   }, [pathname, hasCharacters]);
 }

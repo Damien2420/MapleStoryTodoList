@@ -5,6 +5,8 @@ export type ResetCycle = 'daily' | 'weekly' | 'monthly' | 'biweekly-weekend' | '
 
 /** 角色名稱最大長度 */
 export const CHARACTER_NAME_MAX_LENGTH = 20;
+/** 帳號名稱最大長度 */
+export const ACCOUNT_NAME_MAX_LENGTH = 20;
 /** 任務名稱最大長度 */
 export const TASK_NAME_MAX_LENGTH = 20;
 /** 任務分類名稱最大長度 */

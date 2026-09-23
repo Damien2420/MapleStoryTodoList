@@ -39,9 +39,6 @@ function ThemeToggle() {
   );
 }
 
-// 目前角色頁就是首頁;角色進度看板上線後(Phase B §8)改成 '/'
-const HOME_PATH = ROUTES.character;
-
 // NavLink 在目前頁面時會自動加上 aria-current="page",直接拿來當作目前頁的樣式
 const NAV_ACTIVE_CLASSES = 'aria-[current=page]:bg-sidebar-accent aria-[current=page]:text-sidebar-accent-foreground';
 
@@ -61,9 +58,11 @@ export function Header() {
 
       <div className="flex items-center justify-center gap-3 sm:justify-self-center">
         <Button asChild variant="ghost" size="sm" className={`gap-1.5 ${HEADER_BUTTON_CLASSES} ${NAV_ACTIVE_CLASSES}`}>
+          {/* end:根路徑是所有路徑的前綴,沒加的話每一頁的首頁連結都會亮成目前頁 */}
           <NavLink
-            to={HOME_PATH}
-            aria-label="回到記錄首頁"
+            to={ROUTES.root}
+            end
+            aria-label="回到進度看板首頁"
             onMouseEnter={() => homeIconRef.current?.startAnimation()}
             onMouseLeave={() => homeIconRef.current?.stopAnimation()}
           >

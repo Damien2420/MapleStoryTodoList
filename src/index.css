@@ -35,6 +35,10 @@
     --color-cycle-weekend-foreground: var(--cycle-weekend-foreground);
     --color-cycle-vip: var(--cycle-vip);
     --color-cycle-vip-foreground: var(--cycle-vip-foreground);
+    --color-boss: var(--boss);
+    --color-boss-foreground: var(--boss-foreground);
+    --color-done: var(--done);
+    --color-done-foreground: var(--done-foreground);
     --color-vip-accent-text: var(--vip-accent-text);
     --color-vip-silver: var(--vip-silver);
     --color-vip-silver-foreground: var(--vip-silver-foreground);
@@ -141,6 +145,11 @@
     --cycle-weekend-foreground: oklch(0.42 0.12 300);
     --cycle-vip: oklch(0.9 0.05 190);
     --cycle-vip-foreground: oklch(0.38 0.09 190);
+    /* 進度看板專用:--boss 是BOSS進度弧(內圈)的鋼藍,--done 是「今日已完成」徽章的綠;週期身分不靠顏色,所以不與 --cycle-* 混用 */
+    --boss: oklch(0.92 0.03 235);
+    --boss-foreground: oklch(0.5 0.1 235);
+    --done: oklch(0.93 0.05 150);
+    --done-foreground: oklch(0.45 0.1 150);
     /* VIP券等級標籤直接顯示在卡片底色上(非徽章組合),低彩度紫呼應VIP皇家但刻意壓低存在感,不搶子標題的風頭 */
     --vip-accent-text: oklch(0.46 0.05 275);
     /* VIP等級徽章依等級各自指定色,淺/深主題共用同一組(不隨主題調整) */
@@ -220,6 +229,10 @@
     --cycle-weekend-foreground: oklch(0.88 0.09 300);
     --cycle-vip: oklch(0.32 0.06 190);
     --cycle-vip-foreground: oklch(0.86 0.08 190);
+    --boss: oklch(0.32 0.05 235);
+    --boss-foreground: oklch(0.74 0.09 235);
+    --done: oklch(0.3 0.05 150);
+    --done-foreground: oklch(0.82 0.11 150);
     --vip-accent-text: oklch(0.75 0.05 275);
     --difficulty-easy: oklch(0.27 0.045 75);
     --difficulty-easy-foreground: oklch(0.78 0.06 75);

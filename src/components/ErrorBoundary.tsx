@@ -9,8 +9,7 @@ interface ErrorBoundaryState {
  * 錯誤邊界:接住子孫元件「渲染期間」的例外(包含 React.lazy 動態載入失敗,例如離線或網站剛更新後舊的 chunk 檔已被刪除),
  * 改顯示重新整理的提示,避免整個 app 被 React 卸載成白畫面。
  * 事件處理函式與 async 函式裡的錯誤不會被接住,那些維持用 try/catch 處理。
- * 接住錯誤後不會自己復原,要靠外層變更 key 讓它重新掛載(見 AppLayout)。
- * React 沒有 hooks 版的錯誤邊界,只能用 class 元件。
+ * 接住錯誤後不會自己復原,靠 AppLayout 這邊帶入的 key 變更讓它重新掛載。
  */
 export class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryState> {
   state: ErrorBoundaryState = { hasError: false };
