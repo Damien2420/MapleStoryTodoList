@@ -6,6 +6,7 @@
     { "path": "./tsconfig.api.json" }
   ],
   "compilerOptions": {
+    "types": ["node"],
     "paths": {
       "@/*": ["./src/*"]
     }

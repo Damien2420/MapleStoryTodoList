@@ -12,6 +12,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # commitlint 需要完整歷史才能比對 PR 的 base commit
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -26,6 +29,15 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Commitlint (PR)
+        if: github.event_name == 'pull_request'
+        run: pnpm exec commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+
+      # push 只檢查最後一個 commit：新 branch 的 github.event.before 為全 0，無法做範圍比對
+      - name: Commitlint (push)
+        if: github.event_name == 'push'
+        run: pnpm exec commitlint --last --verbose
 
       - name: Lint
         run: pnpm run lint
