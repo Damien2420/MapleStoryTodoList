@@ -20,6 +20,8 @@ export interface NewCharacterInput {
   job: string;
   imageUrl?: string;
   source: CharacterSource;
+  /** 要歸屬的帳號;省略或 null 代表未歸類。呼叫端負責確認帳號存在(這裡不能 import useAccountStore,會循環引用) */
+  accountId?: string | null;
 }
 
 /** 更新角色資料時可覆寫的欄位:api 來源會全部帶入,manual 來源只會帶名字/伺服器/等級/職業 */
@@ -69,7 +71,7 @@ export const useCharacterStore = create<CharacterState>()(
           imageUrl: input.imageUrl,
           order: get().characters.length,
           source: input.source,
-          accountId: null,
+          accountId: input.accountId ?? null,
         };
         set((state) => ({
           characters: [...state.characters, character],

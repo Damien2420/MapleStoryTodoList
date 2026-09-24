@@ -2,18 +2,21 @@ import { useState } from 'react';
 import { useCharacterStore } from '@/store/useCharacterStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useBossStore } from '@/store/useBossStore';
+import { useAccountStore } from '@/store/useAccountStore';
+import { UNASSIGNED_GROUP_NAME } from '@/lib/characterBoard';
 import type { PresetTask } from '@/lib/presetTasks';
 import { sortBossSelectionsByCatalogOrder, type BossSelection } from '@/lib/bossCatalog';
 import { SERVERS, type Server } from '@/lib/servers';
 import { fetchCharacterByName, isKnownServer } from '@/lib/nexon';
 import { CHARACTER_NAME_MAX_LENGTH, type BossDifficulty } from '@/types';
 
-type AddCharacterStep = 'info' | 'presets' | 'bosses' | 'confirm';
+type AddCharacterStep = 'info' | 'presets' | 'bosses' | 'account' | 'confirm';
 type LookupPhase = 'search' | 'result' | 'form';
 
 /**
- * 「新增角色」共用流程:NEXON API 查詢/手動輸入角色資訊 → 套用預設任務 → 套用預設 BOSS → 確認建立。
- * 供 CharacterTabs(Dialog 入口)與 FirstCharacterOnboarding(首次引導畫面入口)共用,
+ * 「新增角色」共用流程:NEXON API 查詢/手動輸入角色資訊 → 套用預設任務 → 套用預設 BOSS → 選擇帳號 → 確認建立。
+ * 「選擇帳號」只在至少有一個帳號時出現,沒有帳號就從 BOSS 直接進確認,角色歸到未歸類。
+ * 供 AddCharacterDialog(Dialog 入口)與 FirstCharacterOnboarding(首次引導畫面入口)共用,
  * 兩者只負責各自的外層 UI,狀態與邏輯全部集中在這裡維護一份。
  *
  * @param onCreated 角色建立成功後的收尾動作(例如 Dialog 入口需要額外關閉彈窗),可省略。
@@ -23,6 +26,7 @@ export function useAddCharacterFlow(onCreated?: () => void) {
   const characters = useCharacterStore((s) => s.characters);
   const addPresetTasks = useTaskStore((s) => s.addPresetTasks);
   const addBosses = useBossStore((s) => s.addBosses);
+  const accounts = useAccountStore((s) => s.accounts);
 
   const [step, setStep] = useState<AddCharacterStep>('info');
   const [lookupPhase, setLookupPhase] = useState<LookupPhase>('search');
@@ -37,6 +41,13 @@ export function useAddCharacterFlow(onCreated?: () => void) {
   const [resolvedPresetTasks, setResolvedPresetTasks] = useState<PresetTask[]>([]);
   const [bossSelections, setBossSelections] = useState<Map<string, Set<BossDifficulty>>>(new Map());
   const [resolvedBossSelections, setResolvedBossSelections] = useState<BossSelection[]>([]);
+  // 要歸屬的帳號;null 代表未歸類
+  const [accountId, setAccountId] = useState<string | null>(null);
+
+  const hasAccounts = accounts.length > 0;
+  // 選的帳號可能在流程途中被刪掉(例如另一個分頁),找不到就視同未歸類
+  const selectedAccount = accounts.find((a) => a.id === accountId);
+  const selectedAccountName = selectedAccount?.name ?? UNASSIGNED_GROUP_NAME;
 
   function togglePreset(id: string) {
     setSelectedPresetIds((prev) => {
@@ -82,6 +93,7 @@ export function useAddCharacterFlow(onCreated?: () => void) {
     setResolvedPresetTasks([]);
     setBossSelections(new Map());
     setResolvedBossSelections([]);
+    setAccountId(null);
   }
 
   const canSubmit = name.trim().length > 0 && name.length <= CHARACTER_NAME_MAX_LENGTH && !!job;
@@ -150,13 +162,27 @@ export function useAddCharacterFlow(onCreated?: () => void) {
 
   function continueFromBosses(selections: BossSelection[]) {
     setResolvedBossSelections(sortBossSelectionsByCatalogOrder(selections));
+    setStep(hasAccounts ? 'account' : 'confirm');
+  }
+
+  /** 選擇帳號步驟的「跳過」:清掉選擇、歸到未歸類 */
+  function skipAccount() {
+    setAccountId(null);
     setStep('confirm');
   }
 
   function createCharacter(tasks: PresetTask[], bosses: BossSelection[]) {
     if (!canSubmit) return;
     const source = lookupPhase === 'result' ? 'api' : 'manual';
-    const newCharacterId = addCharacter({ name, server, level: enteredLevel, job: job!, imageUrl, source });
+    const newCharacterId = addCharacter({
+      name,
+      server,
+      level: enteredLevel,
+      job: job!,
+      imageUrl,
+      source,
+      accountId: selectedAccount?.id ?? null,
+    });
     if (tasks.length > 0) {
       addPresetTasks(newCharacterId, tasks);
     }
@@ -187,6 +213,12 @@ export function useAddCharacterFlow(onCreated?: () => void) {
     resolvedPresetTasks,
     bossSelections,
     resolvedBossSelections,
+    accounts,
+    hasAccounts,
+    accountId,
+    setAccountId,
+    selectedAccountName,
+    isUnassignedSelected: !selectedAccount,
     canSubmit,
     enteredLevel,
     togglePreset,
@@ -199,6 +231,7 @@ export function useAddCharacterFlow(onCreated?: () => void) {
     handleInfoSubmit,
     continueFromPresets,
     continueFromBosses,
+    skipAccount,
     createCharacter,
   };
 }

@@ -25,4 +25,16 @@ export default defineConfig([
       'react-refresh/only-export-components': 'off',
     },
   },
+  // animate-ui registry 產生的檔案(含它依賴的 hook/工具),維持與上游一致不手改,放寬上游寫法會觸發的規則
+  {
+    files: [
+      'src/components/animate-ui/**/*.{ts,tsx}',
+      'src/hooks/use-controlled-state.tsx',
+      'src/lib/get-strict-context.tsx',
+    ],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+      'react-hooks/set-state-in-effect': 'off',
+    },
+  },
 ])

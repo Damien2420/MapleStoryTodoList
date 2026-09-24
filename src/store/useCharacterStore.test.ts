@@ -87,6 +87,18 @@ describe('useCharacterStore accountId', () => {
     expect(useCharacterStore.getState().characters.find((c) => c.id === id)?.accountId).toBeNull();
   });
 
+  it('新建角色時帶入 accountId 會直接歸到該帳號', () => {
+    const id = useCharacterStore.getState().addCharacter({
+      name: '測試角色',
+      server: '艾麗亞',
+      level: 1,
+      job: 'Warrior',
+      source: 'manual',
+      accountId: 'acc-1',
+    });
+    expect(useCharacterStore.getState().characters.find((c) => c.id === id)?.accountId).toBe('acc-1');
+  });
+
   it('updateCharacter 可以指派或清除 accountId', () => {
     const id = useCharacterStore.getState().addCharacter({
       name: '測試角色',

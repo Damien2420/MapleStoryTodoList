@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Loader2, Plus } from 'lucide-react';
+import { ArrowLeft, ClipboardList, Plus, Swords } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,9 +12,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { AccountPicker } from '@/components/AccountPicker';
+import { ConfirmListSection } from '@/components/ConfirmListSection';
 import { CharacterFormFields } from '@/components/CharacterFormFields';
 import { CharacterLookupResult } from '@/components/CharacterLookupResult';
+import { LoadingHourglass } from '@/components/LoadingHourglass';
 import { PresetTaskPicker } from '@/components/PresetTaskPicker';
+import { SelectedAccountSummary } from '@/components/SelectedAccountSummary';
 import { PresetTaskPreview } from '@/components/PresetTaskPreview';
 import { BossCatalogPicker, WeeklyBossLimitHint } from '@/components/BossCatalogPicker';
 import { BossSelectionPreview } from '@/components/BossSelectionPreview';
@@ -23,7 +27,7 @@ import { resolveSelectedPresetTasks } from '@/lib/presetTasks';
 import { flattenBossSelections } from '@/lib/bossCatalog';
 
 /**
- * 新增角色對話框(自帶觸發按鈕):NEXON API 查詢/手動輸入角色資訊 → 套用預設任務 → 套用預設 BOSS → 確認建立。
+ * 新增角色對話框(自帶觸發按鈕):NEXON API 查詢/手動輸入角色資訊 → 套用預設任務 → 套用預設 BOSS → 選擇帳號 → 確認建立。
  * 放在進度看板頁面,跟管理帳號並列,是新增角色的唯一入口。
  */
 export function AddCharacterDialog() {
@@ -44,7 +48,9 @@ export function AddCharacterDialog() {
           新增角色
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
+      {/* 確認頁要並排兩份預覽清單,其他步驟的內容撐不滿,只有確認頁放寬,避免表單被拉得過寬;
+          確認頁改成 flex 直向排列,讓標題與按鈕固定、只有中間內容捲動 */}
+      <DialogContent className={flow.step === 'confirm' ? 'flex flex-col sm:max-w-3xl' : 'sm:max-w-lg'}>
         {flow.step === 'info' && flow.lookupPhase === 'search' ? (
           <form onSubmit={flow.handleLookup}>
             <DialogHeader>
@@ -64,9 +70,9 @@ export function AddCharacterDialog() {
               </div>
               {flow.lookupError && <p className="text-sm text-destructive">{flow.lookupError}</p>}
             </div>
-            <DialogFooter className="sm:flex-col">
+            <DialogFooter className="flex-col sm:flex-col">
               <Button type="submit" className="w-full gap-1.5" disabled={!flow.name.trim() || flow.lookupLoading}>
-                {flow.lookupLoading && <Loader2 className="size-4 animate-spin" />}
+                {flow.lookupLoading && <LoadingHourglass />}
                 {flow.lookupLoading ? '查詢中…' : '查詢角色'}
               </Button>
               <Button type="button" variant="outline" className="w-full" onClick={flow.switchToManualEntry}>
@@ -155,7 +161,7 @@ export function AddCharacterDialog() {
                 <ArrowLeft className="size-3.5" />
                 返回角色資訊
               </Button>
-              <DialogTitle>套用預設任務(選填)</DialogTitle>
+              <DialogTitle>套用預設任務</DialogTitle>
               <DialogDescription>勾選要一併建立的預設任務，或直接跳過。</DialogDescription>
             </DialogHeader>
 
@@ -165,7 +171,7 @@ export function AddCharacterDialog() {
               characterLevel={flow.enteredLevel}
             />
 
-            <DialogFooter className="sm:flex-col">
+            <DialogFooter className="flex-col sm:flex-col">
               <Button
                 type="button"
                 className="w-full"
@@ -194,7 +200,7 @@ export function AddCharacterDialog() {
                 <ArrowLeft className="size-3.5" />
                 返回預設任務
               </Button>
-              <DialogTitle>套用預設 BOSS(選填)</DialogTitle>
+              <DialogTitle>套用預設 BOSS</DialogTitle>
               <DialogDescription>勾選要一併追蹤的 BOSS 與難度，或直接跳過。</DialogDescription>
             </DialogHeader>
 
@@ -206,7 +212,7 @@ export function AddCharacterDialog() {
               trackedGroupKeys={new Set<string>()}
             />
 
-            <DialogFooter className="sm:flex-col">
+            <DialogFooter className="flex-col sm:flex-col">
               <Button
                 type="button"
                 className="w-full"
@@ -220,7 +226,7 @@ export function AddCharacterDialog() {
               </Button>
             </DialogFooter>
           </div>
-        ) : (
+        ) : flow.step === 'account' ? (
           <div className="space-y-4">
             <DialogHeader>
               <Button
@@ -233,19 +239,70 @@ export function AddCharacterDialog() {
                 <ArrowLeft className="size-3.5" />
                 返回預設 BOSS
               </Button>
-              <DialogTitle>確認建立以下內容</DialogTitle>
-              <DialogDescription>確認無誤後即可建立角色，建立後可再自行調整。</DialogDescription>
+              <DialogTitle>選擇帳號</DialogTitle>
+              <DialogDescription>選擇角色要加入的帳號，同帳號的角色共用 VIP 等級與重置券。</DialogDescription>
             </DialogHeader>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <p className="text-sm font-semibold text-foreground">任務({flow.resolvedPresetTasks.length})</p>
-                <PresetTaskPreview tasks={flow.resolvedPresetTasks} />
-              </div>
+            <AccountPicker accounts={flow.accounts} value={flow.accountId} onChange={flow.setAccountId} />
 
-              <div className="space-y-2">
-                <p className="text-sm font-semibold text-foreground">BOSS({flow.resolvedBossSelections.length})</p>
-                <BossSelectionPreview selections={flow.resolvedBossSelections} />
+            <DialogFooter className="flex-col sm:flex-col">
+              <Button type="button" className="w-full" onClick={() => flow.setStep('confirm')}>
+                前往確認
+              </Button>
+              <Button type="button" variant="outline" className="w-full" onClick={flow.skipAccount}>
+                跳過，不加入帳號
+              </Button>
+            </DialogFooter>
+          </div>
+        ) : (
+          <div className="flex min-h-0 flex-1 flex-col gap-4">
+            <DialogHeader>
+              <DialogTitle>確認建立以下內容</DialogTitle>
+              <DialogDescription>確認無誤後即可建立角色，建立後可再調整。</DialogDescription>
+            </DialogHeader>
+
+            {/* 窄畫面(清單上下疊)只有這一區捲動,清單不設高度上限,避免雙層捲動;
+                寬畫面(兩欄並排)兩個分區用同一個固定高度(16rem 約是確認頁其餘內容的高度),
+                清單填滿分區剩餘空間並在內部捲動,左右兩欄等長 */}
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto">
+              {flow.hasAccounts && (
+                <SelectedAccountSummary
+                  accountName={flow.selectedAccountName}
+                  unassigned={flow.isUnassignedSelected}
+                  onChange={() => flow.setStep('account')}
+                />
+              )}
+
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <ConfirmListSection
+                  icon={ClipboardList}
+                  label="任務"
+                  count={flow.resolvedPresetTasks.length}
+                  unit="項"
+                  onChange={() => flow.setStep('presets')}
+                  className="md:h-[min(30rem,calc(100dvh-16rem))]"
+                >
+                  <PresetTaskPreview
+                    tasks={flow.resolvedPresetTasks}
+                    className="max-h-none md:min-h-0 md:flex-1"
+                    itemClassName="border-transparent bg-popover"
+                  />
+                </ConfirmListSection>
+
+                <ConfirmListSection
+                  icon={Swords}
+                  label="BOSS"
+                  count={flow.resolvedBossSelections.length}
+                  unit="隻"
+                  onChange={() => flow.setStep('bosses')}
+                  className="md:h-[min(30rem,calc(100dvh-16rem))]"
+                >
+                  <BossSelectionPreview
+                    selections={flow.resolvedBossSelections}
+                    className="max-h-none md:min-h-0 md:flex-1"
+                    itemClassName="border-transparent bg-popover"
+                  />
+                </ConfirmListSection>
               </div>
             </div>
 
