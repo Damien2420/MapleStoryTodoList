@@ -109,6 +109,26 @@ export function resolveSelectedPresetTasks(selectedIds: Set<string>, characterLe
   return tasks;
 }
 
+/**
+ * 找出角色已經建立過的預設任務 id(含地區群組),用於「新增任務」挑選清單標示已加入並鎖住。
+ * 依任務名稱比對,與套用時跳過重複任務的規則一致;地區群組要所有已解鎖區域都已建立才算,
+ * 角色升級解鎖新區域後群組會變回可選,套用時只會補上新區域。
+ * @param existingTaskNames 角色目前所有任務的名稱
+ * @param characterLevel 角色等級,決定地區群組展開哪些區域
+ * @returns 已全部建立過的預設任務/群組 id
+ */
+export function findAddedPresetIds(existingTaskNames: ReadonlySet<string>, characterLevel: number): Set<string> {
+  const added = new Set<string>();
+  for (const task of PRESET_TASKS) {
+    if (existingTaskNames.has(task.name)) added.add(task.id);
+  }
+  for (const group of PRESET_TASK_GROUPS) {
+    const tasks = expandPresetGroup(group, characterLevel);
+    if (tasks.length > 0 && tasks.every((t) => existingTaskNames.has(t.name))) added.add(group.id);
+  }
+  return added;
+}
+
 /** 計算單一已建立任務在預設任務目錄中的排序權重:一般任務用 PRESET_TASKS 的位置,群組展開出的任務用「群組位置 + 區域位置」;查無來源(手動建立/已被移除)回傳 Infinity */
 function presetTaskRank(task: Pick<CharacterTask, 'presetId' | 'name'>): number {
   if (!task.presetId) return Infinity;

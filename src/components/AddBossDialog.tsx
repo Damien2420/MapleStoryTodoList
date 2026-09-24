@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowLeft, Gem, Plus } from 'lucide-react';
+import { ArrowLeft, Gem, Info, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -22,18 +22,31 @@ import {
   hasVipTicketAllocation,
   parseVipSelectionKey,
   VIP_TICKET_LEVEL_LABELS,
+  VIP_TIER_LABELS,
 } from '@/lib/vipBossCatalog';
 import { cn } from '@/lib/utils';
+import { focusDialogContainer } from '@/lib/dialogFocus';
 import { useAccountStore } from '@/store/useAccountStore';
 import { useBossStore } from '@/store/useBossStore';
 import { useCharacterStore } from '@/store/useCharacterStore';
-import type { BossDifficulty, VipTicketLevel } from '@/types';
+import type { Account, BossDifficulty, VipTicketLevel } from '@/types';
 
 interface AddBossDialogProps {
   characterId: string;
 }
 
 type Step = 'pick' | 'vip' | 'vip-confirm' | 'vip-overview';
+
+/**
+ * 沒有 VIP 重置券可用時,告訴使用者原因與下一步;顯示在原本「新增VIP重置BOSS」按鈕的位置。
+ * @param account 角色所屬的帳號;未歸類為 undefined
+ * @returns 說明文字(依「沒有帳號」「帳號沒設定 VIP」「VIP 等級本身沒有重置券」三種情況)
+ */
+function getVipUnavailableReason(account: Account | undefined): string {
+  if (!account) return '將角色加入帳號並設定 VIP 等級後，即可新增 VIP 重置 BOSS';
+  if (!account.vipTier) return '在總覽頁面為此帳號設定 VIP 等級後，即可新增 VIP 重置 BOSS';
+  return `「${account.name}」目前的 ${VIP_TIER_LABELS[account.vipTier]} 等級沒有 VIP 重置券`;
+}
 
 /**
  * 新增BOSS對話框:一般BOSS與VIP重置BOSS是兩條互斥路徑,同一個對話框依 step 切換畫面。
@@ -140,12 +153,19 @@ export function AddBossDialog({ characterId }: AddBossDialogProps) {
           <span className="max-[400px]:sr-only">新增BOSS</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-xl sm:max-h-fit">
+      <DialogContent className="sm:max-w-xl" onOpenAutoFocus={focusDialogContainer}>
         {step === 'pick' && (
           <div className="space-y-4">
             <DialogHeader>
               <DialogTitle>新增BOSS</DialogTitle>
               <DialogDescription>勾選要追蹤的王與難度，一次可套用多隻、多難度。</DialogDescription>
+              {/* 沒有 VIP 時依照狀況顯示說明,獨立一行放在描述下,不跟上限徽章擠在同一列 */}
+              {!hasVipTicketAllocation(account?.vipTier) && (
+                <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                  <Info className="mt-px size-3.5 shrink-0" aria-hidden="true" />
+                  {getVipUnavailableReason(account)}
+                </p>
+              )}
             </DialogHeader>
 
             <div className="flex items-center justify-between gap-2">
@@ -190,16 +210,14 @@ export function AddBossDialog({ characterId }: AddBossDialogProps) {
               <DialogDescription>使用VIP重置券額外攻略指定的BOSS，依券等級分組，只能根據重置卷張數最大數量選擇BOSS。</DialogDescription>
             </DialogHeader>
 
-            <div className="max-h-[50vh] overflow-y-auto pr-1">
-              <VipBossCatalogPicker
-                vipTier={account.vipTier}
-                selections={vipSelections}
-                onToggle={handleToggleVip}
-                trackedGroupKeys={trackedVipGroupKeys}
-                trackedCountsByLevel={trackedVipCountsByLevel}
-                onQuotaBlocked={setQuotaWarningLevel}
-              />
-            </div>
+            <VipBossCatalogPicker
+              vipTier={account.vipTier}
+              selections={vipSelections}
+              onToggle={handleToggleVip}
+              trackedGroupKeys={trackedVipGroupKeys}
+              trackedCountsByLevel={trackedVipCountsByLevel}
+              onQuotaBlocked={setQuotaWarningLevel}
+            />
 
             {quotaWarningLevel && (
               <div role="alert" className="flex flex-col gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm">

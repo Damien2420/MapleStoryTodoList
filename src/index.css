@@ -145,7 +145,7 @@
     --cycle-weekend-foreground: oklch(0.42 0.12 300);
     --cycle-vip: oklch(0.9 0.05 190);
     --cycle-vip-foreground: oklch(0.38 0.09 190);
-    /* 進度看板專用:--boss 是BOSS進度弧(內圈)的鋼藍,--done 是「今日已完成」徽章的綠;週期身分不靠顏色,所以不與 --cycle-* 混用 */
+    /* 進度看板專用:--boss 是BOSS進度弧(內圈)的鋼藍,--done 是「今日已完成」徽章的綠(新增任務清單的「已加入」徽章也沿用);週期身分不靠顏色,所以不與 --cycle-* 混用 */
     --boss: oklch(0.92 0.03 235);
     --boss-foreground: oklch(0.5 0.1 235);
     --done: oklch(0.93 0.05 150);

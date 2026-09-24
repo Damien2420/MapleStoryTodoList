@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useMemo, useState } from 'react';
 import { format, parse } from 'date-fns';
 import { ArrowLeft, CalendarIcon, ListPlus, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -19,7 +19,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { PresetTaskPicker } from '@/components/PresetTaskPicker';
 import { PresetTaskPreview } from '@/components/PresetTaskPreview';
 import { cn } from '@/lib/utils';
-import { resolveSelectedPresetTasks, type PresetTask } from '@/lib/presetTasks';
+import { focusDialogContainer } from '@/lib/dialogFocus';
+import { findAddedPresetIds, resolveSelectedPresetTasks, type PresetTask } from '@/lib/presetTasks';
 import { TASK_NAME_MAX_LENGTH, TASK_CATEGORY_MAX_LENGTH, type ResetCycle } from '@/types';
 import { useCharacterStore } from '@/store/useCharacterStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -69,6 +70,16 @@ export function AddTaskDialog({ characterId, existingCategories }: AddTaskDialog
   const [resolvedPresetTasks, setResolvedPresetTasks] = useState<PresetTask[]>([]);
   const [skippedPresetTasks, setSkippedPresetTasks] = useState<PresetTask[]>([]);
 
+  // 角色已有的任務名稱:挑選清單用它標示已加入,套用時也用它跳過重複任務(當作保險)
+  const existingTaskNames = useMemo(
+    () => new Set(allTasks.filter((t) => t.characterId === characterId).map((t) => t.name)),
+    [allTasks, characterId],
+  );
+  const addedPresetIds = useMemo(
+    () => findAddedPresetIds(existingTaskNames, characterLevel),
+    [existingTaskNames, characterLevel],
+  );
+
   function resetForm() {
     setView('presets');
     setName('');
@@ -113,11 +124,8 @@ export function AddTaskDialog({ characterId, existingCategories }: AddTaskDialog
   function handleReviewPresets() {
     if (selectedPresetIds.size === 0) return;
     const resolved = resolveSelectedPresetTasks(selectedPresetIds, characterLevel);
-    const existingNames = new Set(
-      allTasks.filter((t) => t.characterId === characterId).map((t) => t.name),
-    );
-    setResolvedPresetTasks(resolved.filter((t) => !existingNames.has(t.name)));
-    setSkippedPresetTasks(resolved.filter((t) => existingNames.has(t.name)));
+    setResolvedPresetTasks(resolved.filter((t) => !existingTaskNames.has(t.name)));
+    setSkippedPresetTasks(resolved.filter((t) => existingTaskNames.has(t.name)));
     setView('confirm');
   }
 
@@ -141,18 +149,19 @@ export function AddTaskDialog({ characterId, existingCategories }: AddTaskDialog
           <span className="max-[400px]:sr-only">新增任務</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-xl sm:max-h-fit">
+      <DialogContent className="sm:max-w-xl" onOpenAutoFocus={focusDialogContainer}>
         {view === 'presets' ? (
           <div className="space-y-4">
             <DialogHeader>
               <DialogTitle>新增任務</DialogTitle>
-              <DialogDescription>勾選一個或多個預設任務範本,一次建立多筆任務。</DialogDescription>
+              <DialogDescription>點選預設任務範本，可以一次建立多筆任務。</DialogDescription>
             </DialogHeader>
 
             <PresetTaskPicker
               selectedIds={selectedPresetIds}
               onToggle={togglePreset}
               characterLevel={characterLevel}
+              addedIds={addedPresetIds}
             />
 
             <Button
