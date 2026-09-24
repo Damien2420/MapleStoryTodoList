@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Account, Character, CharacterBossTrackList, CharacterTask } from '@/types';
 import {
   buildCharacterBoard,
+  isUnassignedCharacter,
   resolveAccountCollapsed,
   toCollapseDateKey,
   UNASSIGNED_GROUP_ID,
@@ -311,6 +312,22 @@ describe('buildCharacterBoard', () => {
   });
 });
 
+
+describe('isUnassignedCharacter', () => {
+  const accountIds = new Set(['acc-1']);
+
+  it('accountId 為 null 視為未歸類', () => {
+    expect(isUnassignedCharacter({ accountId: null }, accountIds)).toBe(true);
+  });
+
+  it('accountId 指向存在的帳號不是未歸類', () => {
+    expect(isUnassignedCharacter({ accountId: 'acc-1' }, accountIds)).toBe(false);
+  });
+
+  it('accountId 指向已不存在的帳號視為未歸類', () => {
+    expect(isUnassignedCharacter({ accountId: 'acc-deleted' }, accountIds)).toBe(true);
+  });
+});
 
 describe('toCollapseDateKey', () => {
   it('回傳本地日期 YYYY-MM-DD,月與日補零', () => {

@@ -1,5 +1,7 @@
 import { useRef, useState } from 'react';
 import { ArrowUpDown, Check, ChevronDown, Pencil, Plus } from 'lucide-react';
+import { AddAccountDialog } from '@/components/AddAccountDialog';
+import { AssignAccountsDialog } from '@/components/AssignAccountsDialog';
 import { BoardCharacterRow } from '@/components/BoardCharacterRow';
 import { BoardSortableRows } from '@/components/BoardSortableRows';
 import { CrystalAmount } from '@/components/CrystalAmount';
@@ -192,6 +194,26 @@ function AccountVipEntry({ account, quota }: { account: Account; quota: BoardAcc
   );
 }
 
+/**
+ * 未歸類分組在 VIP 入口位置顯示的說明:VIP 屬於帳號,未歸類的角色沒有地方可以設定,
+ * 不說明的話使用者只會發現「找不到 VIP 設定」而不知道原因。旁邊直接放新增帳號,
+ * 那個對話框本來就會列出未歸類的角色讓使用者勾選,一步就能解決。
+ * 已經有帳號時另外提供「分配到帳號」,放在新增帳號左邊:這時使用者多半是要放進既有帳號,而不是再建一個。
+ */
+function UnassignedVipHint() {
+  const hasAccounts = useAccountStore((s) => s.accounts.length > 0);
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+      <span className="text-xs text-muted-foreground">未歸類的角色無法使用 VIP 功能，加入帳號後即可設定</span>
+      <div className="flex flex-wrap items-center gap-2">
+        {hasAccounts && <AssignAccountsDialog />}
+        <AddAccountDialog />
+      </div>
+    </div>
+  );
+}
+
 interface BoardAccountSectionProps {
   group: BoardAccountGroup;
   /** 目前是否收合;由呼叫端用 resolveAccountCollapsed 算好傳入 */
@@ -277,35 +299,34 @@ export function BoardAccountSection({ group, collapsed, onToggleCollapse }: Boar
         <>
           <AccountRevenueStrip columns={group.revenueColumns} />
 
-          {(account || group.rows.length >= 2) && (
-            <div className="mb-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-              {account && <AccountVipEntry account={account} quota={group.vipQuota} />}
+          {/* 未歸類分組只在有角色時才存在,所以這一行對帳號與未歸類都一定會出現 */}
+          <div className="mb-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            {account ? <AccountVipEntry account={account} quota={group.vipQuota} /> : <UnassignedVipHint />}
 
-              {group.rows.length >= 2 && (
-                <div className="ml-auto">
-                  <Button
-                    type="button"
-                    variant={sorting ? 'default' : 'ghost'}
-                    size="xs"
-                    className={cn('gap-1', !sorting && 'text-muted-foreground')}
-                    onClick={() => setSortingRequested(!sorting)}
-                  >
-                    {sorting ? (
-                      <>
-                        <Check className="size-3" />
-                        完成
-                      </>
-                    ) : (
-                      <>
-                        <ArrowUpDown className="size-3" />
-                        排序角色
-                      </>
-                    )}
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
+            {group.rows.length >= 2 && (
+              <div className="ml-auto">
+                <Button
+                  type="button"
+                  variant={sorting ? 'default' : 'ghost'}
+                  size="xs"
+                  className={cn('gap-1', !sorting && 'text-muted-foreground')}
+                  onClick={() => setSortingRequested(!sorting)}
+                >
+                  {sorting ? (
+                    <>
+                      <Check className="size-3" />
+                      完成
+                    </>
+                  ) : (
+                    <>
+                      <ArrowUpDown className="size-3" />
+                      排序角色
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+          </div>
 
           {group.rows.length === 0 ? (
             <p className="rounded-lg border border-dashed border-border py-6 text-center text-sm text-muted-foreground">

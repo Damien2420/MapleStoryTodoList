@@ -68,6 +68,17 @@ export function toCollapseDateKey(now: Date): string {
 /** 未歸類分組的顯示名稱;也是保留名稱,使用者不能拿來當帳號名 */
 export const UNASSIGNED_GROUP_NAME = '未歸類';
 
+/**
+ * 判斷角色是否屬於「未歸類」:accountId 為 null,或指向已不存在的帳號(例如帳號在另一個分頁被刪掉留下的懸空 id)。
+ * 看板分組、新增帳號、分配到帳號都用這一個判定,避免某處看得到、另一處卻勾不到。
+ * @param character 要判斷的角色
+ * @param accountIds 目前所有帳號的 id
+ * @returns 是否為未歸類
+ */
+export function isUnassignedCharacter(character: Pick<Character, 'accountId'>, accountIds: ReadonlySet<string>): boolean {
+  return character.accountId === null || !accountIds.has(character.accountId);
+}
+
 /** 有帳號層收益合計的週期,順序即橫條上的欄位順序 */
 const REVENUE_CYCLES = ['daily', 'weekly', 'monthly'] as const;
 
@@ -190,12 +201,13 @@ export function buildCharacterBoard(input: {
   const charactersByAccount = new Map<string, Character[]>();
   const unassigned: Character[] = [];
   for (const character of characters) {
-    if (character.accountId !== null && accountIds.has(character.accountId)) {
+    // 第二個條件邏輯上已包含在第一個裡,只是讓 TypeScript 在 else 分支把 accountId 收窄成 string
+    if (isUnassignedCharacter(character, accountIds) || character.accountId === null) {
+      unassigned.push(character);
+    } else {
       const list = charactersByAccount.get(character.accountId);
       if (list) list.push(character);
       else charactersByAccount.set(character.accountId, [character]);
-    } else {
-      unassigned.push(character);
     }
   }
 
