@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -10,10 +10,7 @@ import { NexonApiError, fetchCharacterByName, isKnownServer, type NexonCharacter
 import { useCharacterStore } from '@/store/useCharacterStore';
 import { CHARACTER_NAME_MAX_LENGTH, type Character } from '@/types';
 import type { Server } from '@/lib/servers';
-import { HourglassIcon, type HourglassIconHandle } from './ui/hourglass-icon';
-
-/** HourglassIcon 的單次翻轉動畫時長(秒),loading 期間會用同一個數字重複觸發動畫 */
-const LOADING_ICON_DURATION = 1;
+import { LoadingHourglass } from '@/components/LoadingHourglass';
 
 interface CharacterUpdateDialogProps {
   character: Character;
@@ -36,18 +33,6 @@ function ApiRefreshPanel({ character, onApplied }: { character: Character; onApp
   const [queryName, setQueryName] = useState(character.name);
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renameInput, setRenameInput] = useState(character.name);
-  const hourglassRef = useRef<HourglassIconHandle>(null);
-
-  // loading 期間持續播放沙漏翻轉動畫:HourglassIcon 的動畫是「觸發一次」,不是自動 loop,
-  // 所以用 interval 每隔一個動畫週期(0.9 * duration 秒)重新觸發一次,做出持續轉動的效果
-  useEffect(() => {
-    if (phase !== 'loading') return;
-    hourglassRef.current?.startAnimation();
-    const intervalId = setInterval(() => {
-      hourglassRef.current?.startAnimation();
-    }, LOADING_ICON_DURATION * 900);
-    return () => clearInterval(intervalId);
-  }, [phase]);
 
   // Dialog 掛載時查詢一次
   useEffect(() => {
@@ -122,7 +107,7 @@ function ApiRefreshPanel({ character, onApplied }: { character: Character; onApp
     <>
       {phase === 'loading' && (
         <p className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
-          <HourglassIcon ref={hourglassRef} size={16} duration={LOADING_ICON_DURATION} />
+          <LoadingHourglass />
           查詢中...
         </p>
       )}
