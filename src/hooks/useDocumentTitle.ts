@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { useCharacterStore } from '@/store/useCharacterStore';
 import { ROUTES } from '@/lib/routes';
 
-const APP_TITLE = '好楓寶進度追蹤器';
+const APP_TITLE = '好楓寶進度追蹤';
 
 /**
  * 依目前路由設定 document.title(格式「頁名 | 站名」),讓螢幕閱讀器與瀏覽器歷史能分辨換了哪一頁。
@@ -17,7 +17,7 @@ export function useDocumentTitle() {
   useEffect(() => {
     let page = '建立第一個角色';
     if (pathname === ROUTES.backup) page = '備份與還原';
-    else if (hasCharacters) page = pathname === ROUTES.root ? '進度看板' : '角色進度';
+    else if (hasCharacters) page = pathname === ROUTES.root ? '總覽' : '角色進度';
     document.title = `${page} | ${APP_TITLE}`;
   }, [pathname, hasCharacters]);
 }
