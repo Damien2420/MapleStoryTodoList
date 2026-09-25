@@ -12,7 +12,7 @@ export const VIP_TIER_LABELS: Record<VipTier, string> = {
   royalBlack: 'VIP皇家黑',
 };
 
-/** VIP會員等級徽章的底色/文字色 class,各等級指定色,不隨淺/深主題調整 */
+/** VIP會員等級徽章的底色/文字色 class,顏色取自官方 VIP 配色,因此不隨淺/深主題調整 */
 export const VIP_TIER_BADGE_CLASSES: Record<VipTier, string> = {
   silver: 'border-transparent bg-vip-silver text-vip-silver-foreground',
   gold: 'border-transparent bg-vip-gold text-vip-gold-foreground',
