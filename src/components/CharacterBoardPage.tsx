@@ -31,7 +31,7 @@ export function CharacterBoardPage() {
   return (
     <div className="@container mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-xl font-bold tracking-tight text-foreground">帳號總覽</h1>
+        <h1 className="text-xl font-bold tracking-tight text-foreground">總覽</h1>
         <div className="flex items-center gap-2">
           <AddCharacterDialog />
           <ManageAccountsDialog />

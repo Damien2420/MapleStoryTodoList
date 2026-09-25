@@ -42,7 +42,7 @@ function ThemeToggle() {
 // NavLink 在目前頁面時會自動加上 aria-current="page",直接拿來當作目前頁的樣式
 const NAV_ACTIVE_CLASSES = 'aria-[current=page]:bg-sidebar-accent aria-[current=page]:text-sidebar-accent-foreground';
 
-/** 全站頂部導覽列:標題、首頁/資料管理連結、主題切換 */
+/** 全站頂部導覽列:標題、總覽/資料管理連結、主題切換 */
 export function Header() {
   const homeIconRef = useRef<AnimatedIconHandle>(null);
   const settingsIconRef = useRef<AnimatedIconHandle>(null);
@@ -62,12 +62,11 @@ export function Header() {
           <NavLink
             to={ROUTES.root}
             end
-            aria-label="回到進度看板首頁"
             onMouseEnter={() => homeIconRef.current?.startAnimation()}
             onMouseLeave={() => homeIconRef.current?.stopAnimation()}
           >
             <HomeIcon ref={homeIconRef} size={16} />
-            首頁
+            總覽
           </NavLink>
         </Button>
         <Button asChild variant="ghost" size="sm" className={`gap-1.5 ${HEADER_BUTTON_CLASSES} ${NAV_ACTIVE_CLASSES}`}>
