@@ -45,11 +45,11 @@ export function BoardCycleRing({ cycle }: { cycle: BoardCycleProgress }) {
         <span className="sr-only">{label.full}</span>
         <div
           aria-hidden="true"
-          className="flex size-10 items-center justify-center rounded-full border-[1.5px] border-dashed border-border text-[10px] text-muted-foreground opacity-55"
+          className="flex size-10 items-center justify-center rounded-full border-[1.5px] border-dashed border-border text-[10px] text-muted-foreground"
         >
           {label.short}
         </div>
-        <div className="text-[10px] text-muted-foreground opacity-70">未建立</div>
+        <div className="text-[10px] text-muted-foreground">未建立</div>
       </div>
     );
   }
@@ -87,7 +87,7 @@ export function BoardCycleRing({ cycle }: { cycle: BoardCycleProgress }) {
       {/* 固定保留兩行高度:只有一行文字的環也不會讓下方的收益列上下跳動 */}
       <div className="flex min-h-[27px] flex-col items-center gap-px text-[10.5px] leading-[1.3] tabular-nums">
         {hasTasks && (
-          <span className="font-bold text-ring">
+          <span className="font-bold text-task-foreground">
             任務 {cycle.taskDone}/{cycle.taskTotal}
           </span>
         )}

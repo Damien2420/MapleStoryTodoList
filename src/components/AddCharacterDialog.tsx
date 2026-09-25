@@ -125,7 +125,7 @@ export function AddCharacterDialog() {
               <DialogTitle>新增角色</DialogTitle>
               <DialogDescription className="flex flex-col gap-1">
                 <span>建立一個新角色，開始追蹤這個角色的每日/每週任務。</span>
-                <span className="text-destructive">手動建立的角色不會有外觀照片</span>
+                <span>手動建立的角色不會有外觀照片。</span>
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3 py-4">

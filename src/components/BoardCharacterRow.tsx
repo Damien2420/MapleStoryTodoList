@@ -57,7 +57,7 @@ function RevenueLedger({ cycles }: { cycles: BoardCharacterRowData['cycles'] }) 
           ))}
         </div>
       ) : (
-        <span className="text-[10.5px] text-muted-foreground opacity-70">尚未追蹤 BOSS</span>
+        <span className="text-[10.5px] text-muted-foreground">尚未追蹤 BOSS</span>
       )}
     </div>
   );

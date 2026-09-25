@@ -20,6 +20,12 @@ import { useAccountStore } from '@/store/useAccountStore';
 import { useCharacterStore } from '@/store/useCharacterStore';
 import type { Account } from '@/types';
 
+/**
+ * 帳號區塊裡外觀只有 24px 高的小按鈕共用:觸控裝置上用透明的 ::after 往四周各擴 10px,
+ * 可點範圍接近 44px,外觀大小不變;滑鼠操作不需要,所以只在 pointer: coarse 時生效。
+ */
+const TOUCH_TARGET_CLASS = "relative pointer-coarse:after:absolute pointer-coarse:after:-inset-2.5 pointer-coarse:after:content-['']";
+
 /* 討伐收益合計中使用的中文敘述 */
 const REVENUE_COLUMN_LABELS: Record<BoardRevenueColumn['cycle'], string> = {
   daily: '本日',
@@ -154,6 +160,7 @@ function AccountVipEntry({ account, quota }: { account: Account; quota: BoardAcc
               className={cn(
                 'inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-xs font-medium outline-none transition-opacity hover:opacity-80 focus-visible:ring-3 focus-visible:ring-ring/50',
                 VIP_TIER_BADGE_CLASSES[vipTier],
+                TOUCH_TARGET_CLASS,
               )}
             >
               <img src={vipTierIconSrc} alt="" className="size-3" />
@@ -169,7 +176,7 @@ function AccountVipEntry({ account, quota }: { account: Account; quota: BoardAcc
           variant="ghost"
           size="xs"
           onClick={() => setOpen(true)}
-          className="gap-1 border border-dashed border-border text-muted-foreground"
+          className={cn('gap-1 border border-dashed border-border text-muted-foreground', TOUCH_TARGET_CLASS)}
         >
           <Plus className="size-3" />
           設定 VIP
@@ -278,7 +285,7 @@ export function BoardAccountSection({ group, collapsed, onToggleCollapse }: Boar
                 variant="ghost"
                 size="icon-xs"
                 aria-label={`重新命名帳號:${group.name}`}
-                className="text-muted-foreground"
+                className={cn('text-muted-foreground', TOUCH_TARGET_CLASS)}
                 onClick={() => setRenaming(true)}
               >
                 <Pencil className="size-3" />
@@ -311,7 +318,7 @@ export function BoardAccountSection({ group, collapsed, onToggleCollapse }: Boar
                   type="button"
                   variant={sorting ? 'default' : 'ghost'}
                   size="xs"
-                  className={cn('gap-1', !sorting && 'text-muted-foreground')}
+                  className={cn('gap-1', !sorting && 'text-muted-foreground', TOUCH_TARGET_CLASS)}
                   onClick={() => setSortingRequested(!sorting)}
                 >
                   {sorting ? (
