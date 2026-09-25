@@ -1,9 +1,12 @@
+import { ChevronLeft } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { CharacterTabs } from '@/components/CharacterTabs';
 import { CharacterHeader } from '@/components/CharacterHeader';
 import { TaskList } from '@/components/TaskList';
 import { BossList } from '@/components/BossList';
 import { BackupStatusBar } from '@/components/BackupStatusBar';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { ROUTES } from '@/lib/routes';
 import { useCharacterStore } from '@/store/useCharacterStore';
 import { useActiveCharacter } from '@/hooks/useActiveCharacter';
 
@@ -18,7 +21,19 @@ export function CharacterPage() {
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6">
       <Tabs value={activeCharacter.id} onValueChange={setActiveCharacter} className="contents">
-        <CharacterTabs />
+        {/* 分頁只列同帳號的角色,左側是回總覽的入口;底線畫在外層,讓返回連結與分頁共用同一條基線 */}
+        <div className="flex items-stretch gap-1 border-b border-border">
+          <Link
+            to={ROUTES.root}
+            aria-label="回到總覽"
+            className="-ml-2 flex shrink-0 items-center gap-1 rounded-md px-2 text-sm font-semibold text-muted-foreground outline-none transition-colors hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            <ChevronLeft aria-hidden="true" className="size-4 shrink-0" />
+            總覽
+          </Link>
+          <span aria-hidden="true" className="my-2.5 w-px shrink-0 bg-border" />
+          <CharacterTabs />
+        </div>
         <TabsContent value={activeCharacter.id} id={`character-panel-${activeCharacter.id}`} className="contents">
           <CharacterHeader character={activeCharacter} />
           <BackupStatusBar />

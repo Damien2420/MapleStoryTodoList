@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Account, Character, CharacterBossTrackList, CharacterTask } from '@/types';
 import {
   buildCharacterBoard,
+  getSameAccountCharacters,
   isUnassignedCharacter,
   resolveAccountCollapsed,
   toCollapseDateKey,
@@ -326,6 +327,27 @@ describe('isUnassignedCharacter', () => {
 
   it('accountId 指向已不存在的帳號視為未歸類', () => {
     expect(isUnassignedCharacter({ accountId: 'acc-deleted' }, accountIds)).toBe(true);
+  });
+});
+
+describe('getSameAccountCharacters', () => {
+  const accountIds = new Set(['acc-1', 'acc-2']);
+  const characters = [
+    makeCharacter({ id: 'a1-late', accountId: 'acc-1', order: 5 }),
+    makeCharacter({ id: 'a2', accountId: 'acc-2', order: 1 }),
+    makeCharacter({ id: 'a1-early', accountId: 'acc-1', order: 2 }),
+    makeCharacter({ id: 'none', accountId: null, order: 3 }),
+    makeCharacter({ id: 'dangling', accountId: 'acc-deleted', order: 0 }),
+  ];
+
+  it('只回傳與目前角色同帳號的角色,並依 order 排序', () => {
+    const result = getSameAccountCharacters(characters, characters[0], accountIds);
+    expect(result.map((c) => c.id)).toEqual(['a1-early', 'a1-late']);
+  });
+
+  it('目前角色未歸類時,回傳所有未歸類角色(含懸空 accountId)', () => {
+    const result = getSameAccountCharacters(characters, characters[3], accountIds);
+    expect(result.map((c) => c.id)).toEqual(['dangling', 'none']);
   });
 });
 

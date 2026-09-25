@@ -79,6 +79,27 @@ export function isUnassignedCharacter(character: Pick<Character, 'accountId'>, a
   return character.accountId === null || !accountIds.has(character.accountId);
 }
 
+/**
+ * 取出與指定角色同一帳號的所有角色(含自己),依 order 排序;角色頁的分頁列只顯示這些角色。
+ * 未歸類的判定與看板一致:指定角色未歸類時,回傳所有未歸類角色(含 accountId 懸空者)。
+ * @param characters 所有角色
+ * @param current 目前檢視的角色
+ * @param accountIds 目前所有帳號的 id
+ * @returns 同帳號的角色,依 order 由小到大
+ */
+export function getSameAccountCharacters(
+  characters: Character[],
+  current: Pick<Character, 'accountId'>,
+  accountIds: ReadonlySet<string>,
+): Character[] {
+  const currentUnassigned = isUnassignedCharacter(current, accountIds);
+  return characters
+    .filter((c) =>
+      currentUnassigned ? isUnassignedCharacter(c, accountIds) : c.accountId === current.accountId,
+    )
+    .sort((a, b) => a.order - b.order);
+}
+
 /** 有帳號層收益合計的週期,順序即橫條上的欄位順序 */
 const REVENUE_CYCLES = ['daily', 'weekly', 'monthly'] as const;
 
