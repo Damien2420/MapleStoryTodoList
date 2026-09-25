@@ -1,4 +1,6 @@
 import { useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { Trash2Icon } from './ui/trash-2-icon';
 import { RefreshCWIcon } from './ui/refresh-cw';
 import { PencilIcon } from './ui/pencil-icon';
@@ -6,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { VIP_TIER_BADGE_CLASSES, VIP_TIER_LABELS } from '@/lib/vipBossCatalog';
 import { VIP_TIER_ICONS } from '@/lib/vipTierIcons';
+import { ROUTES } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 import {
   AlertDialog,
@@ -19,10 +22,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { DashboardSummary } from '@/components/DashboardSummary';
 import { CharacterUpdateDialog } from '@/components/CharacterUpdateDialog';
+import { useDeleteCharacter } from '@/hooks/useDeleteCharacter';
 import { useAccountStore } from '@/store/useAccountStore';
-import { useCharacterStore } from '@/store/useCharacterStore';
-import { useTaskStore } from '@/store/useTaskStore';
-import { useBossStore } from '@/store/useBossStore';
 import type { Character } from '@/types';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 
@@ -35,9 +36,8 @@ interface AnimatedIconHandle {
 /** 角色身份橫帶:左側立繪+名稱/伺服器/等級/職業,右側併入任務進度與 BOSS 收益摘要,並提供更新/刪除角色入口 */
 export function CharacterHeader({ character }: { character: Character }) {
   const account = useAccountStore((s) => s.accounts.find((a) => a.id === character.accountId));
-  const removeCharacter = useCharacterStore((s) => s.removeCharacter);
-  const removeTasksForCharacter = useTaskStore((s) => s.removeTasksForCharacter);
-  const removeBossesForCharacter = useBossStore((s) => s.removeBossesForCharacter);
+  const deleteCharacter = useDeleteCharacter();
+  const navigate = useNavigate();
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
@@ -55,10 +55,11 @@ export function CharacterHeader({ character }: { character: Character }) {
   const desktopDeleteIconRef = useRef<AnimatedIconHandle>(null);
 
   function handleDeleteCharacter() {
-    removeTasksForCharacter(character.id);
-    removeBossesForCharacter(character.id);
-    removeCharacter(character.id);
+    deleteCharacter(character.id);
     setDeleteConfirmOpen(false);
+    // 刪除後回到看板:留在角色頁會直接跳到另一隻角色,容易讓人以為刪錯了
+    navigate(ROUTES.root);
+    toast(`已刪除「${character.name}」`);
   }
 
   return (

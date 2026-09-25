@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { ArrowUpDown, Check, ChevronDown, Pencil, Plus } from 'lucide-react';
+import { Check, ChevronDown, Pencil, Plus, Settings2 } from 'lucide-react';
 import { AddAccountDialog } from '@/components/AddAccountDialog';
 import { AssignAccountsDialog } from '@/components/AssignAccountsDialog';
 import { BoardCharacterRow } from '@/components/BoardCharacterRow';
@@ -133,7 +133,7 @@ function RenameAccountForm({ account, onDone }: { account: Account; onDone: () =
  * 帳號的 VIP 入口:已設定顯示等級徽章(可點擊修改),未設定顯示虛線的「設定 VIP」按鈕;
  * 有配額時另顯示「VIP 重置券 已用/上限」與細進度線。
  * VIP 屬於帳號,底下所有角色共用重置券配額;未歸類不是真的帳號,不會渲染這個入口。
- * 放在摺疊清單內、討伐收益合計下方,跟排序角色按鈕同一行,跟著收合一起藏起來,不佔標題列的空間。
+ * 放在摺疊清單內、討伐收益合計下方,跟管理角色按鈕同一行,跟著收合一起藏起來,不佔標題列的空間。
  * @param props.account 所屬帳號
  * @param props.quota 帳號的重置券用量;沒有配額時為 undefined
  */
@@ -223,10 +223,10 @@ interface BoardAccountSectionProps {
 
 /**
  * 看板上的一個帳號區塊:標題(收合按鈕、角色數、「今日已完成」徽章、重新命名)、
- * 討伐收益合計橫條、VIP 入口與排序角色按鈕(同一行)、角色列。
- * 收合會連同收益橫條、VIP 入口與排序角色按鈕一起藏起來,只留標題,所以收合是從明細降級成摘要,不是只藏角色列。
+ * 討伐收益合計橫條、VIP 入口與管理角色按鈕(同一行)、角色列。
+ * 收合會連同收益橫條、VIP 入口與管理角色按鈕一起藏起來,只留標題,所以收合是從明細降級成摘要,不是只藏角色列。
  * 只有「箭頭加帳號名稱」這顆按鈕可以收合,不是整個標題列。
- * 排序模式會強制展開,角色列改成可拖曳排序、不可點擊;放開後用 applyCharacterLayout 寫回這個帳號內的順序。
+ * 管理角色模式會強制展開,角色列改成可拖曳排序、不可點擊,右端出現刪除鈕;放開後用 applyCharacterLayout 寫回這個帳號內的順序。
  * @param props.group 帳號區塊資料;未歸類是合成分組(account 為 null),沒有 VIP、不能重新命名
  * @param props.collapsed 目前是否收合
  * @param props.onToggleCollapse 使用者點擊收合按鈕時呼叫
@@ -236,8 +236,8 @@ export function BoardAccountSection({ group, collapsed, onToggleCollapse }: Boar
   const [renaming, setRenaming] = useState(false);
   const [sortingRequested, setSortingRequested] = useState(false);
   const account = group.account;
-  // 少於兩隻角色沒東西可排,角色被搬走導致不足時自動離開排序模式
-  const sorting = sortingRequested && group.rows.length >= 2;
+  // 管理角色模式只在按「完成」時離開;刪到剩一隻也不跳出(還可能要繼續刪),只有沒角色可管時才自動離開
+  const sorting = sortingRequested && group.rows.length >= 1;
   const showRows = !collapsed || sorting;
 
   return (
@@ -291,7 +291,9 @@ export function BoardAccountSection({ group, collapsed, onToggleCollapse }: Boar
 
       {sorting && (
         <p role="status" className="mb-2.5 rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
-          排序中，拖曳左側握把，或點選握把後按空白鍵拿起、用上下方向鍵移動來調整順序，完成排序後按「完成」。
+          {group.rows.length >= 2
+            ? '拖曳左側握把調整順序(也可點選握把後按空白鍵拿起、用上下方向鍵移動),或用右側按鈕刪除不再追蹤的角色。完成後按「完成」。'
+            : '用右側按鈕刪除不再追蹤的角色。完成後按「完成」。'}
         </p>
       )}
 
@@ -303,7 +305,7 @@ export function BoardAccountSection({ group, collapsed, onToggleCollapse }: Boar
           <div className="mb-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
             {account ? <AccountVipEntry account={account} quota={group.vipQuota} /> : <UnassignedVipHint />}
 
-            {group.rows.length >= 2 && (
+            {group.rows.length >= 1 && (
               <div className="ml-auto">
                 <Button
                   type="button"
@@ -319,8 +321,8 @@ export function BoardAccountSection({ group, collapsed, onToggleCollapse }: Boar
                     </>
                   ) : (
                     <>
-                      <ArrowUpDown className="size-3" />
-                      排序角色
+                      <Settings2 className="size-3" />
+                      管理角色
                     </>
                   )}
                 </Button>
