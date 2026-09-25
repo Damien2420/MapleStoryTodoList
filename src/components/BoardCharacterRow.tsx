@@ -1,9 +1,9 @@
-import type { ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { BoardCycleRing } from '@/components/BoardCycleRing';
 import { CrystalAmount } from '@/components/CrystalAmount';
-import type { BoardCharacterRow as BoardCharacterRowData } from '@/lib/characterBoard';
+import { describeBoardRowProgress, type BoardCharacterRow as BoardCharacterRowData } from '@/lib/characterBoard';
 import { ROUTES } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 import { useCharacterStore } from '@/store/useCharacterStore';
@@ -86,6 +86,7 @@ export function BoardCharacterRow({
   const { character, cycles } = row;
   const setActiveCharacter = useCharacterStore((s) => s.setActiveCharacter);
   const hasAction = sorting && action !== undefined;
+  const progressId = useId();
 
   const content = (
     <>
@@ -146,15 +147,21 @@ export function BoardCharacterRow({
   }
 
   return (
+    // 連結名稱只放角色名稱:整列內容都當名稱時螢幕閱讀器每列要念上百字;進度改用 aria-describedby 補在名稱之後
     <Link
       to={ROUTES.character}
       onClick={() => setActiveCharacter(character.id)}
+      aria-label={`${character.name},進入角色頁`}
+      aria-describedby={progressId}
       className={cn(
         rowClassName,
         'transition-colors hover:border-ring hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring',
       )}
     >
       {content}
+      <span id={progressId} className="sr-only">
+        {describeBoardRowProgress(cycles)}
+      </span>
       <ChevronRight
         aria-hidden="true"
         className="absolute top-1/2 right-3 size-3.5 -translate-y-1/2 text-muted-foreground opacity-50 @max-[712px]:top-3.5 @max-[712px]:translate-y-0"

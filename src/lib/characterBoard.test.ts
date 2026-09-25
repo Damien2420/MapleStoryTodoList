@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Account, Character, CharacterBossTrackList, CharacterTask } from '@/types';
 import {
   buildCharacterBoard,
+  describeBoardRowProgress,
   getSameAccountCharacters,
   isUnassignedCharacter,
   resolveAccountCollapsed,
@@ -327,6 +328,31 @@ describe('isUnassignedCharacter', () => {
 
   it('accountId 指向已不存在的帳號視為未歸類', () => {
     expect(isUnassignedCharacter({ accountId: 'acc-deleted' }, accountIds)).toBe(true);
+  });
+});
+
+describe('describeBoardRowProgress', () => {
+  const cycle = (c: 'daily' | 'weekly' | 'monthly' | 'season' | 'vip', taskDone: number, taskTotal: number, bossDone: number, bossTotal: number) => ({
+    cycle: c,
+    taskDone,
+    taskTotal,
+    bossDone,
+    bossTotal,
+    tracked: taskTotal + bossTotal > 0,
+  });
+
+  it('只列出有建立的週期,並略過該週期沒有的任務或 BOSS', () => {
+    const text = describeBoardRowProgress([
+      cycle('daily', 2, 2, 1, 1),
+      cycle('weekly', 0, 1, 0, 0),
+      cycle('season', 0, 0, 0, 0),
+      cycle('vip', 0, 0, 1, 3),
+    ]);
+    expect(text).toBe('每日 任務 2/2、BOSS 1/1;每週 任務 0/1;VIP 重置 BOSS 1/3');
+  });
+
+  it('沒有任何週期建立時回傳提示文字', () => {
+    expect(describeBoardRowProgress([cycle('daily', 0, 0, 0, 0)])).toBe('尚未建立任務或 BOSS');
   });
 });
 

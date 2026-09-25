@@ -65,6 +65,35 @@ export function toCollapseDateKey(now: Date): string {
   return `${now.getFullYear()}-${month}-${day}`;
 }
 
+/** 看板週期的簡稱(進度環中央)與完整名稱(螢幕閱讀器、進度摘要) */
+export const BOARD_CYCLE_LABELS: Record<BossCycleKey, { short: string; full: string }> = {
+  daily: { short: '日', full: '每日' },
+  weekly: { short: '週', full: '每週' },
+  monthly: { short: '月', full: '每月' },
+  season: { short: '賽', full: '賽季' },
+  vip: { short: 'VIP', full: 'VIP 重置' },
+};
+
+/**
+ * 把一列的週期進度整理成一句給螢幕閱讀器的摘要,例如「每日 任務 2/2、BOSS 1/1;每週 任務 0/1」。
+ * 看板列的連結名稱只放角色名稱,進度改由這段文字透過 aria-describedby 補充,避免連結名稱冗長。
+ * 只列出有建立的週期,週期內沒有任務或沒有 BOSS 時略過那一項。
+ * @param cycles 該列的週期進度
+ * @returns 摘要文字;完全沒建立任何項目時回傳提示文字
+ */
+export function describeBoardRowProgress(cycles: BoardCycleProgress[]): string {
+  const parts = cycles
+    .filter((c) => c.tracked)
+    .map((c) => {
+      const items = [
+        c.taskTotal > 0 ? `任務 ${c.taskDone}/${c.taskTotal}` : null,
+        c.bossTotal > 0 ? `BOSS ${c.bossDone}/${c.bossTotal}` : null,
+      ].filter((s): s is string => s !== null);
+      return `${BOARD_CYCLE_LABELS[c.cycle].full} ${items.join('、')}`;
+    });
+  return parts.length > 0 ? parts.join(';') : '尚未建立任務或 BOSS';
+}
+
 /** 未歸類分組的顯示名稱;也是保留名稱,使用者不能拿來當帳號名 */
 export const UNASSIGNED_GROUP_NAME = '未歸類';
 

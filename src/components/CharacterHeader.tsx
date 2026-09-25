@@ -74,9 +74,10 @@ export function CharacterHeader({ character }: { character: Character }) {
             />
           )}
           <div className="min-w-0 flex flex-col gap-0.5">
-            <h2 className="truncate text-lg font-semibold text-foreground" title={character.name}>
+            {/* 角色頁的主標題就是角色名稱 */}
+            <h1 className="truncate text-lg font-semibold text-foreground" title={character.name}>
               {character.name}
-            </h2>
+            </h1>
             <p className="text-sm text-muted-foreground">
               {character.server} · Lv.{character.level}
               {character.job && ` · ${character.job}`}
@@ -133,7 +134,6 @@ export function CharacterHeader({ character }: { character: Character }) {
                 size="icon"
                 className="size-8 text-muted-foreground"
                 aria-label={`${updateLabel}:${character.name}`}
-                title={updateLabel}
                 onClick={() => setUpdateDialogOpen(true)}
                 onMouseEnter={() => desktopUpdateIconRef.current?.startAnimation()}
                 onMouseLeave={() => desktopUpdateIconRef.current?.stopAnimation()}
@@ -142,7 +142,7 @@ export function CharacterHeader({ character }: { character: Character }) {
               </Button>
           </TooltipTrigger>
           <TooltipContent>
-            <p>更新角色資料</p>
+            <p>{updateLabel}</p>
           </TooltipContent>
         </Tooltip>
         <Tooltip>
@@ -153,7 +153,6 @@ export function CharacterHeader({ character }: { character: Character }) {
                 size="icon"
                 className="size-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                 aria-label={`刪除角色:${character.name}`}
-                title="刪除角色"
                 onClick={() => setDeleteConfirmOpen(true)}
                 onMouseEnter={() => desktopDeleteIconRef.current?.startAnimation()}
                 onMouseLeave={() => desktopDeleteIconRef.current?.stopAnimation()}
@@ -162,7 +161,7 @@ export function CharacterHeader({ character }: { character: Character }) {
               </Button>
           </TooltipTrigger>
           <TooltipContent>
-            <p>刪除角色資料</p>
+            <p>刪除角色</p>
           </TooltipContent>
         </Tooltip>
       </div>

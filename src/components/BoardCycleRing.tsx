@@ -1,13 +1,4 @@
-import type { BoardCycleProgress } from '@/lib/characterBoard';
-
-/** 環中央的週期簡稱與完整名稱(完整名稱只給螢幕閱讀器) */
-const CYCLE_LABELS = {
-  daily: { short: '日', full: '每日' },
-  weekly: { short: '週', full: '每週' },
-  monthly: { short: '月', full: '每月' },
-  season: { short: '賽', full: '賽季' },
-  vip: { short: 'VIP', full: 'VIP 重置' },
-} as const;
+import { BOARD_CYCLE_LABELS, type BoardCycleProgress } from '@/lib/characterBoard';
 
 /** 環的幾何:viewBox 44x44,任務在外圈、BOSS 在內圈,兩圈共用同一個圓心與線寬 */
 const CENTER = 22;
@@ -46,7 +37,7 @@ function RingArc({ radius, done, total, arcClassName }: { radius: number; done: 
  * @param cycle 該週期的進度資料
  */
 export function BoardCycleRing({ cycle }: { cycle: BoardCycleProgress }) {
-  const label = CYCLE_LABELS[cycle.cycle];
+  const label = BOARD_CYCLE_LABELS[cycle.cycle];
 
   if (!cycle.tracked) {
     return (
