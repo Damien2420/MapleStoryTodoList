@@ -65,7 +65,9 @@ export function BoardSortableRows({ rows, onReorder }: BoardSortableRowsProps) {
       ]}
       onDragEnd={(event) => {
         if (event.canceled) return;
-        onReorder(move(ids, event));
+        const next = move(ids, event);
+        // 原地放下時 move() 回傳同一個陣列,不需要寫回
+        if (next !== ids) onReorder(next);
       }}
     >
       <div className="flex flex-col gap-2">

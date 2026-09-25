@@ -11,7 +11,8 @@ export interface CharacterContainer {
  *
  * 角色會依照 `containers` 中出現的順序排列，並重用已放入容器角色原本的 `order` 值。
  * 未出現在任何容器中的角色會維持不變；不存在的角色 ID 會被忽略，重複的角色 ID 只採用第一次出現的位置。
- * 此函式不會修改傳入的陣列。
+ * 此函式不會修改傳入的陣列。沒有任何角色的帳號或順序改變時回傳原本的陣列參照,
+ * 因為備份狀態與跨分頁同步是用陣列參照判斷資料有沒有異動,原地放下的拖曳不該被當成變更。
  *
  * @param characters 套用配置前的所有角色。
  * @param containers 定義角色目標帳號與相對順序的容器。
@@ -35,9 +36,13 @@ export function applyCharacterLayout(characters: Character[], containers: Charac
   const updates = new Map<string, Character>();
   // 將每個角色依照 slots 的 order 值得順序加入 updates 內 ( 排序 )
   placements.forEach((placement, index) => {
-    updates.set(placement.character.id, { ...placement.character, accountId: placement.accountId, order: slots[index] });
+    const { character, accountId } = placement;
+    // 帳號與順序都沒變的角色不產生新物件
+    if (character.accountId === accountId && character.order === slots[index]) return;
+    updates.set(character.id, { ...character, accountId, order: slots[index] });
   });
 
+  if (updates.size === 0) return characters;
   return characters.map((c) => updates.get(c.id) ?? c);
 }
 

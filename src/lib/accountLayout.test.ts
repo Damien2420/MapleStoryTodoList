@@ -57,6 +57,21 @@ describe('applyCharacterLayout', () => {
       ['b', 1, 'x'],
     ]);
   });
+
+  it('排列與原本完全相同時回傳原本的陣列參照,避免被當成資料異動', () => {
+    const characters = [makeCharacter('a', 0, 'x'), makeCharacter('b', 1, 'x'), makeCharacter('c', 2, null)];
+    const result = applyCharacterLayout(characters, [
+      { accountId: 'x', characterIds: ['a', 'b'] },
+      { accountId: null, characterIds: ['c'] },
+    ]);
+    expect(result).toBe(characters);
+  });
+
+  it('只要有一隻角色的 order 或 accountId 改變,就回傳新陣列', () => {
+    const characters = [makeCharacter('a', 0, 'x'), makeCharacter('b', 1, 'x')];
+    expect(applyCharacterLayout(characters, [{ accountId: 'x', characterIds: ['b', 'a'] }])).not.toBe(characters);
+    expect(applyCharacterLayout(characters, [{ accountId: 'y', characterIds: ['a', 'b'] }])).not.toBe(characters);
+  });
 });
 
 describe('findCharacterContainer', () => {
