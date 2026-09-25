@@ -26,6 +26,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { moveCharacterInContainers } from '@/lib/accountLayout';
 import { UNASSIGNED_GROUP_ID, UNASSIGNED_GROUP_NAME } from '@/lib/characterBoard';
 import { createDndAnnouncements } from '@/lib/dndAnnouncements';
 import { cn } from '@/lib/utils';
@@ -45,6 +46,24 @@ const CARD_CLASS = 'h-[118px] w-[84px]';
 
 /** 容器 id(bodyId 的結果)對應到該容器內依序排列的角色 id;用來畫面呈現與 dnd-kit 的 move() 直接運算 */
 type ContainerMap = Record<string, string[]>;
+
+/**
+ * 依拖曳事件搬動角色,回傳新的容器排列。
+ * 命中容器本體(卡片以外的空白處)時一律排到該容器最後面;不交給 dnd-kit 的 move(),
+ * 因為 move() 是比較「被拖卡片中心 y」與「容器中心 y」決定放最前或最後,
+ * 而卡片是橫向排成一列、垂直置中於容器內,兩者幾乎等高,結果永遠判定成放最前面(3 張拖不到最後就是這個原因)。
+ * 命中其他卡片時仍用 move(),沿用 dnd-kit 排序外掛算好的插入位置。
+ * @param layout 目前的容器排列
+ * @param event dragover 或 dragend 事件
+ * @returns 搬動後的容器排列
+ */
+function moveCharacter(layout: ContainerMap, event: DragOverEvent | DragEndEvent): ContainerMap {
+  const { source, target, canceled } = event.operation;
+  if (source && target && !canceled && String(target.id).startsWith(BODY_PREFIX)) {
+    return moveCharacterInContainers(layout, String(source.id), String(target.id), null);
+  }
+  return move(layout, event);
+}
 
 /** 角色卡片:有外觀圖以外觀圖為底、名字壓在下緣;沒有圖就直接置中顯示名字。整張卡片都是拖曳把手 */
 function CharacterCard({ character, index, group }: { character: Character; index: number; group: string }) {
@@ -236,7 +255,7 @@ export function ManageAccountsDialog() {
   function handleDragOver(event: DragOverEvent) {
     const { source } = event.operation;
     if (!source || accountIds.has(String(source.id))) return;
-    setDraft((prev) => move(prev ?? storeLayout, event));
+    setDraft((prev) => moveCharacter(prev ?? storeLayout, event));
   }
 
   function handleDragEnd(event: DragEndEvent) {
@@ -253,7 +272,7 @@ export function ManageAccountsDialog() {
       return;
     }
 
-    const final = move(draft ?? storeLayout, event);
+    const final = moveCharacter(draft ?? storeLayout, event);
     setDraft(null);
     if (event.canceled) return;
     applyCharacterLayout([
