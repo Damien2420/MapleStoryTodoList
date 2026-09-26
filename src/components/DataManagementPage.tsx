@@ -29,7 +29,7 @@ import {
   type BackupAvailability,
 } from '@/lib/googleDriveBackup';
 import { buildCurrentBackupPayloadJson, parseBackupPayload } from '@/lib/backupPayload';
-import { mergeBackupPayload } from '@/lib/backupMerge';
+import { mergeBackupPayload, type MergeResult } from '@/lib/backupMerge';
 import { useBackupStatus } from '@/hooks/useBackupStatus';
 import { useStaleConfirm } from '@/hooks/useStaleConfirm';
 import { useCharacterStore } from '@/store/useCharacterStore';
@@ -50,6 +50,27 @@ function downloadTextAsFile(content: string, fileName: string) {
   anchor.download = fileName;
   anchor.click();
   URL.revokeObjectURL(url);
+}
+
+/**
+ * 把合併結果整理成提示文字:新增筆數一律顯示,更新/移除/略過只在有發生時才顯示;
+ * 完全沒有變動時直接說明,避免使用者看到一串 0 以為匯入失敗(例如匯入比本機舊的備份)。
+ * @param result mergeBackupPayload 的回傳結果
+ * @returns 例如「新增 1 個帳號、2 個角色、0 筆任務、0 筆 BOSS 紀錄，更新 3 筆較新的紀錄」
+ */
+function describeMergeResult(result: MergeResult): string {
+  const { addedAccounts, addedCharacters, addedTasks, addedBosses, updated, removedByTombstone, skippedByLocalTombstone } =
+    result;
+  if (addedAccounts + addedCharacters + addedTasks + addedBosses + updated + removedByTombstone === 0) {
+    return skippedByLocalTombstone > 0
+      ? `沒有需要更新的資料，略過 ${skippedByLocalTombstone} 筆此裝置已刪除的紀錄`
+      : '沒有需要更新的資料，這台裝置的資料已經是最新的';
+  }
+  const parts = [`新增 ${addedAccounts} 個帳號、${addedCharacters} 個角色、${addedTasks} 筆任務、${addedBosses} 筆 BOSS 紀錄`];
+  if (updated > 0) parts.push(`更新 ${updated} 筆較新的紀錄`);
+  if (removedByTombstone > 0) parts.push(`同步移除 ${removedByTombstone} 筆已刪除的紀錄`);
+  if (skippedByLocalTombstone > 0) parts.push(`略過 ${skippedByLocalTombstone} 筆此裝置已刪除的紀錄`);
+  return parts.join('，');
 }
 
 /** 資料管理頁面(路由 /backup):本機/Google Drive 備份與還原、清除全部紀錄,取代主畫面內容顯示(非對話框),由 App.tsx 動態載入 */
@@ -123,10 +144,7 @@ export function DataManagementPage() {
       const proceed = await confirmIfStale(payload.createdAt, 'import');
       if (!proceed) return;
       const result = mergeBackupPayload(payload);
-      toast.success(
-        `已匯入:新增 ${result.addedCharacters} 個角色、${result.addedTasks} 筆任務、${result.addedBosses} 筆 BOSS 紀錄` +
-          (result.removedByTombstone > 0 ? `，同步移除 ${result.removedByTombstone} 筆已刪除的紀錄` : ''),
-      );
+      toast.success(`已匯入：${describeMergeResult(result)}`);
       leaveAfterDataChange();
     } catch (error) {
       // JSON.parse 失敗會丟出英文的 SyntaxError,不適合直接顯示;只有版本相關的錯誤才顯示原始訊息
@@ -192,10 +210,7 @@ export function DataManagementPage() {
       const proceed = await confirmIfStale(payload.createdAt, 'import');
       if (!proceed) return;
       const result = applyRestoredPayload(payload);
-      toast.success(
-        `已還原：新增 ${result.addedCharacters} 個角色、${result.addedTasks} 筆任務、${result.addedBosses} 筆 BOSS 紀錄` +
-          (result.removedByTombstone > 0 ? `，同步移除 ${result.removedByTombstone} 筆已刪除的紀錄` : ''),
-      );
+      toast.success(`已還原：${describeMergeResult(result)}`);
       leaveAfterDataChange();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : '還原失敗');
