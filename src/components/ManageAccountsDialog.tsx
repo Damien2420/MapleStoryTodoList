@@ -366,8 +366,8 @@ export function ManageAccountsDialog() {
               <AlertDialogTitle>確定要刪除「{deleteTarget?.name}」嗎?</AlertDialogTitle>
               <AlertDialogDescription>
                 {deleteTargetMemberCount > 0
-                  ? `底下 ${deleteTargetMemberCount} 位角色會歸回未歸類，角色與進度紀錄不會被刪除。`
-                  : '這個帳號底下沒有角色。'}
+                  ? `底下 ${deleteTargetMemberCount} 位角色會歸回未歸類，角色與進度紀錄不會被刪除。同步後，其他裝置上的這個帳號也會一併刪除。`
+                  : '這個帳號底下沒有角色。同步後，其他裝置上的這個帳號也會一併刪除。'}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

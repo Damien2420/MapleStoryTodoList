@@ -16,7 +16,7 @@ export function useDocumentTitle() {
 
   useEffect(() => {
     let page = '建立第一個角色';
-    if (pathname === ROUTES.backup) page = '備份與還原';
+    if (pathname === ROUTES.backup) page = '備份與同步';
     else if (hasCharacters) page = pathname === ROUTES.root ? '總覽' : '角色進度';
     document.title = `${page} | ${APP_TITLE}`;
   }, [pathname, hasCharacters]);

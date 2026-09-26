@@ -64,7 +64,7 @@ function DeleteCharacterButton({ character }: { character: Character }) {
           <AlertDialogHeader>
             <AlertDialogTitle>刪除角色「{character.name}」?</AlertDialogTitle>
             <AlertDialogDescription>
-              此動作無法還原,將會刪除此角色以及底下所有任務與 BOSS 的進度紀錄。
+              此動作無法還原,將會刪除此角色以及底下所有任務與 BOSS 的進度紀錄。同步後，其他裝置上的這個角色也會一併刪除。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

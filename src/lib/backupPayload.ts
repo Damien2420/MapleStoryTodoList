@@ -190,13 +190,13 @@ const MIGRATIONS: Record<
 /** 把任意版本的備份內容升級到 CURRENT_VERSION;版本較新、或缺少對應 migration 時中止並丟出錯誤 */
 export function migrateToLatest(payload: { version: number }): DriveBackupPayload {
   if (payload.version > CURRENT_VERSION) {
-    throw new Error('此備份由較新版本的 app 建立,請更新 app 後再還原');
+    throw new Error('此備份由較新版本的 app 建立,請更新 app 後再匯入');
   }
   let current: { version: number } = payload;
   while (current.version < CURRENT_VERSION) {
     const migrate = MIGRATIONS[current.version];
     if (!migrate) {
-      throw new Error(`不支援從版本 ${current.version} 升級,請更新 app 或改用該版本的 app 還原`);
+      throw new Error(`不支援從版本 ${current.version} 升級,請更新 app 或改用該版本的 app 匯入`);
     }
     current = migrate(current);
   }

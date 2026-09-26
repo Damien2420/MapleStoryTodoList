@@ -175,11 +175,11 @@ describe('parseBackupPayload migration v5 -> v6', () => {
 describe('migrateToLatest 錯誤分支', () => {
   it('版本號比目前支援的最新版還新時,中止並丟出錯誤,不能誤把未來版本的欄位當現有版本解析', () => {
     expect(() => migrateToLatest({ version: CURRENT_VERSION + 1 })).toThrow(
-      '此備份由較新版本的 app 建立,請更新 app 後再還原',
+      '此備份由較新版本的 app 建立,請更新 app 後再匯入',
     );
   });
 
   it('版本號沒有對應的 migration 函式時,中止並丟出錯誤,不能靜默略過造成資料結構不完整', () => {
-    expect(() => migrateToLatest({ version: 0 })).toThrow('不支援從版本 0 升級,請更新 app 或改用該版本的 app 還原');
+    expect(() => migrateToLatest({ version: 0 })).toThrow('不支援從版本 0 升級,請更新 app 或改用該版本的 app 匯入');
   });
 });

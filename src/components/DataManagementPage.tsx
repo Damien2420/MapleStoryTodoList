@@ -214,10 +214,10 @@ export function DataManagementPage() {
       const proceed = await confirmIfStale(payload.createdAt, 'import');
       if (!proceed) return;
       const result = applyRestoredPayload(payload);
-      toast.success(`已還原：${describeMergeResult(result)}`);
+      toast.success(`已從 Google Drive 匯入：${describeMergeResult(result)}`);
       leaveAfterDataChange();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : '還原失敗');
+      toast.error(error instanceof Error ? error.message : '匯入失敗');
     } finally {
       setRestoring(false);
     }
@@ -281,8 +281,11 @@ export function DataManagementPage() {
         <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-accent text-accent-foreground">
           <Cloud className="size-6" strokeWidth={1.5} />
         </div>
-        <h2 className="text-lg font-semibold text-foreground">備份與還原</h2>
-        <p className="text-sm text-muted-foreground">把帳號、角色、任務、BOSS 紀錄備份成檔案或上傳至雲端硬碟中，換裝置或清除瀏覽器資料後也能還原。</p>
+        <h2 className="text-lg font-semibold text-foreground">備份與同步</h2>
+        <p className="text-sm text-muted-foreground">把帳號、角色、任務、BOSS 紀錄備份成檔案或與 Google Drive 同步，換裝置或清除瀏覽器資料後可以再匯入。</p>
+        <p className="text-xs text-muted-foreground">
+          匯入與同步都是與雲端資料整理後合併，不會整份覆蓋：兩邊都有的紀錄將會保留較新的版本，已在這台裝置刪除的紀錄不會被加回來。
+        </p>
         <span
           className={cn(
             'mx-auto inline-flex max-w-full items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium',
@@ -409,7 +412,9 @@ export function DataManagementPage() {
         <div className="flex flex-col gap-1">
           <h3 className="text-sm font-semibold text-destructive">清除紀錄</h3>
           <p className="text-xs text-muted-foreground">
-            刪除這台裝置上所有帳號、角色、任務與 BOSS 紀錄,此動作無法復原。Google Drive 上的備份不受影響。
+            {'刪除這台裝置上所有帳號、角色、任務與 BOSS 紀錄，此動作無法復原。Google Drive 上的備份不受影響，' +
+              '之後同步或匯入時，雲端上的資料會再合併回這台裝置。如果想讓所有裝置一起重新開始，' +
+              '請先清空 Google Drive 備份，並在其他裝置上也刪除全部紀錄。'}
           </p>
         </div>
         <Button
