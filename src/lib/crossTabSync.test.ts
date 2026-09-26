@@ -1,9 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { syncAcrossTabs } from '@/lib/crossTabSync';
 
-/** 建一個假的 persist store,只提供 syncAcrossTabs 用得到的 persist.rehydrate */
-function makeFakeStore() {
-  return { persist: { rehydrate: vi.fn() } } as unknown as Parameters<typeof syncAcrossTabs>[0];
+/** 建一個假的 persist store,只提供 syncAcrossTabs 用得到的 persist.rehydrate 與 persist.getOptions */
+function makeFakeStore(version = 2) {
+  return { persist: { rehydrate: vi.fn(), getOptions: () => ({ version }) } } as unknown as Parameters<
+    typeof syncAcrossTabs
+  >[0];
 }
 
 describe('syncAcrossTabs', () => {
@@ -68,6 +70,43 @@ describe('syncAcrossTabs', () => {
     );
 
     expect(store.persist.rehydrate).not.toHaveBeenCalled();
+  });
+
+  describe('其他分頁寫入的 schema 版本', () => {
+    const KEY = 'maplestory-todolist-tasks';
+
+    function dispatchWrite(newValue: string | null) {
+      window.dispatchEvent(new StorageEvent('storage', { key: KEY, storageArea: localStorage, newValue }));
+    }
+
+    it('比這個分頁新時(新版已部署、這是舊分頁)不重新讀取,直接重新整理載入新版程式', () => {
+      const store = makeFakeStore(2);
+      const reload = vi.fn();
+      const unsubscribe = syncAcrossTabs(store, KEY, window, reload);
+
+      dispatchWrite(JSON.stringify({ state: {}, version: 3 }));
+
+      expect(reload).toHaveBeenCalledTimes(1);
+      expect(store.persist.rehydrate).not.toHaveBeenCalled();
+      unsubscribe();
+    });
+
+    it.each([
+      ['版本相同', JSON.stringify({ state: {}, version: 2 })],
+      ['版本比較舊(舊分頁寫入,由這個新分頁 migrate)', JSON.stringify({ state: {}, version: 1 })],
+      ['資料被刪除', null],
+      ['格式錯誤', '{not json'],
+    ])('%s時照常重新讀取,不重新整理', (_label, newValue) => {
+      const store = makeFakeStore(2);
+      const reload = vi.fn();
+      const unsubscribe = syncAcrossTabs(store, KEY, window, reload);
+
+      dispatchWrite(newValue);
+
+      expect(store.persist.rehydrate).toHaveBeenCalledTimes(1);
+      expect(reload).not.toHaveBeenCalled();
+      unsubscribe();
+    });
   });
 });
 
