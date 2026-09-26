@@ -47,6 +47,13 @@ describe('useBossStore 墓碑相關行為', () => {
     expect(useBossStore.getState().deletedIds).toHaveLength(1);
     expect(useBossStore.getState().bosses).toEqual([]);
   });
+
+  it('removeBossesByIds 只對實際存在並被刪除的 BOSS 寫入墓碑', () => {
+    seedBoss();
+    useBossStore.getState().removeBossesByIds(['b1', 'not-exist']);
+    expect(useBossStore.getState().deletedIds.map((t) => t.id)).toEqual(['b1']);
+    expect(useBossStore.getState().bosses).toEqual([]);
+  });
 });
 
 describe('useBossStore migration v1 -> v2', () => {

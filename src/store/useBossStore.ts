@@ -142,7 +142,13 @@ export const useBossStore = create<BossState>()(
       removeBossesByIds: (ids) => {
         if (ids.length === 0) return;
         const idSet = new Set(ids);
-        set((state) => ({ bosses: state.bosses.filter((b) => !idSet.has(b.id)) }));
+        // 與 removeBoss 相同要寫墓碑,否則 VIP 降級時刪掉的 BOSS 會在下次合併 Drive 備份時被加回來
+        set((state) => ({
+          bosses: state.bosses.filter((b) => !idSet.has(b.id)),
+          deletedIds: state.bosses
+            .filter((b) => idSet.has(b.id))
+            .reduce((acc, b) => recordTombstone(acc, b.id), state.deletedIds),
+        }));
       },
       setBossPartySize: (id, partySize) => {
         set((state) => ({
