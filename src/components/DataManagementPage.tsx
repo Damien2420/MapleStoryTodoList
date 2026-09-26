@@ -24,6 +24,7 @@ import {
   applyRestoredPayload,
   backupNow,
   checkBackupAvailability,
+  clearDriveBackups,
   fetchLatestBackup,
   type BackupAvailability,
 } from '@/lib/googleDriveBackup';
@@ -38,6 +39,7 @@ import { useAccountStore } from '@/store/useAccountStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
 const DELETE_ALL_CONFIRM_TEXT = '刪除';
+const CLEAR_GOOGLE_DRIVE_TEXT = '清空';
 
 /** 觸發瀏覽器把一段文字內容當成檔案下載,用完即釋放暫存的 object URL */
 function downloadTextAsFile(content: string, fileName: string) {
@@ -66,6 +68,9 @@ export function DataManagementPage() {
   const [availability, setAvailability] = useState<BackupAvailability>();
   const [deleteAllOpen, setDeleteAllOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [clearDriveOpen, setClearDriveOpen] = useState(false);
+  const [clearDriveConfirmText, setClearDriveConfirmText] = useState('');
+  const [clearingDrive, setClearingDrive] = useState(false);
   const { lastBackupAt, neverBackedUp, hasUnsavedChanges } = useBackupStatus();
   const { confirmIfStale, staleConfirmDialog } = useStaleConfirm();
 
@@ -219,6 +224,25 @@ export function DataManagementPage() {
     setDeleteConfirmText('');
     toast.success('已刪除這台裝置上的全部紀錄');
     leaveAfterDataChange();
+  }
+
+  function handleClearDriveOpenChange(open: boolean) {
+    setClearDriveOpen(open);
+    if (!open) setClearDriveConfirmText('');
+  }
+
+  async function handleClearDrive() {
+    setClearingDrive(true);
+    try {
+      await clearDriveBackups();
+      setAvailability({ latest: false });
+      handleClearDriveOpenChange(false);
+      toast.success('已清空 Google Drive 上的備份');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '清空 Google Drive 備份失敗');
+    } finally {
+      setClearingDrive(false);
+    }
   }
 
   return (
@@ -382,6 +406,31 @@ export function DataManagementPage() {
         {!hasAnyData && <p className="text-xs text-muted-foreground">目前沒有任何紀錄可刪除</p>}
       </div>
 
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1">
+          <h3 className="text-sm font-semibold text-destructive">清空 Google Drive 備份</h3>
+          <p className="text-xs text-muted-foreground">
+            永久刪除 Google Drive 上保存的所有備份(包含刪除紀錄)，此動作無法復原。這台裝置與其他裝置上的資料不受影響。
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          className="w-fit gap-2 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+          disabled={!signedIn || !availability?.latest}
+          onClick={() => setClearDriveOpen(true)}
+        >
+          <Trash2 className="size-4" />
+          清空 Google Drive 備份
+        </Button>
+        {!signedIn ? (
+          <p className="text-xs text-muted-foreground">需要先登入 Google 才能清空雲端備份</p>
+        ) : (
+          availability &&
+          !availability.latest && <p className="text-xs text-muted-foreground">Google Drive 中沒有備份可清空</p>
+        )}
+      </div>
+
       <AlertDialog open={deleteAllOpen} onOpenChange={handleDeleteAllOpenChange}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -404,6 +453,37 @@ export function DataManagementPage() {
               onClick={handleDeleteAll}
             >
               刪除全部紀錄
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={clearDriveOpen} onOpenChange={handleClearDriveOpenChange}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>清空 Google Drive 上的備份?</AlertDialogTitle>
+            <AlertDialogDescription>
+              此動作會永久刪除{email ? ` ${email} 的` : ''} Google Drive 上保存的所有備份與刪除紀錄，且無法復原。各裝置上的資料不會被刪除，之後任何一台裝置同步時會重新建立備份。請在下方輸入「{CLEAR_GOOGLE_DRIVE_TEXT}」以確認。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Input
+            value={clearDriveConfirmText}
+            onChange={(e) => setClearDriveConfirmText(e.target.value)}
+            placeholder={`請輸入「${CLEAR_GOOGLE_DRIVE_TEXT}」`}
+            autoFocus
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={clearingDrive}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              disabled={clearDriveConfirmText !== CLEAR_GOOGLE_DRIVE_TEXT || clearingDrive}
+              onClick={(e) => {
+                // 刪除是非同步的,阻止 AlertDialogAction 預設的立即關閉,等刪除完成後再由 handleClearDrive 關閉
+                e.preventDefault();
+                void handleClearDrive();
+              }}
+            >
+              {clearingDrive ? '清空中…' : '清空 Google Drive 備份'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

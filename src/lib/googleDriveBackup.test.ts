@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as googleDrive from '@/lib/googleDrive';
-import { applyRestoredPayload, backupNow, fetchLatestBackup } from '@/lib/googleDriveBackup';
+import { applyRestoredPayload, backupNow, clearDriveBackups, fetchLatestBackup } from '@/lib/googleDriveBackup';
 import type { DriveBackupPayload } from '@/lib/backupPayload';
 import { useCharacterStore } from '@/store/useCharacterStore';
 import { useTaskStore } from '@/store/useTaskStore';
@@ -12,6 +12,8 @@ vi.mock('@/lib/googleDrive', () => ({
   findFileId: vi.fn(),
   downloadFile: vi.fn(),
   uploadFile: vi.fn(),
+  listAppDataFileIds: vi.fn(),
+  deleteFile: vi.fn(),
 }));
 
 const remoteTask = {
@@ -190,6 +192,33 @@ describe('applyRestoredPayload', () => {
 
     applyRestoredPayload(emptyPayload());
 
+    expect(useSettingsStore.getState().lastBackupAt).toBe('2026-01-01T00:00:00.000Z');
+  });
+});
+
+describe('clearDriveBackups', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useTaskStore.setState({ tasks: [localTask], deletedIds: [] });
+    useSettingsStore.setState({ lastBackupAt: '2026-01-01T00:00:00.000Z', lastLocalChangeAt: undefined });
+  });
+
+  it('刪除 appDataFolder 裡的每一個檔案,並把 lastBackupAt 清掉,本機資料不受影響', async () => {
+    vi.mocked(googleDrive.listAppDataFileIds).mockResolvedValue(['latest-id', 'previous-id']);
+    vi.mocked(googleDrive.deleteFile).mockResolvedValue(undefined);
+
+    await clearDriveBackups();
+
+    expect(vi.mocked(googleDrive.deleteFile).mock.calls.map(([id]) => id).sort()).toEqual(['latest-id', 'previous-id']);
+    expect(useSettingsStore.getState().lastBackupAt).toBeUndefined();
+    expect(useTaskStore.getState().tasks).toEqual([localTask]);
+  });
+
+  it('任一檔案刪除失敗時丟出錯誤,且不會把 lastBackupAt 清掉', async () => {
+    vi.mocked(googleDrive.listAppDataFileIds).mockResolvedValue(['latest-id']);
+    vi.mocked(googleDrive.deleteFile).mockRejectedValue(new Error('delete error'));
+
+    await expect(clearDriveBackups()).rejects.toThrow('delete error');
     expect(useSettingsStore.getState().lastBackupAt).toBe('2026-01-01T00:00:00.000Z');
   });
 });
