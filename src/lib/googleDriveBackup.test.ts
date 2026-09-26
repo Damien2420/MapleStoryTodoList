@@ -82,6 +82,25 @@ describe('backupNow', () => {
     expect(useSettingsStore.getState().lastBackupAt).toBeDefined();
   });
 
+  it('雲端帶來的過期墓碑在上傳前就被清掉,不會再被上傳回 Drive', async () => {
+    const expired = { id: 'old-task', deletedAt: '2020-01-01T00:00:00.000Z' };
+    const fresh = { id: 'new-task', deletedAt: new Date().toISOString() };
+
+    vi.mocked(googleDrive.findFileId).mockResolvedValue('file-1');
+    vi.mocked(googleDrive.downloadFile).mockResolvedValue(
+      JSON.stringify(emptyPayload({ taskTombstones: [expired, fresh] })),
+    );
+    vi.mocked(googleDrive.uploadFile).mockResolvedValue(undefined);
+
+    await backupNow();
+
+    const latestUpload = vi
+      .mocked(googleDrive.uploadFile)
+      .mock.calls.find(([name]) => name === 'backup-latest.json');
+    const uploadedPayload = JSON.parse(latestUpload![1]);
+    expect(uploadedPayload.taskTombstones.map((t: { id: string }) => t.id)).toEqual(['new-task']);
+  });
+
   it('第一次備份(Drive 上還沒有任何檔案)時不會嘗試下載,直接上傳本機快照', async () => {
     vi.mocked(googleDrive.findFileId).mockResolvedValue(undefined);
     vi.mocked(googleDrive.uploadFile).mockResolvedValue(undefined);

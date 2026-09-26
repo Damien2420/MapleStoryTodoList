@@ -23,15 +23,18 @@ export async function backupNow(): Promise<void> {
   if (latestFileId) {
     const previousContent = await downloadFile(latestFileId);
     mergeBackupPayload(parseBackupPayload(previousContent));
+    // 過期墓碑要在上傳前清掉:合併會把雲端的過期墓碑帶回本機,若在上傳後才清,
+    // 這些墓碑每次都會被重新上傳,雲端的墓碑清單就永遠不會縮小
+    pruneAllTombstones();
     await Promise.all([
       uploadFile(PREVIOUS_FILE_NAME, previousContent),
       uploadFile(LATEST_FILE_NAME, buildCurrentBackupPayloadJson()),
     ]);
   } else {
+    pruneAllTombstones();
     await uploadFile(LATEST_FILE_NAME, buildCurrentBackupPayloadJson());
   }
 
-  pruneAllTombstones();
   useSettingsStore.getState().setLastBackupAt(new Date().toISOString());
 }
 
