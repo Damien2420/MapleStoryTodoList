@@ -143,4 +143,82 @@ describe('跨分頁整合:兩個獨立的 useCharacterStore 模組實例模擬�
 
     expect(tabB.getState().characters[0].accountId).toBe('acc-1');
   });
+
+  /** 載入一個分頁的角色 store 與設定 store(同一次 import 取得的是同一個模組實例組) */
+  async function openTab() {
+    const { useCharacterStore } = await import('@/store/useCharacterStore');
+    const { useSettingsStore } = await import('@/store/useSettingsStore');
+    return { characters: useCharacterStore, settings: useSettingsStore };
+  }
+
+  const newCharacter = { name: 'A', server: '艾麗亞', level: 1, job: 'Warrior', source: 'manual' } as const;
+  const SENTINEL = '2000-01-01T00:00:00.000Z';
+
+  it('其他分頁改了資料而重新讀取時,不算這個分頁的異動;而且重新讀取是同步完成的', async () => {
+    const tabA = await openTab();
+    tabA.characters.getState().addCharacter(newCharacter);
+    vi.resetModules();
+    const tabB = await openTab();
+    tabB.settings.setState({ lastLocalChangeAt: SENTINEL });
+
+    tabA.characters.setState({ characters: [] });
+    // 不 await:鎖住「localStorage 同步讀取時 rehydrate 在呼叫內就完成」這個前提,trackLocalChange 的判斷依賴它
+    void tabB.characters.persist.rehydrate();
+
+    expect(tabB.characters.getState().characters).toEqual([]);
+    expect(tabB.settings.getState().lastLocalChangeAt).toBe(SENTINEL);
+  });
+
+  it('這個分頁自己的操作仍然會記錄異動', async () => {
+    const tab = await openTab();
+    tab.settings.setState({ lastLocalChangeAt: SENTINEL });
+
+    tab.characters.getState().addCharacter(newCharacter);
+
+    expect(tab.settings.getState().lastLocalChangeAt).not.toBe(SENTINEL);
+  });
+
+  it('其他分頁做了修改,這個分頁讀回設定後也顯示有尚未同步的異動', async () => {
+    const tabA = await openTab();
+    tabA.settings.getState().setLastBackupAt(SENTINEL);
+    vi.resetModules();
+    const tabB = await openTab();
+
+    tabA.characters.getState().addCharacter(newCharacter);
+    await tabB.settings.persist.rehydrate();
+
+    expect(tabB.settings.getState().lastLocalChangeAt).toBe(tabA.settings.getState().lastLocalChangeAt);
+    expect(tabB.settings.getState().lastBackupAt).toBe(SENTINEL);
+  });
+
+  it('其他分頁「刪除全部」清掉的時間戳會同步過來,這個分頁也不會把舊值寫回 localStorage', async () => {
+    const tabA = await openTab();
+    tabA.characters.getState().addCharacter(newCharacter);
+    tabA.settings.getState().setLastBackupAt(SENTINEL);
+    vi.resetModules();
+    const tabB = await openTab();
+    expect(tabB.settings.getState().lastLocalChangeAt).toBeDefined();
+
+    // 分頁 A 刪除全部:清空資料後把兩個時間戳清成 undefined(同 DataManagementPage 的 handleDeleteAll)
+    tabA.characters.setState({ characters: [], activeCharacterId: null });
+    tabA.settings.setState({ lastBackupAt: undefined, lastLocalChangeAt: undefined });
+
+    const setItem = vi.spyOn(Storage.prototype, 'setItem');
+    await tabB.characters.persist.rehydrate();
+    await tabB.settings.persist.rehydrate();
+
+    expect(tabB.characters.getState().characters).toEqual([]);
+    expect(tabB.settings.getState().lastBackupAt).toBeUndefined();
+    expect(tabB.settings.getState().lastLocalChangeAt).toBeUndefined();
+    expect(setItem).not.toHaveBeenCalled();
+  });
+
+  it('設定重新讀取後,不持久化的重置時間 settings 維持原本的物件參照', async () => {
+    const tab = await openTab();
+    const before = tab.settings.getState().settings;
+
+    await tab.settings.persist.rehydrate();
+
+    expect(tab.settings.getState().settings).toBe(before);
+  });
 });
