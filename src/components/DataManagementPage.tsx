@@ -66,12 +66,10 @@ export function DataManagementPage() {
   const [availability, setAvailability] = useState<BackupAvailability>();
   const [deleteAllOpen, setDeleteAllOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
-  const [backupEmptyConfirmOpen, setBackupEmptyConfirmOpen] = useState(false);
-  const backupEmptyResolveRef = useRef<((proceed: boolean) => void) | null>(null);
   const { lastBackupAt, neverBackedUp, hasUnsavedChanges } = useBackupStatus();
   const { confirmIfStale, staleConfirmDialog } = useStaleConfirm();
 
-  // 空資料防護:沒有任何紀錄時,消費資料的操作(下載備份、刪除全部)不開放;產生資料的操作(匯入)不受影響
+  // 空資料防護:沒有任何紀錄時,消費資料的操作(下載備份、同步、刪除全部)不開放;產生資料的操作(匯入)不受影響
   const hasCharacters = useCharacterStore((s) => s.characters.length > 0);
   const hasTasks = useTaskStore((s) => s.tasks.length > 0);
   const hasBosses = useBossStore((s) => s.bosses.length > 0);
@@ -84,13 +82,6 @@ export function DataManagementPage() {
       .then(setAvailability)
       .catch(() => toast.error('無法查詢 Drive 備份狀態，請稍後再試'));
   }, [signedIn]);
-
-  useEffect(() => {
-    return () => {
-      backupEmptyResolveRef.current?.(false);
-      backupEmptyResolveRef.current = null;
-    };
-  }, []);
 
   function handleDownloadToComputer() {
     downloadTextAsFile(
@@ -167,44 +158,23 @@ export function DataManagementPage() {
     }
   }
 
-  async function performBackup() {
-    try {
-      await backupNow();
-      toast.success('備份成功');
-      setAvailability(await checkBackupAvailability());
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : '備份失敗');
-    }
-  }
-
-  /** 跳出「目前沒有任何角色資料,確定要備份嗎」確認對話框,回傳 Promise<boolean> */
-  function confirmBackupEmpty(): Promise<boolean> {
-    return new Promise((resolve) => {
-      backupEmptyResolveRef.current = resolve;
-      setBackupEmptyConfirmOpen(true);
-    });
-  }
-
-  function resolveBackupEmpty(proceed: boolean) {
-    setBackupEmptyConfirmOpen(false);
-    backupEmptyResolveRef.current?.(proceed);
-    backupEmptyResolveRef.current = null;
-  }
-
-  async function handleBackupNow() {
+  /**
+   * 與 Google Drive 同步:先把雲端上其他裝置的資料合併進本機,再把合併結果上傳(backupNow)。
+   * 本機沒有資料時按鈕停用,因為那時同步等於從雲端匯入,應該改用「從 Google Drive 中匯入」。
+   */
+  async function handleSync() {
     setBackingUp(true);
     try {
-      // 按下備份的當下先關掉任何還顯示中的刪除復原 toast,避免備份完成後使用者再點復原,
+      // 按下同步的當下先關掉任何還顯示中的刪除復原 toast,避免同步完成後使用者再點復原,
       // 導致一筆已經同步進這次備份的刪除紀錄被無聲復活
       toast.dismiss();
-      if (!hasAnyData) {
-        const proceed = await confirmBackupEmpty();
-        if (!proceed) return;
-      } else {
-        const proceed = await confirmIfStale(lastBackupAt, 'backup');
-        if (!proceed) return;
-      }
-      await performBackup();
+      const proceed = await confirmIfStale(lastBackupAt, 'backup');
+      if (!proceed) return;
+      await backupNow();
+      toast.success('同步完成');
+      setAvailability(await checkBackupAvailability());
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : '同步失敗');
     } finally {
       setBackingUp(false);
     }
@@ -331,7 +301,9 @@ export function DataManagementPage() {
         <div className="flex flex-col gap-3 sm:flex-1">
           <div className="flex flex-col gap-1">
             <h3 className="text-sm font-semibold text-foreground">Google Drive 備份</h3>
-            <p className="text-xs text-muted-foreground">備份到你自己的 Google Drive，適合跨裝置同步。</p>
+            <p className="text-xs text-muted-foreground">
+              與你的 Google Drive 資料同步。同步時會先將此裝置的資料合併雲端上的資料後再上傳。
+            </p>
             {signedIn && email && (
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-foreground">
@@ -360,10 +332,15 @@ export function DataManagementPage() {
             </Button>
           ) : (
             <div className="flex flex-col gap-2">
-              <Button type="button" className="gap-2" disabled={backingUp} onClick={handleBackupNow}>
+              <Button type="button" className="gap-2" disabled={backingUp || !hasAnyData} onClick={handleSync}>
                 {backingUp ? <Spinner className="size-4" /> : <Cloud className="size-4" />}
-                {backingUp ? '備份中…' : '立即備份'}
+                {backingUp ? '同步中…' : '與 Google Drive 同步'}
               </Button>
+              {!hasAnyData && (
+                <p className="text-xs text-muted-foreground">
+                  這台裝置目前沒有資料，要取得雲端資料請使用「從 Google Drive 中匯入」。
+                </p>
+              )}
 
               <Button
                 type="button"
@@ -428,21 +405,6 @@ export function DataManagementPage() {
             >
               刪除全部紀錄
             </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog open={backupEmptyConfirmOpen} onOpenChange={(open) => !open && resolveBackupEmpty(false)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>目前沒有任何角色資料</AlertDialogTitle>
-            <AlertDialogDescription>
-              目前沒有角色、任務或 BOSS 紀錄，確定要用這份空白資料覆蓋 Google Drive 上原本的備份嗎？
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={() => resolveBackupEmpty(true)}>仍要備份</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
