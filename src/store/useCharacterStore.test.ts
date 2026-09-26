@@ -1,6 +1,25 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useCharacterStore } from '@/store/useCharacterStore';
 import { LEGACY_TIMESTAMP } from '@/lib/timestamp';
+import { useSettingsStore } from '@/store/useSettingsStore';
+import { hasUnsavedLocalChanges } from '@/lib/backupStatus';
+
+describe('刪光所有角色後仍有待同步的異動', () => {
+  it('同步過後再刪掉最後一個角色,會被判定為有尚未同步的異動(同步按鈕要能按,刪除才傳得出去)', () => {
+    useCharacterStore.setState({ characters: [], activeCharacterId: null, deletedIds: [] });
+    const id = useCharacterStore
+      .getState()
+      .addCharacter({ name: '角色', server: '艾麗亞', level: 1, job: 'Warrior', source: 'manual' });
+    // 模擬「新增角色後已經同步過」
+    useSettingsStore.setState({ lastBackupAt: '2020-01-01T00:00:00.000Z', lastLocalChangeAt: '2020-01-01T00:00:00.000Z' });
+
+    useCharacterStore.getState().removeCharacter(id);
+
+    const { lastBackupAt, lastLocalChangeAt } = useSettingsStore.getState();
+    expect(useCharacterStore.getState().characters).toEqual([]);
+    expect(hasUnsavedLocalChanges(lastBackupAt, lastLocalChangeAt)).toBe(true);
+  });
+});
 
 describe('useCharacterStore removeCharacter', () => {
   beforeEach(() => {

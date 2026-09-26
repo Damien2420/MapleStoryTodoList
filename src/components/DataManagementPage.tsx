@@ -101,6 +101,10 @@ export function DataManagementPage() {
   const hasBosses = useBossStore((s) => s.bosses.length > 0);
   const hasAccounts = useAccountStore((s) => s.accounts.length > 0);
   const hasAnyData = hasCharacters || hasTasks || hasBosses || hasAccounts;
+  // 同步按鈕:本機沒資料時原則上停用(那時同步等於從雲端匯入);但一筆一筆刪光所有資料時,
+  // 這些刪除(墓碑)還沒同步出去,仍要能同步,否則雲端與其他裝置會一直保留被刪的資料。
+  // 「刪除全部」會把 lastLocalChangeAt 一併清掉,所以不會因此重新啟用
+  const canSync = hasAnyData || hasUnsavedChanges;
 
   useEffect(() => {
     if (!signedIn) return;
@@ -183,7 +187,7 @@ export function DataManagementPage() {
 
   /**
    * 與 Google Drive 同步:先把雲端上其他裝置的資料合併進本機,再把合併結果上傳(backupNow)。
-   * 本機沒有資料時按鈕停用,因為那時同步等於從雲端匯入,應該改用「從 Google Drive 中匯入」。
+   * 本機沒有資料、也沒有尚未同步的異動時按鈕停用,因為那時同步等於從雲端匯入,應該改用「從 Google Drive 中匯入」。
    */
   async function handleSync() {
     setBackingUp(true);
@@ -371,11 +375,11 @@ export function DataManagementPage() {
             </Button>
           ) : (
             <div className="flex flex-col gap-2">
-              <Button type="button" className="gap-2" disabled={backingUp || !hasAnyData} onClick={handleSync}>
+              <Button type="button" className="gap-2" disabled={backingUp || !canSync} onClick={handleSync}>
                 {backingUp ? <Spinner className="size-4" /> : <Cloud className="size-4" />}
                 {backingUp ? '同步中…' : '與 Google Drive 同步'}
               </Button>
-              {!hasAnyData && (
+              {!canSync && (
                 <p className="text-xs text-muted-foreground">
                   這台裝置目前沒有資料，要取得雲端資料請使用「從 Google Drive 中匯入」。
                 </p>
