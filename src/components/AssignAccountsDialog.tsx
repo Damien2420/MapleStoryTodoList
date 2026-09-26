@@ -17,6 +17,7 @@ import { isUnassignedCharacter, UNASSIGNED_GROUP_ID } from '@/lib/characterBoard
 import { cn } from '@/lib/utils';
 import { useAccountStore } from '@/store/useAccountStore';
 import { useCharacterStore } from '@/store/useCharacterStore';
+import { compareByOrder } from '@/lib/order';
 
 /** 下拉選單「暫不分配」的值;Radix Select 不接受空字串當選項值,改用未歸類的 sentinel id(不會與帳號 UUID 撞名) */
 const UNASSIGNED_VALUE = UNASSIGNED_GROUP_ID;
@@ -37,11 +38,11 @@ export function AssignAccountsDialog() {
   // 角色 id 對應選到的帳號 id;UNASSIGNED_VALUE 代表暫不分配
   const [selections, setSelections] = useState<Record<string, string>>({});
 
-  const sortedAccounts = [...accounts].sort((a, b) => a.order - b.order);
+  const sortedAccounts = [...accounts].sort(compareByOrder);
   const accountIds = new Set(accounts.map((a) => a.id));
   const unassignedCharacters = characters
     .filter((c) => isUnassignedCharacter(c, accountIds))
-    .sort((a, b) => a.order - b.order);
+    .sort(compareByOrder);
 
   // 只計入仍存在的帳號,帳號在途中被刪掉的列自然退回暫不分配
   const pickedCharacters = unassignedCharacters.filter((c) => accountIds.has(selections[c.id] ?? UNASSIGNED_VALUE));

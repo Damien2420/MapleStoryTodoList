@@ -14,6 +14,7 @@ import { isPresetExpired } from '@/lib/presetTasks';
 import { CYCLE_BADGE_CLASSES } from '@/lib/cycleBadge';
 import { cn } from '@/lib/utils';
 import type { Character, CharacterTask } from '@/types';
+import { compareByOrder } from '@/lib/order';
 
 /** 任務對應的預設範本是否已下架(沒有 presetId 的任務視為未下架) */
 function isTaskExpired(task: CharacterTask): boolean {
@@ -138,7 +139,7 @@ export function TaskList({ character }: { character: Character }) {
     () =>
       allTasks
         .filter((t) => t.characterId === character.id && !isTaskExpired(t))
-        .sort((a, b) => a.order - b.order),
+        .sort(compareByOrder),
     [allTasks, character.id],
   );
   const grouped = useMemo(() => groupByCategory(tasks), [tasks]);

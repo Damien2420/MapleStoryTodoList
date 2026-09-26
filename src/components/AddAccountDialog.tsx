@@ -19,6 +19,7 @@ import { validateAccountName } from '@/lib/accountName';
 import { isUnassignedCharacter } from '@/lib/characterBoard';
 import { useAccountStore } from '@/store/useAccountStore';
 import { useCharacterStore } from '@/store/useCharacterStore';
+import { compareByOrder } from '@/lib/order';
 
 type Step = 'name' | 'characters';
 
@@ -43,7 +44,7 @@ export function AddAccountDialog() {
   const accountIds = new Set(accounts.map((a) => a.id));
   const unassignedCharacters = characters
     .filter((c) => isUnassignedCharacter(c, accountIds))
-    .sort((a, b) => a.order - b.order);
+    .sort(compareByOrder);
   const hasUnassigned = unassignedCharacters.length > 0;
   const trimmedName = name.trim();
   // 選取中的角色可能在對話框開著時被別處歸類掉,只算仍在未歸類清單裡的

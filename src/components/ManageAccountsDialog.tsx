@@ -33,6 +33,7 @@ import { cn } from '@/lib/utils';
 import { useAccountStore } from '@/store/useAccountStore';
 import { useCharacterStore } from '@/store/useCharacterStore';
 import type { Account, Character } from '@/types';
+import { compareByOrder } from '@/lib/order';
 
 /**
  * 角色卡容器(帳號本體或未歸類)的 droppable id 前綴。帳號本身的可排序項目(拖曳排序帳號用)也是用帳號 id 註冊,
@@ -220,7 +221,7 @@ export function ManageAccountsDialog() {
   // 角色拖曳期間的本地草稿排列;null 代表目前沒有在拖角色,直接顯示 store 算出來的排列
   const [draft, setDraft] = useState<ContainerMap | null>(null);
 
-  const sortedAccounts = useMemo(() => [...accounts].sort((a, b) => a.order - b.order), [accounts]);
+  const sortedAccounts = useMemo(() => [...accounts].sort(compareByOrder), [accounts]);
   const accountIds = useMemo(() => new Set(sortedAccounts.map((a) => a.id)), [sortedAccounts]);
   const charactersById = useMemo(() => new Map(characters.map((c) => [c.id, c])), [characters]);
 
@@ -228,7 +229,7 @@ export function ManageAccountsDialog() {
   const storeLayout = useMemo<ContainerMap>(() => {
     const layout: ContainerMap = { [bodyId(UNASSIGNED_GROUP_ID)]: [] };
     for (const account of sortedAccounts) layout[bodyId(account.id)] = [];
-    for (const character of [...characters].sort((a, b) => a.order - b.order)) {
+    for (const character of [...characters].sort(compareByOrder)) {
       const key = character.accountId !== null && accountIds.has(character.accountId) ? character.accountId : UNASSIGNED_GROUP_ID;
       layout[bodyId(key)].push(character.id);
     }

@@ -2,6 +2,7 @@ import type { Account, Character, CharacterBossTrackList, CharacterTask } from '
 import type { BossCycleKey } from '@/store/useListFilterStore';
 import { summarizeCharacterCycles, type CycleSummary } from '@/lib/characterSummary';
 import { countTrackedVipBossesByLevelForCharacters, summarizeVipQuota } from '@/lib/vipBossCatalog';
+import { compareByOrder } from '@/lib/order';
 
 /** 帳號分組裡代表「未歸類」的 sentinel id;不是真的 Account 紀錄 */
 export const UNASSIGNED_GROUP_ID = '__unassigned__';
@@ -126,7 +127,7 @@ export function getSameAccountCharacters(
     .filter((c) =>
       currentUnassigned ? isUnassignedCharacter(c, accountIds) : c.accountId === current.accountId,
     )
-    .sort((a, b) => a.order - b.order);
+    .sort(compareByOrder);
 }
 
 /** 有帳號層收益合計的週期,順序即橫條上的欄位順序 */
@@ -206,7 +207,7 @@ function buildGroup(
   now: Date | undefined,
 ): BoardAccountGroup {
   const rows = [...characters]
-    .sort((a, b) => a.order - b.order)
+    .sort(compareByOrder)
     .map((c) => buildRow(c, account, tasksByCharacter.get(c.id) ?? [], bossesByCharacter.get(c.id) ?? [], now));
 
   let vipQuota: BoardAccountGroup['vipQuota'];
@@ -262,7 +263,7 @@ export function buildCharacterBoard(input: {
   }
 
   const groups = [...accounts]
-    .sort((a, b) => a.order - b.order)
+    .sort(compareByOrder)
     .map((account) =>
       buildGroup(
         account.id,

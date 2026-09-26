@@ -3,6 +3,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/animate-ui/components/r
 import { UNASSIGNED_GROUP_ID, UNASSIGNED_GROUP_NAME } from '@/lib/characterBoard';
 import { cn } from '@/lib/utils';
 import type { Account } from '@/types';
+import { compareByOrder } from '@/lib/order';
 
 /** 單選項目的共用樣式:整列都是可點擊範圍,選中時框線與底色改成強調色(Radix 的選中狀態寫在按鈕的 data-state 上) */
 const OPTION_CLASS =
@@ -26,7 +27,7 @@ interface AccountPickerProps {
  */
 export function AccountPicker({ accounts, value, onChange }: AccountPickerProps) {
   const idPrefix = useId();
-  const sortedAccounts = [...accounts].sort((a, b) => a.order - b.order);
+  const sortedAccounts = [...accounts].sort(compareByOrder);
   const options = [
     ...sortedAccounts.map((a) => ({ value: a.id, name: a.name, unassigned: false })),
     { value: UNASSIGNED_GROUP_ID, name: UNASSIGNED_GROUP_NAME, unassigned: true },
