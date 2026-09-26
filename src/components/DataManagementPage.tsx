@@ -34,6 +34,7 @@ import { useStaleConfirm } from '@/hooks/useStaleConfirm';
 import { useCharacterStore } from '@/store/useCharacterStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useBossStore } from '@/store/useBossStore';
+import { useAccountStore } from '@/store/useAccountStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
 const DELETE_ALL_CONFIRM_TEXT = '刪除';
@@ -74,7 +75,8 @@ export function DataManagementPage() {
   const hasCharacters = useCharacterStore((s) => s.characters.length > 0);
   const hasTasks = useTaskStore((s) => s.tasks.length > 0);
   const hasBosses = useBossStore((s) => s.bosses.length > 0);
-  const hasAnyData = hasCharacters || hasTasks || hasBosses;
+  const hasAccounts = useAccountStore((s) => s.accounts.length > 0);
+  const hasAnyData = hasCharacters || hasTasks || hasBosses || hasAccounts;
 
   useEffect(() => {
     if (!signedIn) return;
@@ -232,14 +234,20 @@ export function DataManagementPage() {
     if (!open) setDeleteConfirmText('');
   }
 
+  /**
+   * 只清空這台裝置的資料,不寫墓碑,所以不會把刪除同步到 Google Drive 或其他裝置;
+   * 既有墓碑保留,避免無聲撤銷使用者先前單獨做過、但還沒同步出去的刪除。
+   */
   function handleDeleteAll() {
     useCharacterStore.setState({ characters: [], activeCharacterId: null });
     useTaskStore.setState({ tasks: [] });
     useBossStore.setState({ bosses: [] });
+    useAccountStore.setState({ accounts: [] });
+    // 必須放在所有清空動作之後:上面每次清空都會經由 trackLocalChange 寫入 lastLocalChangeAt,要在最後一併重設
     useSettingsStore.setState({ lastBackupAt: undefined, lastLocalChangeAt: undefined });
     setDeleteAllOpen(false);
     setDeleteConfirmText('');
-    toast.success('已刪除全部角色紀錄');
+    toast.success('已刪除這台裝置上的全部紀錄');
     leaveAfterDataChange();
   }
 
@@ -261,7 +269,7 @@ export function DataManagementPage() {
           <Cloud className="size-6" strokeWidth={1.5} />
         </div>
         <h2 className="text-lg font-semibold text-foreground">備份與還原</h2>
-        <p className="text-sm text-muted-foreground">把角色、任務、BOSS 紀錄備份成檔案或上傳至雲端硬碟中，換裝置或清除瀏覽器資料後也能還原。</p>
+        <p className="text-sm text-muted-foreground">把帳號、角色、任務、BOSS 紀錄備份成檔案或上傳至雲端硬碟中，換裝置或清除瀏覽器資料後也能還原。</p>
         <span
           className={cn(
             'mx-auto inline-flex max-w-full items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium',
@@ -381,7 +389,7 @@ export function DataManagementPage() {
         <div className="flex flex-col gap-1">
           <h3 className="text-sm font-semibold text-destructive">清除紀錄</h3>
           <p className="text-xs text-muted-foreground">
-            刪除本機所有角色、任務與 BOSS 紀錄,此動作無法復原,建議刪除前先備份。
+            刪除這台裝置上所有帳號、角色、任務與 BOSS 紀錄,此動作無法復原。Google Drive 上的備份不受影響。
           </p>
         </div>
         <Button
@@ -400,9 +408,9 @@ export function DataManagementPage() {
       <AlertDialog open={deleteAllOpen} onOpenChange={handleDeleteAllOpenChange}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>刪除全部角色紀錄?</AlertDialogTitle>
+            <AlertDialogTitle>刪除這台裝置上的全部紀錄?</AlertDialogTitle>
             <AlertDialogDescription>
-              此動作會刪除本機所有角色、任務與 BOSS 進度紀錄,且無法復原。請在下方輸入「{DELETE_ALL_CONFIRM_TEXT}」以確認。
+              此動作會刪除這台裝置上所有帳號、角色、任務與 BOSS 進度紀錄,且無法復原。Google Drive 上的備份不會被刪除，之後同步或匯入時雲端資料會重新合併回來。請在下方輸入「{DELETE_ALL_CONFIRM_TEXT}」以確認。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <Input
