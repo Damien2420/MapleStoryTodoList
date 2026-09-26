@@ -12,6 +12,8 @@ import {
 } from '@/lib/schemaMigrations';
 import { recordTombstone, type Tombstone } from '@/lib/tombstone';
 import { applyCharacterLayout, type CharacterContainer } from '@/lib/accountLayout';
+import { nextTimestamp } from '@/lib/timestamp';
+import { nextOrder } from '@/lib/order';
 
 export interface NewCharacterInput {
   name: string;
@@ -53,6 +55,28 @@ interface CharacterState {
   setActiveCharacter: (id: string) => void;
 }
 
+/**
+ * 套用 updateCharacter 的部分欄位,並依實際有變的欄位更新對應的修改時間:
+ * 角色資料有變才更新 updatedAt,所屬帳號有變才更新 placementUpdatedAt,兩者都沒變就回傳原物件。
+ * @param character 修改前的角色
+ * @param patch 要覆寫的欄位
+ * @returns 修改後的角色
+ */
+function applyCharacterPatch(character: Character, patch: CharacterUpdateInput): Character {
+  const { accountId, ...dataPatch } = patch;
+  const dataChanged = (Object.keys(dataPatch) as (keyof typeof dataPatch)[]).some(
+    (key) => dataPatch[key] !== character[key],
+  );
+  const placementChanged = accountId !== undefined && accountId !== character.accountId;
+  if (!dataChanged && !placementChanged) return character;
+  return {
+    ...character,
+    ...patch,
+    updatedAt: dataChanged ? nextTimestamp(character.updatedAt) : character.updatedAt,
+    placementUpdatedAt: placementChanged ? nextTimestamp(character.placementUpdatedAt) : character.placementUpdatedAt,
+  };
+}
+
 export const useCharacterStore = create<CharacterState>()(
   persist(
     (set, get) => ({
@@ -62,6 +86,7 @@ export const useCharacterStore = create<CharacterState>()(
       addCharacter: (input) => {
         const trimmed = input.name.trim();
         if (!trimmed) return '';
+        const now = nextTimestamp();
         const character: Character = {
           id: crypto.randomUUID(),
           name: trimmed,
@@ -69,9 +94,11 @@ export const useCharacterStore = create<CharacterState>()(
           level: input.level,
           job: input.job,
           imageUrl: input.imageUrl,
-          order: get().characters.length,
+          order: nextOrder(get().characters),
           source: input.source,
           accountId: input.accountId ?? null,
+          updatedAt: now,
+          placementUpdatedAt: now,
         };
         set((state) => ({
           characters: [...state.characters, character],
@@ -81,13 +108,17 @@ export const useCharacterStore = create<CharacterState>()(
       },
       updateCharacter: (id, patch) => {
         set((state) => ({
-          characters: state.characters.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+          characters: state.characters.map((c) => (c.id === id ? applyCharacterPatch(c, patch) : c)),
         }));
       },
       assignCharactersToAccount: (ids, accountId) => {
         const idSet = new Set(ids);
         set((state) => ({
-          characters: state.characters.map((c) => (idSet.has(c.id) ? { ...c, accountId } : c)),
+          characters: state.characters.map((c) =>
+            idSet.has(c.id) && c.accountId !== accountId
+              ? { ...c, accountId, placementUpdatedAt: nextTimestamp(c.placementUpdatedAt) }
+              : c,
+          ),
         }));
       },
       applyCharacterLayout: (containers) => {

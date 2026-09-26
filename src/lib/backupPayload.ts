@@ -6,9 +6,11 @@ import { useBossStore } from '@/store/useBossStore';
 import { useAccountStore } from '@/store/useAccountStore';
 import {
   migrateBossAddPartySize,
+  migrateBossAddUpdatedAt,
   migrateBossRemoveOrder,
   migrateCharacterAddAccountId,
   migrateCharacterAddSource,
+  migrateTaskAddUpdatedAt,
 } from '@/lib/schemaMigrations';
 import type { Tombstone } from '@/lib/tombstone';
 
@@ -177,6 +179,8 @@ const MIGRATIONS: Record<
       ...payload,
       version: 6,
       characters: payload.characters.map(migrateCharacterAddAccountId),
+      tasks: payload.tasks.map(migrateTaskAddUpdatedAt),
+      bosses: payload.bosses.map(migrateBossAddUpdatedAt),
       accounts: [],
       accountTombstones: [],
     };

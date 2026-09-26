@@ -22,6 +22,7 @@ function makeTask(overrides: Partial<CharacterTask> = {}): CharacterTask {
     resetCycle: 'daily',
     checked: false,
     lastResetAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
     order: 0,
     ...overrides,
   };
@@ -40,6 +41,7 @@ function makeBoss(overrides: Partial<CharacterBossTrackList> = {}): CharacterBos
     partySize: 1,
     checked: false,
     lastResetAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
     ...overrides,
   };
 }
@@ -54,12 +56,14 @@ function makeCharacter(overrides: Partial<Character> = {}): Character {
     order: 0,
     source: 'manual',
     accountId: null,
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    placementUpdatedAt: '2026-01-01T00:00:00.000Z',
     ...overrides,
   };
 }
 
 function makeAccount(overrides: Partial<Account> = {}): Account {
-  return { id: 'a1', name: '帳號', order: 0, ...overrides };
+  return { id: 'a1', name: '帳號', order: 0, updatedAt: '2026-01-01T00:00:00.000Z', ...overrides };
 }
 
 /** 只放一隻角色、不掛帳號的最小看板,回傳唯一那一列 */

@@ -24,6 +24,7 @@ const remoteTask = {
   resetCycle: 'daily' as const,
   checked: false,
   lastResetAt: '2026-01-01T00:00:00.000Z',
+  updatedAt: '2026-01-01T00:00:00.000Z',
   order: 0,
 };
 
@@ -35,6 +36,7 @@ const localTask = {
   resetCycle: 'daily' as const,
   checked: false,
   lastResetAt: '2026-01-01T00:00:00.000Z',
+  updatedAt: '2026-01-01T00:00:00.000Z',
   order: 0,
 };
 

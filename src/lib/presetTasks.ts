@@ -1,6 +1,7 @@
 import type { CharacterTask, ResetCycle } from '@/types';
 import { PRESET_TASKS } from '@/data/presetTasks.data';
 import { PRESET_TASK_GROUPS } from '@/data/presetTaskGroups.data';
+import { compareByOrder } from '@/lib/order';
 
 export { PRESET_TASKS, PRESET_TASK_GROUPS };
 
@@ -146,6 +147,18 @@ function presetTaskRank(task: Pick<CharacterTask, 'presetId' | 'name'>): number 
  */
 export function sortTasksByPresetOrder(tasks: CharacterTask[]): CharacterTask[] {
   return [...tasks].sort((a, b) => presetTaskRank(a) - presetTaskRank(b));
+}
+
+/**
+ * 把同一個角色的任務依預設目錄順序重新編號 order;非 preset 的手動任務排最後,彼此維持原本 (order, id) 的相對順序。
+ * order 沒變的任務沿用原物件,呼叫端可以用陣列參照判斷有沒有異動。
+ * @param tasks 同一個角色的所有任務
+ * @returns 依新順序排列、order 為 0 起算連號的任務
+ */
+export function renumberByPresetOrder(tasks: CharacterTask[]): CharacterTask[] {
+  return sortTasksByPresetOrder([...tasks].sort(compareByOrder)).map((task, index) =>
+    task.order === index ? task : { ...task, order: index },
+  );
 }
 
 /** 判斷 expiresAt(YYYY-MM-DD)是否已超過當天結束(23:59:59.999) */

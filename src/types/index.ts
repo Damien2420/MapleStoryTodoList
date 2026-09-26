@@ -28,6 +28,10 @@ export interface Character {
   source: CharacterSource;
   /** 所屬帳號 id,null 代表尚未歸類到任何帳號(未歸類) */
   accountId: string | null;
+  /** 角色資料(名稱、伺服器、等級、職業、外觀圖、來源)最後修改時間,同步合併時較新者勝 */
+  updatedAt: string;
+  /** 角色位置(所屬帳號、排序)最後修改時間;與 updatedAt 分開,讓「A 裝置改等級、B 裝置搬帳號」兩邊的修改都能保留 */
+  placementUpdatedAt: string;
 }
 
 /** 使用者自訂的角色分組,對應現實中的一個 MapleStory 帳號(一個帳號底下可以有多個角色) */
@@ -37,6 +41,8 @@ export interface Account {
   order: number;
   /** VIP會員等級,未設定代表這個帳號沒有VIP資格;VIP資格屬於整個帳號,而非個別角色 */
   vipTier?: VipTier;
+  /** 最後修改時間,同步合併時較新者勝 */
+  updatedAt: string;
 }
 
 /** 角色底下的實際任務(勾選狀態、重置時間都是角色獨立的) */
@@ -55,6 +61,8 @@ export interface CharacterTask {
   /** 上次重置勾選狀態的時間(ISO string),用來判斷是否已跨越下一次重置點 */
   lastResetAt: string;
   order: number;
+  /** 使用者最後修改時間(勾選、改名、排序等),同步合併時較新者勝;自動重置不算修改 */
+  updatedAt: string;
 }
 
 /** 重置時間設定 */
@@ -97,4 +105,6 @@ export interface CharacterBossTrackList {
   partySize: number;
   checked: boolean;
   lastResetAt: string;
+  /** 使用者最後修改時間(勾選、攻略人數等),同步合併時較新者勝;自動重置不算修改 */
+  updatedAt: string;
 }

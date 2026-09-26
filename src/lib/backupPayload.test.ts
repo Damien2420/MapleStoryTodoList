@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildBackupPayload, CURRENT_VERSION, migrateToLatest, parseBackupPayload } from '@/lib/backupPayload';
+import { LEGACY_TIMESTAMP } from '@/lib/timestamp';
 
 describe('buildBackupPayload', () => {
   it('組出的 payload 帶有目前版本號與三份墓碑清單', () => {
@@ -135,6 +136,39 @@ describe('parseBackupPayload migration v5 -> v6', () => {
     expect(payload.accounts).toEqual([]);
     expect(payload.accountTombstones).toEqual([]);
     expect(payload.characters).toHaveLength(1);
+  });
+
+  it('v5 以前的資料沒有修改時間,升版後一律補上 LEGACY_TIMESTAMP(視為最舊,不會蓋掉本機)', () => {
+    const lastResetAt = '2026-01-01T00:00:00.000Z';
+    const v5Json = JSON.stringify({
+      version: 5,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      characters: [{ id: 'c1', name: 'A', server: '艾麗亞', level: 1, job: 'Warrior', order: 0, source: 'manual' }],
+      characterTombstones: [],
+      tasks: [
+        { id: 't1', characterId: 'c1', name: '任務', category: '日常', resetCycle: 'daily', checked: false, lastResetAt, order: 0 },
+      ],
+      taskTombstones: [],
+      bosses: [
+        {
+          id: 'b1',
+          characterId: 'c1',
+          bossName: '王',
+          difficulty: '普通',
+          resetCycle: 'weekly',
+          crystalValue: 1,
+          partySize: 1,
+          checked: false,
+          lastResetAt,
+        },
+      ],
+      bossTombstones: [],
+    });
+    const payload = parseBackupPayload(v5Json);
+    expect(payload.characters[0].updatedAt).toBe(LEGACY_TIMESTAMP);
+    expect(payload.characters[0].placementUpdatedAt).toBe(LEGACY_TIMESTAMP);
+    expect(payload.tasks[0].updatedAt).toBe(LEGACY_TIMESTAMP);
+    expect(payload.bosses[0].updatedAt).toBe(LEGACY_TIMESTAMP);
   });
 });
 

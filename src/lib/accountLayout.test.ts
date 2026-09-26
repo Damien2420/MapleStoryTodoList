@@ -3,7 +3,7 @@ import type { Character } from '@/types';
 import { applyCharacterLayout, findCharacterContainer, moveCharacterInContainers } from '@/lib/accountLayout';
 
 function makeCharacter(id: string, order: number, accountId: string | null = null): Character {
-  return { id, name: id, server: '艾麗亞', level: 250, job: 'Warrior', order, source: 'manual', accountId };
+  return { id, name: id, server: '艾麗亞', level: 250, job: 'Warrior', order, source: 'manual', accountId, updatedAt: '2026-01-01T00:00:00.000Z', placementUpdatedAt: '2026-01-01T00:00:00.000Z' };
 }
 
 describe('applyCharacterLayout', () => {

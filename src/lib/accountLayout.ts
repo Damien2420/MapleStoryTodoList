@@ -1,4 +1,5 @@
 import type { Character } from '@/types';
+import { nextTimestamp } from '@/lib/timestamp';
 
 /** 一個容器(某個帳號,或 accountId 為 null 的未歸類)與其中依顯示順序排列的角色 id */
 export interface CharacterContainer {
@@ -16,7 +17,7 @@ export interface CharacterContainer {
  *
  * @param characters 套用配置前的所有角色。
  * @param containers 定義角色目標帳號與相對順序的容器。
- * @returns 已更新放入容器角色 `accountId` 與 `order` 的角色陣列。
+ * @returns 已更新放入容器角色 `accountId`、`order` 與 `placementUpdatedAt` 的角色陣列。
  */
 export function applyCharacterLayout(characters: Character[], containers: CharacterContainer[]): Character[] {
   const byId = new Map(characters.map((c) => [c.id, c]));
@@ -39,7 +40,12 @@ export function applyCharacterLayout(characters: Character[], containers: Charac
     const { character, accountId } = placement;
     // 帳號與順序都沒變的角色不產生新物件
     if (character.accountId === accountId && character.order === slots[index]) return;
-    updates.set(character.id, { ...character, accountId, order: slots[index] });
+    updates.set(character.id, {
+      ...character,
+      accountId,
+      order: slots[index],
+      placementUpdatedAt: nextTimestamp(character.placementUpdatedAt),
+    });
   });
 
   if (updates.size === 0) return characters;

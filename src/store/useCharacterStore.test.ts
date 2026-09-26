@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useCharacterStore } from '@/store/useCharacterStore';
+import { LEGACY_TIMESTAMP } from '@/lib/timestamp';
 
 describe('useCharacterStore removeCharacter', () => {
   beforeEach(() => {
@@ -68,6 +69,60 @@ describe('useCharacterStore migration v2 -> v3', () => {
     );
     const { useCharacterStore: freshStore } = await import('@/store/useCharacterStore');
     expect(freshStore.getState().characters[0].accountId).toBeNull();
+    expect(freshStore.getState().characters[0].updatedAt).toBe(LEGACY_TIMESTAMP);
+    expect(freshStore.getState().characters[0].placementUpdatedAt).toBe(LEGACY_TIMESTAMP);
+  });
+});
+
+describe('useCharacterStore 修改時間', () => {
+  beforeEach(() => {
+    useCharacterStore.setState({ characters: [], activeCharacterId: null, deletedIds: [] });
+  });
+
+  function addOne(accountId: string | null = null) {
+    return useCharacterStore
+      .getState()
+      .addCharacter({ name: '角色', server: '艾麗亞', level: 1, job: 'Warrior', source: 'manual', accountId });
+  }
+
+  it('updateCharacter 改角色資料只更新 updatedAt,改所屬帳號只更新 placementUpdatedAt', () => {
+    const id = addOne();
+    const before = useCharacterStore.getState().characters[0];
+
+    useCharacterStore.getState().updateCharacter(id, { level: 2 });
+    const afterLevel = useCharacterStore.getState().characters[0];
+    expect(Date.parse(afterLevel.updatedAt)).toBeGreaterThan(Date.parse(before.updatedAt));
+    expect(afterLevel.placementUpdatedAt).toBe(before.placementUpdatedAt);
+
+    useCharacterStore.getState().updateCharacter(id, { accountId: 'a1' });
+    const afterMove = useCharacterStore.getState().characters[0];
+    expect(afterMove.updatedAt).toBe(afterLevel.updatedAt);
+    expect(Date.parse(afterMove.placementUpdatedAt)).toBeGreaterThan(Date.parse(afterLevel.placementUpdatedAt));
+  });
+
+  it('updateCharacter 內容沒有實際改變時保留原物件,不更新修改時間', () => {
+    const id = addOne();
+    const before = useCharacterStore.getState().characters[0];
+    useCharacterStore.getState().updateCharacter(id, { level: 1, accountId: null });
+    expect(useCharacterStore.getState().characters[0]).toBe(before);
+  });
+
+  it('修改時間一定晚於原本的時間,即使原本的時間來自時鐘較快的裝置', () => {
+    const id = addOne();
+    const future = '2099-01-01T00:00:00.000Z';
+    useCharacterStore.setState((s) => ({ characters: s.characters.map((c) => ({ ...c, updatedAt: future })) }));
+    useCharacterStore.getState().updateCharacter(id, { level: 2 });
+    expect(Date.parse(useCharacterStore.getState().characters[0].updatedAt)).toBeGreaterThan(Date.parse(future));
+  });
+
+  it('assignCharactersToAccount 只更新真的換了帳號的角色', () => {
+    const stay = addOne('a1');
+    const move = addOne(null);
+    const [stayBefore, moveBefore] = useCharacterStore.getState().characters;
+    useCharacterStore.getState().assignCharactersToAccount([stay, move], 'a1');
+    const [stayAfter, moveAfter] = useCharacterStore.getState().characters;
+    expect(stayAfter).toBe(stayBefore);
+    expect(Date.parse(moveAfter.placementUpdatedAt)).toBeGreaterThan(Date.parse(moveBefore.placementUpdatedAt));
   });
 });
 

@@ -5,6 +5,8 @@ import { useCharacterStore } from '@/store/useCharacterStore';
 import { trackLocalChange } from '@/lib/trackLocalChange';
 import { syncAcrossTabs } from '@/lib/crossTabSync';
 import { recordTombstone, type Tombstone } from '@/lib/tombstone';
+import { nextTimestamp } from '@/lib/timestamp';
+import { nextOrder } from '@/lib/order';
 
 /** 更新帳號時可覆寫的欄位:名稱與 VIP 等級 */
 export type AccountUpdateInput = Partial<Pick<Account, 'name' | 'vipTier'>>;
@@ -33,14 +35,19 @@ export const useAccountStore = create<AccountState>()(
         const account: Account = {
           id: crypto.randomUUID(),
           name: trimmed,
-          order: get().accounts.length,
+          order: nextOrder(get().accounts),
+          updatedAt: nextTimestamp(),
         };
         set((state) => ({ accounts: [...state.accounts, account] }));
         return account.id;
       },
       updateAccount: (id, patch) => {
         set((state) => ({
-          accounts: state.accounts.map((a) => (a.id === id ? { ...a, ...patch } : a)),
+          accounts: state.accounts.map((a) =>
+            a.id === id && (Object.keys(patch) as (keyof AccountUpdateInput)[]).some((key) => patch[key] !== a[key])
+              ? { ...a, ...patch, updatedAt: nextTimestamp(a.updatedAt) }
+              : a,
+          ),
         }));
       },
       removeAccount: (id) => {
@@ -49,7 +56,9 @@ export const useAccountStore = create<AccountState>()(
           deletedIds: recordTombstone(state.deletedIds, id),
         }));
         useCharacterStore.setState((state) => ({
-          characters: state.characters.map((c) => (c.accountId === id ? { ...c, accountId: null } : c)),
+          characters: state.characters.map((c) =>
+            c.accountId === id ? { ...c, accountId: null, placementUpdatedAt: nextTimestamp(c.placementUpdatedAt) } : c,
+          ),
         }));
       },
       reorderAccounts: (orderedIds) => {
@@ -58,7 +67,7 @@ export const useAccountStore = create<AccountState>()(
           const reordered = orderedIds
             .map((id) => byId.get(id))
             .filter((a): a is Account => a !== undefined)
-            .map((a, index) => ({ ...a, order: index }));
+            .map((a, index) => (a.order === index ? a : { ...a, order: index, updatedAt: nextTimestamp(a.updatedAt) }));
           // 防呆:傳入清單漏掉既有帳號時(理論上不該發生),原樣接在後面,避免資料被吃掉
           const reorderedIds = new Set(orderedIds);
           const missing = state.accounts.filter((a) => !reorderedIds.has(a.id));

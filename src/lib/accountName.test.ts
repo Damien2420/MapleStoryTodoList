@@ -3,8 +3,8 @@ import type { Account } from '@/types';
 import { validateAccountName } from '@/lib/accountName';
 
 const accounts: Account[] = [
-  { id: 'a', name: '主力', order: 0 },
-  { id: 'b', name: '小號', order: 1 },
+  { id: 'a', name: '主力', order: 0, updatedAt: '2026-01-01T00:00:00.000Z' },
+  { id: 'b', name: '小號', order: 1, updatedAt: '2026-01-01T00:00:00.000Z' },
 ];
 
 describe('validateAccountName', () => {
