@@ -1,5 +1,5 @@
 import { memo, useRef } from 'react';
-import { Hourglass, Minus, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Hourglass, Minus, Pencil, Plus, RefreshCw, Trash2, User } from 'lucide-react';
 import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
@@ -136,7 +136,7 @@ export const BossItem = memo(function BossItem({
       </Tooltip>
       <DropdownMenuContent
         align="end"
-        className="w-52"
+        className="w-auto min-w-0"
         onClick={(e) => e.stopPropagation()}
         onCloseAutoFocus={() => {
           skipTooltipOnFocusRef.current = true;
@@ -155,9 +155,13 @@ export const BossItem = memo(function BossItem({
                   {difficulty}
                 </span>
                 {option && boss.category !== 'season' && (
-                  <span className="ml-auto flex items-center gap-1 text-xs tabular-nums text-muted-foreground">
-                    <img src="/coin.png" alt="" className="size-4 shrink-0" />
-                    {formatCrystalValue(Math.round(option.crystalValue / boss.partySize))}
+                  <span
+                    className="ml-auto flex items-center gap-0.5 text-xs tabular-nums text-muted-foreground"
+                    title={`組隊人數上限 ${option.maxPartySize} 人`}
+                  >
+                    <User className="size-3" aria-hidden="true" />
+                    {option.maxPartySize}
+                    <span className="sr-only">人為組隊人數上限</span>
                   </span>
                 )}
               </DropdownMenuRadioItem>
