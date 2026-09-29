@@ -1,9 +1,10 @@
 import { lazy, Suspense, useMemo, useState } from 'react';
 import { format, parse } from 'date-fns';
-import { ArrowLeft, CalendarIcon, ListPlus, Plus } from 'lucide-react';
+import { ArrowLeft, CalendarIcon, ClipboardList, ListPlus, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ConfirmListSection } from '@/components/ConfirmListSection';
 import { LoadingIndicator } from '@/components/LoadingIndicator';
 import {
   Dialog,
@@ -149,7 +150,10 @@ export function AddTaskDialog({ characterId, existingCategories }: AddTaskDialog
           <span className="max-[400px]:sr-only">新增任務</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-xl" onOpenAutoFocus={focusDialogContainer}>
+      <DialogContent
+        className={cn('sm:max-w-xl', view === 'confirm' && 'flex flex-col')}
+        onOpenAutoFocus={focusDialogContainer}
+      >
         {view === 'presets' ? (
           <div className="space-y-4">
             <DialogHeader>
@@ -184,30 +188,35 @@ export function AddTaskDialog({ characterId, existingCategories }: AddTaskDialog
             </Button>
           </div>
         ) : view === 'confirm' ? (
-          <div className="space-y-4">
+          // 與新增角色的確認頁同一套版型:標題與按鈕固定,只有中間清單捲動;
+          // 返回改由分區右上角的「變更」承擔,不再另放返回按鈕
+          <div className="flex min-h-0 flex-1 flex-col gap-4">
             <DialogHeader>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="-ml-2 w-fit gap-1 text-muted-foreground"
-                onClick={() => setView('presets')}
-              >
-                <ArrowLeft className="size-3.5" />
-                返回預設任務
-              </Button>
               <DialogTitle>確認建立以下任務</DialogTitle>
               <DialogDescription>確認無誤後即可建立,建立後可再自行調整。</DialogDescription>
             </DialogHeader>
 
-            {skippedPresetTasks.length > 0 && (
-              <p className="rounded-md border border-border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
-                以下 {skippedPresetTasks.length} 筆任務已存在於清單中,將略過建立:
-                {skippedPresetTasks.map((t) => t.name).join('、')}
-              </p>
-            )}
-
-            <PresetTaskPreview tasks={resolvedPresetTasks} />
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <ConfirmListSection
+                icon={ClipboardList}
+                label="任務"
+                count={resolvedPresetTasks.length}
+                unit="項"
+                onChange={() => setView('presets')}
+              >
+                {skippedPresetTasks.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    以下 {skippedPresetTasks.length} 筆任務已存在於清單中,將略過建立:
+                    {skippedPresetTasks.map((t) => t.name).join('、')}
+                  </p>
+                )}
+                <PresetTaskPreview
+                  tasks={resolvedPresetTasks}
+                  className="max-h-none overflow-visible pr-0"
+                  itemClassName="border-transparent bg-popover"
+                />
+              </ConfirmListSection>
+            </div>
 
             <Button
               type="button"
