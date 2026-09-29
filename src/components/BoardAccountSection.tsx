@@ -5,6 +5,7 @@ import { AssignAccountsDialog } from '@/components/AssignAccountsDialog';
 import { BoardCharacterRow } from '@/components/BoardCharacterRow';
 import { BoardSortableRows } from '@/components/BoardSortableRows';
 import { CrystalAmount } from '@/components/CrystalAmount';
+import { VipQuotaDialog } from '@/components/VipQuotaDialog';
 import { VipTierDialog } from '@/components/VipTierDialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -182,20 +183,7 @@ function AccountVipEntry({ account, quota }: { account: Account; quota: BoardAcc
           設定 VIP
         </Button>
       )}
-      {quota && (
-        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          VIP 重置券
-          <b className={cn('tabular-nums', quota.used >= quota.cap ? 'text-vip-accent-text' : 'text-foreground')}>
-            {quota.used}/{quota.cap}
-          </b>
-          <Progress
-            value={quota.cap > 0 ? Math.min(100, (quota.used / quota.cap) * 100) : 0}
-            className="h-1 w-14"
-            indicatorClassName="bg-vip-accent-text"
-            aria-label={`VIP 重置券已使用 ${quota.used}/${quota.cap}`}
-          />
-        </span>
-      )}
+      {quota && <VipQuotaDialog account={account} quota={quota} />}
       <VipTierDialog account={account} open={open} onOpenChange={setOpen} />
     </div>
   );
