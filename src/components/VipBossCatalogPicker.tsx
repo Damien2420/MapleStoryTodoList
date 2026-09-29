@@ -3,6 +3,7 @@ import { ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { PickerCategoryList, PickerCategorySection, PickerCategoryStatus } from '@/components/PickerCategorySection';
+import { VipTicketIcon } from '@/components/VipTicketIcon';
 import { findBossCatalogEntry, findDifficultyOption, isCatalogEntryExpired } from '@/lib/bossCatalog';
 import { DIFFICULTY_BADGE_CLASSES } from '@/lib/difficultyBadge';
 import {
@@ -79,7 +80,12 @@ export function VipBossCatalogPicker({
           return (
             <PickerCategorySection
               key={level}
-              label={VIP_TICKET_LEVEL_LABELS[level]}
+              label={
+                <>
+                  <VipTicketIcon level={level} />
+                  {VIP_TICKET_LEVEL_LABELS[level]}
+                </>
+              }
               status={
                 // 已追蹤就佔滿(不含勾選)與 BOSS 的「已全部追蹤」同一個語意;其餘顯示已用/配額
                 trackedCountsByLevel[level] >= cap ? (
