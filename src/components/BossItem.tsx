@@ -205,7 +205,8 @@ export const BossItem = memo(function BossItem({
       <div
         className={cn(
           'flex cursor-pointer items-center gap-2 @min-[400px]:pr-2 @min-[640px]:min-w-0 @min-[640px]:flex-1',
-          canEditDifficulty ? 'pr-16' : 'pr-8',
+          // <400px 時鉛筆與垃圾桶絕對定位在右上角(28+4+28px + 右側 6px),預留空間避免壓到王名與難度標籤
+          canEditDifficulty ? 'pr-17' : 'pr-8',
         )}
         onClick={() => toggleBoss(boss.id)}
       >
@@ -230,7 +231,7 @@ export const BossItem = memo(function BossItem({
         {showStepper && <div className="hidden @min-[400px]:flex @min-[640px]:hidden" onClick={(e) => e.stopPropagation()}>{stepperControl}</div>}
 
         <div
-          className="absolute top-1.5 right-1.5 flex items-center @min-[400px]:static @min-[400px]:top-auto @min-[400px]:right-auto @min-[640px]:hidden"
+          className="absolute top-1.5 right-1.5 flex items-center gap-1 @min-[400px]:static @min-[400px]:top-auto @min-[400px]:right-auto @min-[640px]:hidden"
           onClick={(e) => e.stopPropagation()}
         >
           {editButton}
@@ -290,7 +291,7 @@ export const BossItem = memo(function BossItem({
       </div>
 
       {/* ≥640px 的操作區:沒有更改難度鈕的列留一個空位,讓刪除鈕在每一列都對齊 */}
-      <div className="hidden @min-[640px]:ml-auto @min-[640px]:flex @min-[640px]:items-center">
+      <div className="hidden @min-[640px]:ml-auto @min-[640px]:flex @min-[640px]:items-center @min-[640px]:gap-1">
         {editButton ?? <span className="size-7 shrink-0" aria-hidden />}
         {deleteButton}
       </div>
