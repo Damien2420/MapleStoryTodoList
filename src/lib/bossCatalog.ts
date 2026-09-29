@@ -1,5 +1,6 @@
 import type { BossDifficulty, CharacterBossTrackList } from '@/types';
 import { BOSS_CATALOG } from '@/data/bossCatalog.data';
+import { VIP_BOSS_MAPPING } from '@/data/vipBossCatalog.data';
 
 export { BOSS_CATALOG };
 
@@ -116,6 +117,31 @@ export function sortTrackedBossesByCatalogOrder(bosses: CharacterBossTrackList[]
     const rankB = b.bossCatalogId ? bossCatalogRank(b.bossCatalogId, b.difficulty) : Infinity;
     return rankA - rankB;
   });
+}
+
+/**
+ * 查詢已追蹤的 BOSS 可以切換成哪些難度(含目前難度本身),供 BossItem 的難度選單使用。
+ *
+ * 一般 BOSS 只能換成同一隻王、同一重置週期的難度;VIP BOSS 只能換成同一張券對這隻王列出的難度。
+ * 沒有 bossCatalogId 的舊資料、目錄查無對應或已下架的項目無法對照,回傳空陣列。
+ *
+ * @param boss 要查詢的 BOSS 追蹤紀錄
+ * @returns 依目錄順序排列的候選難度;空陣列代表不可編輯
+ */
+export function getEditableDifficulties(
+  boss: Pick<CharacterBossTrackList, 'bossCatalogId' | 'resetCycle' | 'category' | 'vipTicketLevel'>,
+): BossDifficulty[] {
+  if (!boss.bossCatalogId) return [];
+  const entry = findBossCatalogEntry(boss.bossCatalogId);
+  if (!entry || isCatalogEntryExpired(entry)) return [];
+
+  if (boss.category === 'vip') {
+    if (!boss.vipTicketLevel) return [];
+    const mapping = VIP_BOSS_MAPPING[boss.vipTicketLevel].find((m) => m.bossCatalogId === entry.id);
+    return (mapping?.difficulties ?? []).filter((difficulty) => findDifficultyOption(entry, difficulty));
+  }
+
+  return entry.difficulties.filter((option) => option.resetCycle === boss.resetCycle).map((option) => option.difficulty);
 }
 
 /** 依 id 查找 BOSS 名單項目 */

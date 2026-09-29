@@ -1,20 +1,33 @@
-import { memo } from 'react';
-import { Hourglass, Minus, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { memo, useRef } from 'react';
+import { Hourglass, Minus, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { findBossCatalogEntry, getEffectiveCrystalValue, getMaxPartySize } from '@/lib/bossCatalog';
+import {
+  findBossCatalogEntry,
+  findDifficultyOption,
+  getEditableDifficulties,
+  getEffectiveCrystalValue,
+  getMaxPartySize,
+} from '@/lib/bossCatalog';
 import { DIFFICULTY_BADGE_CLASSES } from '@/lib/difficultyBadge';
 import { formatCrystalValue } from '@/lib/formatCrystal';
 import { formatExpiryDate, formatTimeUntilExpiry, formatTimeUntilReset, hoursUntilExpiry, minutesUntilReset } from '@/lib/reset';
 import { useNow } from '@/hooks/useNow';
-import type { CharacterBossTrackList } from '@/types';
+import type { BossDifficulty, CharacterBossTrackList } from '@/types';
 import { useBossStore } from '@/store/useBossStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
-/** 單一 BOSS 討伐列:勾選框 + 王名稱 + 難度標籤 + 攻略人數控制 + 唯讀的收益數字 + 刪除鈕
+/** 單一 BOSS 討伐列:勾選框 + 王名稱 + 難度標籤 + 攻略人數控制 + 唯讀的收益數字 + 更改難度鈕 + 刪除鈕
  * 以 React.memo 包裝:boss/hideRevenue 沒變就不重新渲染,避免清單中其他列的 store 更新連帶讓每一列都重繪 */
 export const BossItem = memo(function BossItem({
   boss,
@@ -28,6 +41,7 @@ export const BossItem = memo(function BossItem({
   const removeBoss = useBossStore((s) => s.removeBoss);
   const restoreBoss = useBossStore((s) => s.restoreBoss);
   const setBossPartySize = useBossStore((s) => s.setBossPartySize);
+  const changeBossDifficulty = useBossStore((s) => s.changeBossDifficulty);
   const settings = useSettingsStore((s) => s.settings);
   const now = useNow();
   const expiresAt = boss.bossCatalogId ? findBossCatalogEntry(boss.bossCatalogId)?.expiresAt : undefined;
@@ -35,6 +49,11 @@ export const BossItem = memo(function BossItem({
   const cycleLabel = formatTimeUntilReset(boss.resetCycle, settings, now, boss.weeklyResetDay);
   const resetImminent = minutesUntilReset(boss.resetCycle, settings, now, boss.weeklyResetDay) < 60;
   const maxPartySize = getMaxPartySize(boss);
+  const editableDifficulties = getEditableDifficulties(boss);
+  const canEditDifficulty = editableDifficulties.length > 1;
+  // 選單關閉時 Radix 會把焦點還給鉛筆按鈕,而它同時是 Tooltip 的觸發器,焦點一回來 tooltip 就會打開並停住;
+  // 只在這次焦點回歸時略過 tooltip,鍵盤 Tab 到按鈕的 tooltip 不受影響
+  const skipTooltipOnFocusRef = useRef(false);
 
   function handleDelete() {
     removeBoss(boss.id);
@@ -89,6 +108,66 @@ export const BossItem = memo(function BossItem({
     </div>
   );
 
+  // 只有候選難度多於一個時才提供更改難度;選單放在勾選區域之外的操作區,避免高頻的勾選動作誤開選單
+  const editButton = canEditDifficulty ? (
+    <DropdownMenu>
+      <Tooltip>
+        <TooltipTrigger
+          asChild
+          onFocus={(e) => {
+            if (!skipTooltipOnFocusRef.current) return;
+            skipTooltipOnFocusRef.current = false;
+            e.preventDefault();
+          }}
+        >
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7 shrink-0 text-muted-foreground opacity-40 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 data-[state=open]:opacity-100"
+              aria-label={`更改難度:${boss.bossName}`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Pencil className="size-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
+        </TooltipTrigger>
+        <TooltipContent>更改難度</TooltipContent>
+      </Tooltip>
+      <DropdownMenuContent
+        align="end"
+        className="w-52"
+        onClick={(e) => e.stopPropagation()}
+        onCloseAutoFocus={() => {
+          skipTooltipOnFocusRef.current = true;
+        }}
+      >
+        <DropdownMenuRadioGroup
+          value={boss.difficulty}
+          onValueChange={(value) => changeBossDifficulty(boss.id, value as BossDifficulty)}
+        >
+          {editableDifficulties.map((difficulty) => {
+            const entry = boss.bossCatalogId ? findBossCatalogEntry(boss.bossCatalogId) : undefined;
+            const option = entry && findDifficultyOption(entry, difficulty);
+            return (
+              <DropdownMenuRadioItem key={difficulty} value={difficulty}>
+                <span className={cn('rounded-full px-2 py-0.5 text-xs font-normal', DIFFICULTY_BADGE_CLASSES[difficulty])}>
+                  {difficulty}
+                </span>
+                {option && boss.category !== 'season' && (
+                  <span className="ml-auto flex items-center gap-1 text-xs tabular-nums text-muted-foreground">
+                    <img src="/coin.png" alt="" className="size-4 shrink-0" />
+                    {formatCrystalValue(Math.round(option.crystalValue / boss.partySize))}
+                  </span>
+                )}
+              </DropdownMenuRadioItem>
+            );
+          })}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  ) : null;
+
   const deleteButton = (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -120,7 +199,10 @@ export const BossItem = memo(function BossItem({
           點擊只在這個區域生效,避免右側人數、收益、倒數旁邊的空白誤觸勾選;反白高亮則留給整列(見外層 div),
           讓滑鼠移到任何欄位都看得出目前在哪一列,跟「哪裡可以點」的游標樣式分開表達 */}
       <div
-        className="flex cursor-pointer items-center gap-2 pr-8 @min-[400px]:pr-2 @min-[640px]:min-w-0 @min-[640px]:flex-1"
+        className={cn(
+          'flex cursor-pointer items-center gap-2 @min-[400px]:pr-2 @min-[640px]:min-w-0 @min-[640px]:flex-1',
+          canEditDifficulty ? 'pr-16' : 'pr-8',
+        )}
         onClick={() => toggleBoss(boss.id)}
       >
         <span className="shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -144,9 +226,10 @@ export const BossItem = memo(function BossItem({
         {showStepper && <div className="hidden @min-[400px]:flex @min-[640px]:hidden" onClick={(e) => e.stopPropagation()}>{stepperControl}</div>}
 
         <div
-          className="absolute top-1.5 right-1.5 @min-[400px]:static @min-[400px]:top-auto @min-[400px]:right-auto @min-[640px]:hidden"
+          className="absolute top-1.5 right-1.5 flex items-center @min-[400px]:static @min-[400px]:top-auto @min-[400px]:right-auto @min-[640px]:hidden"
           onClick={(e) => e.stopPropagation()}
         >
+          {editButton}
           {deleteButton}
         </div>
       </div>
@@ -202,7 +285,11 @@ export const BossItem = memo(function BossItem({
         </span>
       </div>
 
-      <div className="hidden @min-[640px]:ml-auto @min-[640px]:block">{deleteButton}</div>
+      {/* ≥640px 的操作區:沒有更改難度鈕的列留一個空位,讓刪除鈕在每一列都對齊 */}
+      <div className="hidden @min-[640px]:ml-auto @min-[640px]:flex @min-[640px]:items-center">
+        {editButton ?? <span className="size-7 shrink-0" aria-hidden />}
+        {deleteButton}
+      </div>
     </div>
   );
 });

@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { getWeeklyRevenueCountedIds, isWeeklyRevenueExcluded, WEEKLY_BOSS_LIMIT } from '@/lib/bossCatalog';
+import type { CharacterBossTrackList } from '@/types';
+import {
+  getEditableDifficulties,
+  getWeeklyRevenueCountedIds,
+  isWeeklyRevenueExcluded,
+  WEEKLY_BOSS_LIMIT,
+} from '@/lib/bossCatalog';
 
 /** 建立測試用的最小週王紀錄,只帶測試需要的欄位 */
 function makeBoss(id: string, checked: boolean, crystalValue: number) {
@@ -73,5 +79,58 @@ describe('isWeeklyRevenueExcluded', () => {
   it('賽季王不受此規則影響', () => {
     const boss = { id: 'season-id', resetCycle: 'weekly' as const, category: 'season' as const, checked: true };
     expect(isWeeklyRevenueExcluded(boss, countedIds)).toBe(false);
+  });
+});
+
+/** 建立測試用的完整 BOSS 追蹤紀錄,預設為一般 BOSS,可用 overrides 覆寫 */
+function makeTracked(overrides: Partial<CharacterBossTrackList>): CharacterBossTrackList {
+  return {
+    id: 'b1',
+    characterId: 'c1',
+    bossName: 'test',
+    difficulty: '普通',
+    resetCycle: 'daily',
+    crystalValue: 1,
+    partySize: 1,
+    checked: false,
+    lastResetAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    ...overrides,
+  };
+}
+
+describe('getEditableDifficulties', () => {
+  it('一般 BOSS 只回傳同一重置週期的難度(炎魔日王不含週王渾沌)', () => {
+    const boss = makeTracked({ bossCatalogId: 'zakum', difficulty: '普通', resetCycle: 'daily' });
+    expect(getEditableDifficulties(boss)).toEqual(['簡單', '普通']);
+  });
+
+  it('炎魔渾沌(週)只有自己一個難度', () => {
+    const boss = makeTracked({ bossCatalogId: 'zakum', difficulty: '渾沌', resetCycle: 'weekly' });
+    expect(getEditableDifficulties(boss)).toEqual(['渾沌']);
+  });
+
+  it('一般週王回傳該王全部週期相同的難度', () => {
+    const boss = makeTracked({ bossCatalogId: 'lucid', difficulty: '困難', resetCycle: 'weekly' });
+    expect(getEditableDifficulties(boss)).toEqual(['簡單', '普通', '困難']);
+  });
+
+  it('VIP BOSS 依券等級的對照表回傳,不含其他券才能選的難度(中級券史烏沒有極限)', () => {
+    const boss = makeTracked({
+      bossCatalogId: 'lotus',
+      difficulty: '困難',
+      resetCycle: 'weekly',
+      category: 'vip',
+      vipTicketLevel: '中',
+    });
+    expect(getEditableDifficulties(boss)).toEqual(['普通', '困難']);
+  });
+
+  it('沒有 bossCatalogId 的舊資料回傳空陣列', () => {
+    expect(getEditableDifficulties(makeTracked({ bossCatalogId: undefined }))).toEqual([]);
+  });
+
+  it('目錄查無對應項目時回傳空陣列', () => {
+    expect(getEditableDifficulties(makeTracked({ bossCatalogId: 'no-such-boss' }))).toEqual([]);
   });
 });
