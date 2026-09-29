@@ -17,7 +17,6 @@ import { BossSelectionPreview } from '@/components/BossSelectionPreview';
 import { buildTrackedGroupKeys, countTrackedWeeklyBosses, findBossCatalogEntry, flattenBossSelections } from '@/lib/bossCatalog';
 import { DIFFICULTY_BADGE_CLASSES } from '@/lib/difficultyBadge';
 import {
-  buildTrackedVipGroupKeys,
   buildVipSelectionKey,
   countTrackedVipBossesByLevelForCharacters,
   hasVipTicketAllocation,
@@ -71,7 +70,6 @@ export function AddBossDialog({ characterId }: AddBossDialogProps) {
   const trackedGroupKeys = useMemo(() => buildTrackedGroupKeys(bosses, characterId), [bosses, characterId]);
   // 該角色已追蹤且計入每週上限的筆數,與對話框內勾選數合計判斷 12 筆上限
   const trackedWeeklyCount = useMemo(() => countTrackedWeeklyBosses(bosses, characterId), [bosses, characterId]);
-  const trackedVipGroupKeys = useMemo(() => buildTrackedVipGroupKeys(bosses, characterId), [bosses, characterId]);
   // 配額是帳號共用的:用量要算帳號內所有角色,不只是目前這一隻
   const accountMembers = useMemo(
     () => (account ? characters.filter((c) => c.accountId === account.id) : []),
@@ -215,7 +213,6 @@ export function AddBossDialog({ characterId }: AddBossDialogProps) {
               vipTier={account.vipTier}
               selections={vipSelections}
               onToggle={handleToggleVip}
-              trackedGroupKeys={trackedVipGroupKeys}
               trackedCountsByLevel={trackedVipCountsByLevel}
             />
 

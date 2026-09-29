@@ -21,8 +21,6 @@ interface VipBossCatalogPickerProps {
   /** 目前已選取的VIP選取鍵集合(buildVipSelectionKey 格式) */
   selections: Set<string>;
   onToggle: (level: VipTicketLevel, bossCatalogId: string, difficulty: BossDifficulty) => void;
-  /** 該角色已追蹤中的VIP群組鍵,對應項目鎖住 */
-  trackedGroupKeys: Set<string>;
   /** 整個帳號(所有角色合計)已追蹤中的VIP BOSS,依券等級分組計數;配額是帳號共用的 */
   trackedCountsByLevel: Record<VipTicketLevel, number>;
 }
@@ -32,7 +30,6 @@ export function VipBossCatalogPicker({
   vipTier,
   selections,
   onToggle,
-  trackedGroupKeys,
   trackedCountsByLevel,
 }: VipBossCatalogPickerProps) {
   // 只在掛載時決定一次:已追蹤數(不含對話框內的勾選)還沒達到配額的券等級預設展開,
@@ -120,16 +117,13 @@ export function VipBossCatalogPicker({
                         {validDifficulties.map((difficulty) => {
                           const key = buildVipSelectionKey(level, bossCatalogId, difficulty);
                           const active = selections.has(key);
-                          const trackedLocked = trackedGroupKeys.has(key);
-                          // 已追蹤中的項目與配額已用完的券等級(已勾選的仍可取消)都直接停用
-                          const quotaBlocked = !active && full;
-                          const disabled = trackedLocked || quotaBlocked;
+                          // 配額已用完的券等級直接停用(已勾選的仍可取消);同角色允許重複追蹤完全相同的組合
+                          const disabled = !active && full;
                           return (
                             <button
                               key={key}
                               type="button"
                               disabled={disabled}
-                              title={trackedLocked ? '此券等級已在追蹤中' : undefined}
                               onClick={() => onToggle(level, bossCatalogId, difficulty)}
                               className={cn(
                                 'rounded-md border px-2.5 py-2 text-xs font-medium outline-none transition-all focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',

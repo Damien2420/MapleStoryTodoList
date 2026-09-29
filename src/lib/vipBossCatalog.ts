@@ -140,13 +140,3 @@ export function summarizeVipQuota(
   }
   return { used, cap };
 }
-
-/** 蒐集指定角色「追蹤中」的VIP群組鍵,用於在新增BOSS對話框中鎖住已追蹤的VIP項目 */
-export function buildTrackedVipGroupKeys(bosses: CharacterBossTrackList[], characterId: string): Set<string> {
-  const keys = new Set<string>();
-  for (const boss of bosses) {
-    if (boss.characterId !== characterId || boss.category !== 'vip' || !boss.vipTicketLevel || !boss.bossCatalogId) continue;
-    keys.add(buildVipSelectionKey(boss.vipTicketLevel, boss.bossCatalogId, boss.difficulty));
-  }
-  return keys;
-}
