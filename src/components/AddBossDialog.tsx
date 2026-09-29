@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowLeft, Gem, Info, Plus } from 'lucide-react';
+import { ArrowLeft, Gem, Info, Plus, Swords } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -11,8 +11,9 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { BossCatalogPicker, WeeklyBossLimitHint } from '@/components/BossCatalogPicker';
+import { ConfirmListSection } from '@/components/ConfirmListSection';
 import { VipBossCatalogPicker } from '@/components/VipBossCatalogPicker';
-import { VipQuotaOverview } from '@/components/VipQuotaOverview';
+import { BossSelectionPreview } from '@/components/BossSelectionPreview';
 import { buildTrackedGroupKeys, countTrackedWeeklyBosses, findBossCatalogEntry, flattenBossSelections } from '@/lib/bossCatalog';
 import { DIFFICULTY_BADGE_CLASSES } from '@/lib/difficultyBadge';
 import {
@@ -35,7 +36,7 @@ interface AddBossDialogProps {
   characterId: string;
 }
 
-type Step = 'pick' | 'vip' | 'vip-confirm' | 'vip-overview';
+type Step = 'pick' | 'confirm' | 'vip' | 'vip-confirm';
 
 /**
  * 沒有 VIP 重置券可用時,告訴使用者原因與下一步;顯示在原本「新增VIP重置BOSS」按鈕的位置。
@@ -50,9 +51,9 @@ function getVipUnavailableReason(account: Account | undefined): string {
 
 /**
  * 新增BOSS對話框:一般BOSS與VIP重置BOSS是兩條互斥路徑,同一個對話框依 step 切換畫面。
- * pick(一般BOSS勾選,含「新增VIP重置BOSS」入口)→ vip(VIP券等級勾選)→ vip-confirm(確認清單,按下確認才真正套用)→ 關閉整個對話框。
- * VIP 等級與重置券配額屬於角色所屬的帳號、由帳號內所有角色共用;某個券等級配額用完時,在 vip 步驟內顯示警告,
- * 並可切到 vip-overview 看是帳號內哪些角色佔用了。
+ * 一般BOSS:pick(勾選,含「新增VIP重置BOSS」入口)→ confirm(確認清單,按下確認才真正套用)→ 關閉整個對話框。
+ * VIP重置BOSS:pick → vip(VIP券等級勾選)→ vip-confirm(確認清單,按下確認才真正套用)→ 關閉整個對話框。
+ * VIP 等級與重置券配額屬於角色所屬的帳號、由帳號內所有角色共用;某個券等級配額用完時,該等級未勾選的項目直接停用。
  */
 export function AddBossDialog({ characterId }: AddBossDialogProps) {
   const character = useCharacterStore((s) => s.characters.find((c) => c.id === characterId));
@@ -65,8 +66,6 @@ export function AddBossDialog({ characterId }: AddBossDialogProps) {
   const [step, setStep] = useState<Step>('pick');
   const [selections, setSelections] = useState<Map<string, Set<BossDifficulty>>>(new Map());
   const [vipSelections, setVipSelections] = useState<Set<string>>(new Set());
-  // 使用者點了配額已用完的券等級時記下是哪個等級,用來顯示警告;不需要警告時為 null
-  const [quotaWarningLevel, setQuotaWarningLevel] = useState<VipTicketLevel | null>(null);
 
   // 該角色已追蹤的互斥群組鍵,對話框中整群鎖住避免建立同週期重複紀錄
   const trackedGroupKeys = useMemo(() => buildTrackedGroupKeys(bosses, characterId), [bosses, characterId]);
@@ -78,10 +77,6 @@ export function AddBossDialog({ characterId }: AddBossDialogProps) {
     () => (account ? characters.filter((c) => c.accountId === account.id) : []),
     [characters, account],
   );
-  const accountVipBosses = useMemo(() => {
-    const memberIds = new Set(accountMembers.map((c) => c.id));
-    return bosses.filter((b) => memberIds.has(b.characterId) && b.category === 'vip' && b.vipTicketLevel);
-  }, [bosses, accountMembers]);
   const trackedVipCountsByLevel = useMemo(
     () => countTrackedVipBossesByLevelForCharacters(bosses, new Set(accountMembers.map((c) => c.id))),
     [bosses, accountMembers],
@@ -90,7 +85,6 @@ export function AddBossDialog({ characterId }: AddBossDialogProps) {
   function resetForm() {
     setSelections(new Map());
     setVipSelections(new Set());
-    setQuotaWarningLevel(null);
     setStep('pick');
   }
 
@@ -107,7 +101,6 @@ export function AddBossDialog({ characterId }: AddBossDialogProps) {
   }
 
   function handleToggleVip(level: VipTicketLevel, bossCatalogId: string, difficulty: BossDifficulty) {
-    setQuotaWarningLevel(null);
     setVipSelections((prev) => {
       const next = new Set(prev);
       const key = buildVipSelectionKey(level, bossCatalogId, difficulty);
@@ -120,7 +113,12 @@ export function AddBossDialog({ characterId }: AddBossDialogProps) {
   const flatSelections = flattenBossSelections(selections);
   const flatVipSelections = Array.from(vipSelections, (key) => parseVipSelectionKey(key));
 
-  function handleSubmit() {
+  function handleReview() {
+    if (flatSelections.length === 0) return;
+    setStep('confirm');
+  }
+
+  function handleConfirm() {
     if (flatSelections.length === 0) return;
     addBosses(characterId, flatSelections);
     resetForm();
@@ -153,7 +151,10 @@ export function AddBossDialog({ characterId }: AddBossDialogProps) {
           <span className="max-[400px]:sr-only">新增BOSS</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-xl" onOpenAutoFocus={focusDialogContainer}>
+      <DialogContent
+        className={cn('sm:max-w-xl', (step === 'confirm' || step === 'vip-confirm') && 'flex flex-col')}
+        onOpenAutoFocus={focusDialogContainer}
+      >
         {step === 'pick' && (
           <div className="space-y-4">
             <DialogHeader>
@@ -186,7 +187,7 @@ export function AddBossDialog({ characterId }: AddBossDialogProps) {
             />
 
             <DialogFooter>
-              <Button type="button" className="w-full" disabled={flatSelections.length === 0} onClick={handleSubmit}>
+              <Button type="button" className="w-full" disabled={flatSelections.length === 0} onClick={handleReview}>
                 套用所選BOSS({flatSelections.length})
               </Button>
             </DialogFooter>
@@ -216,36 +217,7 @@ export function AddBossDialog({ characterId }: AddBossDialogProps) {
               onToggle={handleToggleVip}
               trackedGroupKeys={trackedVipGroupKeys}
               trackedCountsByLevel={trackedVipCountsByLevel}
-              onQuotaBlocked={setQuotaWarningLevel}
             />
-
-            {quotaWarningLevel && (
-              <div role="alert" className="flex flex-col gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm">
-                <p className="font-semibold text-destructive">{VIP_TICKET_LEVEL_LABELS[quotaWarningLevel]}的配額已用完</p>
-                <p className="text-muted-foreground">
-                  {trackedVipCountsByLevel[quotaWarningLevel] > 0
-                    ? `VIP 重置券的配額是「${account.name}」底下所有角色共用的,這個等級目前已經有 ${trackedVipCountsByLevel[quotaWarningLevel]} 張在使用中。要新增的話,得先到佔用的角色那邊移除一筆。`
-                    : '這個等級的配額已經被你在這次選取的項目用完了,先取消其中一筆才能再選別的。'}
-                </p>
-                <div className="flex flex-wrap justify-end gap-2">
-                  <Button type="button" variant="outline" size="sm" onClick={() => setQuotaWarningLevel(null)}>
-                    確認
-                  </Button>
-                  {trackedVipCountsByLevel[quotaWarningLevel] > 0 && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => {
-                        setQuotaWarningLevel(null);
-                        setStep('vip-overview');
-                      }}
-                    >
-                      前往帳號總覽
-                    </Button>
-                  )}
-                </div>
-              </div>
-            )}
 
             <DialogFooter>
               <Button
@@ -260,69 +232,75 @@ export function AddBossDialog({ characterId }: AddBossDialogProps) {
           </div>
         )}
 
-        {step === 'vip-overview' && account?.vipTier && (
-          <div className="space-y-4">
+        {step === 'confirm' && (
+          <div className="flex min-h-0 flex-1 flex-col gap-4">
             <DialogHeader>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="-ml-2 w-fit gap-1.5 self-start text-muted-foreground hover:text-foreground"
-                onClick={() => setStep('vip')}
-              >
-                <ArrowLeft className="size-4" />
-                返回選擇VIP重置卷BOSS
-              </Button>
-              <DialogTitle>「{account.name}」的VIP重置券總覽</DialogTitle>
-              <DialogDescription>
-                配額由帳號底下所有角色共用。想釋出名額,請到佔用的角色的BOSS清單移除對應的VIP重置BOSS。
-              </DialogDescription>
+              <DialogTitle>確認新增BOSS</DialogTitle>
+              <DialogDescription>將新增以下BOSS，請確認以下清單。</DialogDescription>
             </DialogHeader>
 
-            <div className="max-h-[50vh] overflow-y-auto pr-1">
-              <VipQuotaOverview
-                tier={account.vipTier}
-                members={accountMembers.map((c) => ({ id: c.id, name: c.name }))}
-                vipBosses={accountVipBosses}
-              />
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <ConfirmListSection
+                icon={Swords}
+                label="BOSS"
+                count={flatSelections.length}
+                unit="隻"
+                onChange={() => setStep('pick')}
+              >
+                <BossSelectionPreview
+                  selections={flatSelections}
+                  className="max-h-none overflow-visible pr-0"
+                  itemClassName="border-transparent bg-popover"
+                />
+              </ConfirmListSection>
             </div>
+
+            <DialogFooter>
+              <Button type="button" className="w-full" onClick={handleConfirm}>
+                確認新增
+              </Button>
+            </DialogFooter>
           </div>
         )}
 
         {step === 'vip-confirm' && (
-          <div className="space-y-4">
+          // 與新增角色的確認頁同一套版型:標題與按鈕固定,只有中間清單捲動;
+          // 返回改由分區右上角的「變更」承擔,不再另放返回按鈕
+          <div className="flex min-h-0 flex-1 flex-col gap-4">
             <DialogHeader>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="-ml-2 w-fit gap-1.5 self-start text-muted-foreground hover:text-foreground"
-                onClick={() => setStep('vip')}
-              >
-                <ArrowLeft className="size-4" />
-                返回選擇VIP重置卷BOSS
-              </Button>
               <DialogTitle>確認新增VIP重置BOSS</DialogTitle>
               <DialogDescription>將新增以下VIP重置卷BOSS，請確認以下清單。</DialogDescription>
             </DialogHeader>
 
-            <div className="flex flex-col divide-y divide-border rounded-lg border border-border">
-              {flatVipSelections.map(({ ticketLevel, bossCatalogId, difficulty }, index) => (
-                <div key={index} className="flex flex-col gap-1 px-3 py-2.5">
-                  <span className="text-xs text-vip-accent-text">{VIP_TICKET_LEVEL_LABELS[ticketLevel]}</span>
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-sm font-medium">{findBossCatalogEntry(bossCatalogId)?.name ?? bossCatalogId}</span>
-                    <span
-                      className={cn(
-                        'shrink-0 rounded-full px-2 py-0.5 text-xs font-normal',
-                        DIFFICULTY_BADGE_CLASSES[difficulty],
-                      )}
-                    >
-                      {difficulty}
-                    </span>
-                  </div>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <ConfirmListSection
+                icon={Gem}
+                label="VIP重置BOSS"
+                count={flatVipSelections.length}
+                unit="隻"
+                onChange={() => setStep('vip')}
+              >
+                <div className="flex flex-col gap-1.5">
+                  {flatVipSelections.map(({ ticketLevel, bossCatalogId, difficulty }, index) => (
+                    <div key={index} className="flex flex-col gap-1 rounded-md bg-popover px-3 py-2">
+                      <span className="text-xs text-vip-accent-text">{VIP_TICKET_LEVEL_LABELS[ticketLevel]}</span>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-sm font-medium">
+                          {findBossCatalogEntry(bossCatalogId)?.name ?? bossCatalogId}
+                        </span>
+                        <span
+                          className={cn(
+                            'shrink-0 rounded-full px-2 py-0.5 text-xs font-normal',
+                            DIFFICULTY_BADGE_CLASSES[difficulty],
+                          )}
+                        >
+                          {difficulty}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              </ConfirmListSection>
             </div>
 
             <DialogFooter>

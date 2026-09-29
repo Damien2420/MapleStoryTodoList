@@ -25,8 +25,6 @@ interface VipBossCatalogPickerProps {
   trackedGroupKeys: Set<string>;
   /** 整個帳號(所有角色合計)已追蹤中的VIP BOSS,依券等級分組計數;配額是帳號共用的 */
   trackedCountsByLevel: Record<VipTicketLevel, number>;
-  /** 使用者點了「配額已用完」的項目時呼叫;不直接停用按鈕,而是讓呼叫端解釋為什麼加不進去 */
-  onQuotaBlocked: (level: VipTicketLevel) => void;
 }
 
 /** VIP重置券BOSS勾選清單:只在所屬帳號設定過VIP等級時渲染,依券等級分組,只顯示分配張數 > 0 的等級 */
@@ -36,7 +34,6 @@ export function VipBossCatalogPicker({
   onToggle,
   trackedGroupKeys,
   trackedCountsByLevel,
-  onQuotaBlocked,
 }: VipBossCatalogPickerProps) {
   // 只在掛載時決定一次:已追蹤數(不含對話框內的勾選)還沒達到配額的券等級預設展開,
   // 不看勾選數,否則使用者勾到滿額時該區會在眼前自己收起來
@@ -124,20 +121,16 @@ export function VipBossCatalogPicker({
                           const key = buildVipSelectionKey(level, bossCatalogId, difficulty);
                           const active = selections.has(key);
                           const trackedLocked = trackedGroupKeys.has(key);
-                          // 已追蹤中的項目直接鎖住;配額用完只是「視覺上停用」但仍可點擊,
-                          // 點下去由呼叫端解釋原因(配額是帳號共用的,使用者需要知道是誰佔用了)
+                          // 已追蹤中的項目與配額已用完的券等級(已勾選的仍可取消)都直接停用
                           const quotaBlocked = !active && full;
                           const disabled = trackedLocked || quotaBlocked;
                           return (
                             <button
                               key={key}
                               type="button"
-                              disabled={trackedLocked}
-                              aria-disabled={quotaBlocked || undefined}
+                              disabled={disabled}
                               title={trackedLocked ? '此券等級已在追蹤中' : undefined}
-                              onClick={() =>
-                                quotaBlocked ? onQuotaBlocked(level) : onToggle(level, bossCatalogId, difficulty)
-                              }
+                              onClick={() => onToggle(level, bossCatalogId, difficulty)}
                               className={cn(
                                 'rounded-md border px-2.5 py-2 text-xs font-medium outline-none transition-all focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
                                 !disabled && 'hover:scale-105 active:scale-95',
