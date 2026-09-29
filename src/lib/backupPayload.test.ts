@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildBackupPayload, CURRENT_VERSION, migrateToLatest, parseBackupPayload } from '@/lib/backupPayload';
+import { LEGACY_TIMESTAMP } from '@/lib/timestamp';
 
 describe('buildBackupPayload', () => {
   it('組出的 payload 帶有目前版本號與三份墓碑清單', () => {
@@ -10,6 +11,8 @@ describe('buildBackupPayload', () => {
       taskTombstones: [],
       bosses: [],
       bossTombstones: [],
+      accounts: [],
+      accountTombstones: [],
     });
     expect(payload.version).toBe(CURRENT_VERSION);
     expect(payload.characterTombstones).toEqual([{ id: 'c1', deletedAt: '2026-01-01T00:00:00.000Z' }]);
@@ -116,14 +119,67 @@ describe('parseBackupPayload migration v4 -> v5', () => {
   });
 });
 
+describe('parseBackupPayload migration v5 -> v6', () => {
+  it('舊版 v5 備份(沒有帳號欄位)升版後帳號與帳號墓碑皆為空陣列,其餘資料不受影響', () => {
+    const v5Json = JSON.stringify({
+      version: 5,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      characters: [{ id: 'c1', name: 'A', server: '艾麗亞', level: 1, job: 'Warrior', order: 0, source: 'manual' }],
+      characterTombstones: [],
+      tasks: [],
+      taskTombstones: [],
+      bosses: [],
+      bossTombstones: [],
+    });
+    const payload = parseBackupPayload(v5Json);
+    expect(payload.version).toBe(CURRENT_VERSION);
+    expect(payload.accounts).toEqual([]);
+    expect(payload.accountTombstones).toEqual([]);
+    expect(payload.characters).toHaveLength(1);
+  });
+
+  it('v5 以前的資料沒有修改時間,升版後一律補上 LEGACY_TIMESTAMP(視為最舊,不會蓋掉本機)', () => {
+    const lastResetAt = '2026-01-01T00:00:00.000Z';
+    const v5Json = JSON.stringify({
+      version: 5,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      characters: [{ id: 'c1', name: 'A', server: '艾麗亞', level: 1, job: 'Warrior', order: 0, source: 'manual' }],
+      characterTombstones: [],
+      tasks: [
+        { id: 't1', characterId: 'c1', name: '任務', category: '日常', resetCycle: 'daily', checked: false, lastResetAt, order: 0 },
+      ],
+      taskTombstones: [],
+      bosses: [
+        {
+          id: 'b1',
+          characterId: 'c1',
+          bossName: '王',
+          difficulty: '普通',
+          resetCycle: 'weekly',
+          crystalValue: 1,
+          partySize: 1,
+          checked: false,
+          lastResetAt,
+        },
+      ],
+      bossTombstones: [],
+    });
+    const payload = parseBackupPayload(v5Json);
+    expect(payload.characters[0].updatedAt).toBe(LEGACY_TIMESTAMP);
+    expect(payload.characters[0].placementUpdatedAt).toBe(LEGACY_TIMESTAMP);
+    expect(payload.tasks[0].updatedAt).toBe(LEGACY_TIMESTAMP);
+    expect(payload.bosses[0].updatedAt).toBe(LEGACY_TIMESTAMP);
+  });
+});
+
 describe('migrateToLatest 錯誤分支', () => {
   it('版本號比目前支援的最新版還新時,中止並丟出錯誤,不能誤把未來版本的欄位當現有版本解析', () => {
     expect(() => migrateToLatest({ version: CURRENT_VERSION + 1 })).toThrow(
-      '此備份由較新版本的 app 建立,請更新 app 後再還原',
+      '此備份由較新版本的 app 建立,請更新 app 後再匯入',
     );
   });
 
   it('版本號沒有對應的 migration 函式時,中止並丟出錯誤,不能靜默略過造成資料結構不完整', () => {
-    expect(() => migrateToLatest({ version: 0 })).toThrow('不支援從版本 0 升級,請更新 app 或改用該版本的 app 還原');
+    expect(() => migrateToLatest({ version: 0 })).toThrow('不支援從版本 0 升級,請更新 app 或改用該版本的 app 匯入');
   });
 });

@@ -11,6 +11,7 @@ import {
 } from '@/lib/bossCatalog';
 import { findVipMapping, getVipTicketLevelResetCycle } from '@/lib/vipBossCatalog';
 import { trackLocalChange } from '@/lib/trackLocalChange';
+import { syncAcrossTabs } from '@/lib/crossTabSync';
 import {
   type BossBeforePartySize,
   type BossWithPartySize,
@@ -18,6 +19,7 @@ import {
   migrateBossRemoveOrder,
 } from '@/lib/schemaMigrations';
 import { clearTombstone, recordTombstone, type Tombstone } from '@/lib/tombstone';
+import { nextTimestamp } from '@/lib/timestamp';
 
 /** 使用者在新增BOSS對話框中勾選的單筆VIP重置券選取項目 */
 export interface VipBossSelection {
@@ -73,6 +75,7 @@ export const useBossStore = create<BossState>()(
               partySize: 1,
               checked: false,
               lastResetAt: now,
+              updatedAt: now,
             });
           }
           const otherCharacters = state.bosses.filter((b) => b.characterId !== characterId);
@@ -106,6 +109,7 @@ export const useBossStore = create<BossState>()(
               partySize: 1,
               checked: false,
               lastResetAt: now,
+              updatedAt: now,
             });
           }
           const otherCharacters = state.bosses.filter((b) => b.characterId !== characterId);
@@ -118,17 +122,26 @@ export const useBossStore = create<BossState>()(
         set((state) => ({
           bosses: state.bosses.map((b) =>
             b.id === id
-              ? { ...b, checked: !b.checked, lastResetAt: !b.checked ? new Date().toISOString() : b.lastResetAt }
+              ? {
+                  ...b,
+                  checked: !b.checked,
+                  lastResetAt: !b.checked ? new Date().toISOString() : b.lastResetAt,
+                  updatedAt: nextTimestamp(b.updatedAt),
+                }
               : b,
           ),
         }));
       },
       toggleBossesByIds: (ids, checked) => {
         const idSet = new Set(ids);
-        const now = new Date().toISOString();
+        const nowDate = new Date();
+        const now = nowDate.toISOString();
         set((state) => ({
+          // 已經是目標狀態的 BOSS 不動,不然會被當成新的修改而在同步時蓋掉其他裝置的變更
           bosses: state.bosses.map((b) =>
-            idSet.has(b.id) ? { ...b, checked, lastResetAt: checked ? now : b.lastResetAt } : b,
+            idSet.has(b.id) && b.checked !== checked
+              ? { ...b, checked, lastResetAt: checked ? now : b.lastResetAt, updatedAt: nextTimestamp(b.updatedAt, nowDate) }
+              : b,
           ),
         }));
       },
@@ -141,7 +154,13 @@ export const useBossStore = create<BossState>()(
       removeBossesByIds: (ids) => {
         if (ids.length === 0) return;
         const idSet = new Set(ids);
-        set((state) => ({ bosses: state.bosses.filter((b) => !idSet.has(b.id)) }));
+        // 與 removeBoss 相同要寫墓碑,否則 VIP 降級時刪掉的 BOSS 會在下次合併 Drive 備份時被加回來
+        set((state) => ({
+          bosses: state.bosses.filter((b) => !idSet.has(b.id)),
+          deletedIds: state.bosses
+            .filter((b) => idSet.has(b.id))
+            .reduce((acc, b) => recordTombstone(acc, b.id), state.deletedIds),
+        }));
       },
       setBossPartySize: (id, partySize) => {
         set((state) => ({
@@ -149,7 +168,8 @@ export const useBossStore = create<BossState>()(
             if (b.id !== id) return b;
             const max = getMaxPartySize(b);
             const clamped = Math.min(Math.max(Math.round(partySize), 1), max);
-            return { ...b, partySize: clamped };
+            if (clamped === b.partySize) return b;
+            return { ...b, partySize: clamped, updatedAt: nextTimestamp(b.updatedAt) };
           }),
         }));
       },
@@ -220,3 +240,4 @@ export const useBossStore = create<BossState>()(
 );
 
 trackLocalChange(useBossStore, (s) => s.bosses);
+syncAcrossTabs(useBossStore, 'maplestory-todolist-bosses');

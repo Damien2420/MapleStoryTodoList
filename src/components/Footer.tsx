@@ -25,10 +25,10 @@ export function Footer() {
             版本紀錄
           </Button>
         </DialogTrigger>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg lg:max-w-3xl">
           <DialogHeader>
             <DialogTitle>版本更新紀錄</DialogTitle>
-            <DialogDescription>好楓寶進度追蹤器的歷史版本變更內容。</DialogDescription>
+            <DialogDescription>好楓寶進度追蹤的歷史版本變更內容。</DialogDescription>
           </DialogHeader>
           <div className="flex max-h-[60vh] flex-col gap-4 overflow-y-auto">
             {CHANGELOG.map((entry) => (

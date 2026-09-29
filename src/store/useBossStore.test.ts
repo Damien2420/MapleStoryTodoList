@@ -14,6 +14,7 @@ function seedBoss() {
         partySize: 1,
         checked: false,
         lastResetAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
       },
     ],
     deletedIds: [],
@@ -47,6 +48,13 @@ describe('useBossStore 墓碑相關行為', () => {
     expect(useBossStore.getState().deletedIds).toHaveLength(1);
     expect(useBossStore.getState().bosses).toEqual([]);
   });
+
+  it('removeBossesByIds 只對實際存在並被刪除的 BOSS 寫入墓碑', () => {
+    seedBoss();
+    useBossStore.getState().removeBossesByIds(['b1', 'not-exist']);
+    expect(useBossStore.getState().deletedIds.map((t) => t.id)).toEqual(['b1']);
+    expect(useBossStore.getState().bosses).toEqual([]);
+  });
 });
 
 describe('useBossStore migration v1 -> v2', () => {
@@ -71,6 +79,7 @@ describe('useBossStore migration v1 -> v2', () => {
               partySize: 1,
               checked: false,
               lastResetAt: '2026-01-01T00:00:00.000Z',
+              updatedAt: '2026-01-01T00:00:00.000Z',
               order: 0,
             },
           ],
@@ -106,6 +115,7 @@ describe('useBossStore migration v2 -> v3', () => {
               partySize: 1,
               checked: false,
               lastResetAt: '2026-01-01T00:00:00.000Z',
+              updatedAt: '2026-01-01T00:00:00.000Z',
               order: 0,
             },
           ],

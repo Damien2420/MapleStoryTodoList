@@ -1,11 +1,14 @@
 import { useRef, useState } from 'react';
-import { ChessKing, ChessQueen, Diamond, Gem, Medal } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { Trash2Icon } from './ui/trash-2-icon';
 import { RefreshCWIcon } from './ui/refresh-cw';
 import { PencilIcon } from './ui/pencil-icon';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { VIP_TIER_BADGE_CLASSES, VIP_TIER_LABELS } from '@/lib/vipBossCatalog';
+import { VIP_TIER_ICONS } from '@/lib/vipTierIcons';
+import { ROUTES } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 import {
   AlertDialog,
@@ -19,10 +22,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { DashboardSummary } from '@/components/DashboardSummary';
 import { CharacterUpdateDialog } from '@/components/CharacterUpdateDialog';
-import { VipTierDialog } from '@/components/VipTierDialog';
-import { useCharacterStore } from '@/store/useCharacterStore';
-import { useTaskStore } from '@/store/useTaskStore';
-import { useBossStore } from '@/store/useBossStore';
+import { useDeleteCharacter } from '@/hooks/useDeleteCharacter';
+import { useAccountStore } from '@/store/useAccountStore';
 import type { Character } from '@/types';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 
@@ -32,26 +33,19 @@ interface AnimatedIconHandle {
   stopAnimation: () => void;
 }
 
-/** VIP會員等級徽章的對應圖示:金牌用獎章、鑽石用鑽石、皇家用后棋、皇家黑用王棋 */
-const VIP_TIER_ICONS = {
-  gold: Medal,
-  diamond: Diamond,
-  royal: ChessQueen,
-  royalBlack: ChessKing,
-} as const;
-
 /** 角色身份橫帶:左側立繪+名稱/伺服器/等級/職業,右側併入任務進度與 BOSS 收益摘要,並提供更新/刪除角色入口 */
 export function CharacterHeader({ character }: { character: Character }) {
-  const removeCharacter = useCharacterStore((s) => s.removeCharacter);
-  const removeTasksForCharacter = useTaskStore((s) => s.removeTasksForCharacter);
-  const removeBossesForCharacter = useBossStore((s) => s.removeBossesForCharacter);
+  const account = useAccountStore((s) => s.accounts.find((a) => a.id === character.accountId));
+  const deleteCharacter = useDeleteCharacter();
+  const navigate = useNavigate();
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
-  const [vipDialogOpen, setVipDialogOpen] = useState(false);
   const updateLabel = character.source === 'api' ? '更新角色資料' : '編輯角色資料';
   const UpdateIcon = character.source === 'api' ? RefreshCWIcon : PencilIcon;
-  const VipTierIcon = character.vipTier && VIP_TIER_ICONS[character.vipTier];
+  // VIP 屬於帳號,角色頁只顯示所屬帳號的等級;未歸類的角色沒有 VIP
+  const vipTier = account?.vipTier;
+  const vipTierIconSrc = vipTier && VIP_TIER_ICONS[vipTier];
 
   // 圖示元件預設只在滑鼠停在圖示本身(很小的範圍)時觸發動畫,這裡改用 ref 手動控制,
   // 讓滑鼠停在整個按鈕範圍就能觸發;手機/桌機版是各自獨立的元件實例,各需一組 ref。
@@ -61,10 +55,11 @@ export function CharacterHeader({ character }: { character: Character }) {
   const desktopDeleteIconRef = useRef<AnimatedIconHandle>(null);
 
   function handleDeleteCharacter() {
-    removeTasksForCharacter(character.id);
-    removeBossesForCharacter(character.id);
-    removeCharacter(character.id);
+    deleteCharacter(character.id);
     setDeleteConfirmOpen(false);
+    // 刪除後回到看板:留在角色頁會直接跳到另一隻角色,容易讓人以為刪錯了
+    navigate(ROUTES.root);
+    toast(`已刪除「${character.name}」`);
   }
 
   return (
@@ -79,17 +74,18 @@ export function CharacterHeader({ character }: { character: Character }) {
             />
           )}
           <div className="min-w-0 flex flex-col gap-0.5">
-            <h2 className="truncate text-lg font-semibold text-foreground" title={character.name}>
+            {/* 角色頁的主標題就是角色名稱 */}
+            <h1 className="truncate text-lg font-semibold text-foreground" title={character.name}>
               {character.name}
-            </h2>
+            </h1>
             <p className="text-sm text-muted-foreground">
               {character.server} · Lv.{character.level}
               {character.job && ` · ${character.job}`}
             </p>
-            {character.vipTier && VipTierIcon && (
-              <Badge variant="secondary" className={cn('mt-1.5 w-fit rounded-sm', VIP_TIER_BADGE_CLASSES[character.vipTier])}>
-                <VipTierIcon className="size-3" />
-                {VIP_TIER_LABELS[character.vipTier]}
+            {vipTier && vipTierIconSrc && (
+              <Badge variant="secondary" className={cn('mt-1.5 w-fit rounded-sm', VIP_TIER_BADGE_CLASSES[vipTier])}>
+                <img src={vipTierIconSrc} alt="" className="size-3" />
+                {VIP_TIER_LABELS[vipTier]}
               </Badge>
             )}
           </div>
@@ -107,17 +103,6 @@ export function CharacterHeader({ character }: { character: Character }) {
           >
             <UpdateIcon ref={mobileUpdateIconRef} size={16} />
             <span className="max-[560px]:hidden">{updateLabel}</span>
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="gap-1.5 text-muted-foreground max-[560px]:w-8 max-[560px]:px-0"
-            aria-label={`設定VIP等級:${character.name}`}
-            onClick={() => setVipDialogOpen(true)}
-          >
-            <Gem className="size-4" />
-            <span className="max-[560px]:hidden">設定VIP等級</span>
           </Button>
           <Button
             type="button"
@@ -149,7 +134,6 @@ export function CharacterHeader({ character }: { character: Character }) {
                 size="icon"
                 className="size-8 text-muted-foreground"
                 aria-label={`${updateLabel}:${character.name}`}
-                title={updateLabel}
                 onClick={() => setUpdateDialogOpen(true)}
                 onMouseEnter={() => desktopUpdateIconRef.current?.startAnimation()}
                 onMouseLeave={() => desktopUpdateIconRef.current?.stopAnimation()}
@@ -158,25 +142,7 @@ export function CharacterHeader({ character }: { character: Character }) {
               </Button>
           </TooltipTrigger>
           <TooltipContent>
-            <p>更新角色資料</p>
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="size-8 text-muted-foreground"
-                aria-label={`設定VIP等級:${character.name}`}
-                title="設定VIP等級"
-                onClick={() => setVipDialogOpen(true)}
-              >
-                <Gem className="size-4" />
-              </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>設定VIP等級</p>
+            <p>{updateLabel}</p>
           </TooltipContent>
         </Tooltip>
         <Tooltip>
@@ -187,7 +153,6 @@ export function CharacterHeader({ character }: { character: Character }) {
                 size="icon"
                 className="size-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                 aria-label={`刪除角色:${character.name}`}
-                title="刪除角色"
                 onClick={() => setDeleteConfirmOpen(true)}
                 onMouseEnter={() => desktopDeleteIconRef.current?.startAnimation()}
                 onMouseLeave={() => desktopDeleteIconRef.current?.stopAnimation()}
@@ -196,21 +161,19 @@ export function CharacterHeader({ character }: { character: Character }) {
               </Button>
           </TooltipTrigger>
           <TooltipContent>
-            <p>刪除角色資料</p>
+            <p>刪除角色</p>
           </TooltipContent>
         </Tooltip>
       </div>
 
       <CharacterUpdateDialog character={character} open={updateDialogOpen} onOpenChange={setUpdateDialogOpen} />
 
-      <VipTierDialog character={character} open={vipDialogOpen} onOpenChange={setVipDialogOpen} />
-
       <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>刪除角色「{character.name}」?</AlertDialogTitle>
             <AlertDialogDescription>
-              此動作無法還原,將會刪除此角色以及底下所有任務與 BOSS 的進度紀錄。
+              此動作無法還原,將會刪除此角色以及底下所有任務與 BOSS 的進度紀錄。同步後，其他裝置上的這個角色也會一併刪除。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

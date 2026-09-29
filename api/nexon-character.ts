@@ -30,8 +30,8 @@ function errorBody(error: string, message: string): ErrorBody {
 function withImageSize(imageUrl: string): string {
   try {
     const url = new URL(imageUrl);
-    url.searchParams.set('width', '170');
-    url.searchParams.set('height', '170');
+    url.searchParams.set('width', '150');
+    url.searchParams.set('height', '150');
     return url.toString();
   } catch {
     return imageUrl;

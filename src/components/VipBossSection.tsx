@@ -6,12 +6,15 @@ import { Button } from '@/components/ui/button';
 import type { BossCycleKey } from '@/store/useListFilterStore';
 import { CYCLE_BADGE_CLASSES } from '@/lib/cycleBadge';
 import { isWeeklyRevenueExcluded, WEEKLY_BOSS_LIMIT } from '@/lib/bossCatalog';
-import { getVipAllocation, VIP_TICKET_LEVEL_LABELS, VIP_TICKET_LEVELS } from '@/lib/vipBossCatalog';
+import { VIP_TICKET_LEVEL_LABELS, VIP_TICKET_LEVELS } from '@/lib/vipBossCatalog';
 import { cn } from '@/lib/utils';
-import type { Character, CharacterBossTrackList } from '@/types';
+import type { CharacterBossTrackList, VipTicketLevel } from '@/types';
 
 interface VipBossSectionProps {
-  character: Character;
+  /** 所屬帳號各券等級的配額(VIP 屬於帳號,配額由帳號內所有角色共用) */
+  allocation: Record<VipTicketLevel, number>;
+  /** 整個帳號(所有角色合計)各券等級已使用的張數 */
+  usedByLevel: Record<VipTicketLevel, number>;
   /** 套用完成狀態篩選後、實際要渲染的VIP BOSS */
   vipBosses: CharacterBossTrackList[];
   /** 未套用篩選的完整VIP BOSS清單,全部完成按鈕與各券等級計數以此為準 */
@@ -25,7 +28,8 @@ interface VipBossSectionProps {
 
 /** VIP重置BOSS區塊:結構比照 BossSection(可收合、全部完成按鈕),但依券等級分組,永遠顯示在清單最上方 */
 export function VipBossSection({
-  character,
+  allocation,
+  usedByLevel,
   vipBosses,
   vipBossesAll,
   weeklyRevenueCountedIds,
@@ -34,7 +38,6 @@ export function VipBossSection({
   onToggleAll,
 }: VipBossSectionProps) {
   const allDone = vipBossesAll.length > 0 && vipBossesAll.every((b) => b.checked);
-  const allocation = getVipAllocation(character.vipTier);
 
   const groups = VIP_TICKET_LEVELS.map((level) => ({
     level,
@@ -80,10 +83,10 @@ export function VipBossSection({
         <>
           <WeeklyRevenueCapHint />
           <div className="flex flex-col gap-3">
-            {groups.map(({ level, cap, all, visible }) => (
+            {groups.map(({ level, cap, visible }) => (
               <div key={level} className="flex flex-col gap-1">
                 <p className="px-1 text-xs font-semibold text-vip-accent-text">
-                  {VIP_TICKET_LEVEL_LABELS[level]} ({all.length}/{cap})
+                  {VIP_TICKET_LEVEL_LABELS[level]} (帳號共用 {usedByLevel[level]}/{cap})
                 </p>
                 <div className="flex flex-col divide-y divide-border">
                   {visible.map((boss) => (

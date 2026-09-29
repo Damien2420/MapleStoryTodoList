@@ -182,6 +182,13 @@ export function isCatalogEntryExpired(entry: BossCatalogEntry, now: Date = new D
   return now.getTime() > end.getTime();
 }
 
+/** BOSS 討伐記錄對應的目錄項目是否已下架(沒有 bossCatalogId 視為未下架) */
+export function isBossExpired(boss: Pick<CharacterBossTrackList, 'bossCatalogId'>, now: Date = new Date()): boolean {
+  if (!boss.bossCatalogId) return false;
+  const entry = findBossCatalogEntry(boss.bossCatalogId);
+  return entry ? isCatalogEntryExpired(entry, now) : false;
+}
+
 /**
  * 蒐集指定角色「追蹤中且未下架」的 BOSS 互斥群組鍵。
  *

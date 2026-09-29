@@ -1,17 +1,25 @@
-import type { BossDifficulty, Character, CharacterBossTrackList, CharacterSource, CharacterTask, ResetCycle } from '@/types';
+import type { Account, BossDifficulty, Character, CharacterBossTrackList, CharacterSource, CharacterTask, ResetCycle, VipTicketLevel } from '@/types';
 import type { Server } from '@/lib/servers';
 import { useCharacterStore } from '@/store/useCharacterStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useBossStore } from '@/store/useBossStore';
-import { migrateBossAddPartySize, migrateBossRemoveOrder, migrateCharacterAddSource } from '@/lib/schemaMigrations';
+import { useAccountStore } from '@/store/useAccountStore';
+import {
+  migrateBossAddPartySize,
+  migrateBossAddUpdatedAt,
+  migrateBossRemoveOrder,
+  migrateCharacterAddAccountId,
+  migrateCharacterAddSource,
+  migrateTaskAddUpdatedAt,
+} from '@/lib/schemaMigrations';
 import type { Tombstone } from '@/lib/tombstone';
 
 /** 目前 app 支援的最新備份格式版本 */
-export const CURRENT_VERSION = 5;
+export const CURRENT_VERSION = 6;
 
 export interface DriveBackupPayload {
   /** 備份格式版本,供未來相容性判斷用 */
-  version: 5;
+  version: 6;
   /** 備份建立時間(ISO 字串) */
   createdAt: string;
   characters: Character[];
@@ -20,6 +28,8 @@ export interface DriveBackupPayload {
   taskTombstones: Tombstone[];
   bosses: CharacterBossTrackList[];
   bossTombstones: Tombstone[];
+  accounts: Account[];
+  accountTombstones: Tombstone[];
 }
 
 /**
@@ -73,6 +83,22 @@ interface BossSnapshotV3 extends BossSnapshotV1 {
   partySize: number;
 }
 
+interface BossSnapshotV4 {
+  id: string;
+  characterId: string;
+  bossName: string;
+  difficulty: BossDifficulty;
+  resetCycle: 'daily' | 'weekly' | 'monthly';
+  weeklyResetDay?: number;
+  category?: 'season' | 'vip';
+  bossCatalogId?: string;
+  vipTicketLevel?: VipTicketLevel;
+  crystalValue: number;
+  partySize: number;
+  checked: boolean;
+  lastResetAt: string;
+}
+
 interface DriveBackupPayloadV1 {
   version: 1;
   createdAt: string;
@@ -108,6 +134,17 @@ interface DriveBackupPayloadV4 {
   bossTombstones: Tombstone[];
 }
 
+interface DriveBackupPayloadV5 {
+  version: 5;
+  createdAt: string;
+  characters: CharacterSnapshotV2[];
+  characterTombstones: Tombstone[];
+  tasks: TaskSnapshotV1[];
+  taskTombstones: Tombstone[];
+  bosses: BossSnapshotV4[];
+  bossTombstones: Tombstone[];
+}
+
 /**
  * 每次 version 破壞性升版時,才新增一個對應的 migrate 函式,例如: 1: (old) => migrateV1ToV2(old as DriveBackupPayloadV1)
  * 若該實體(characters/tasks/bosses)在對應的 persist store(src/store/use*Store.ts)也需要同步升版,
@@ -116,7 +153,7 @@ interface DriveBackupPayloadV4 {
  */
 const MIGRATIONS: Record<
   number,
-  (old: unknown) => DriveBackupPayload | DriveBackupPayloadV2 | DriveBackupPayloadV3 | DriveBackupPayloadV4
+  (old: unknown) => DriveBackupPayload | DriveBackupPayloadV2 | DriveBackupPayloadV3 | DriveBackupPayloadV4 | DriveBackupPayloadV5
 > = {
   1: (old) => {
     const payload = old as DriveBackupPayloadV1;
@@ -136,18 +173,30 @@ const MIGRATIONS: Record<
     const payload = old as DriveBackupPayloadV4;
     return { ...payload, version: 5, bosses: payload.bosses.map(migrateBossRemoveOrder) };
   },
+  5: (old) => {
+    const payload = old as DriveBackupPayloadV5;
+    return {
+      ...payload,
+      version: 6,
+      characters: payload.characters.map(migrateCharacterAddAccountId),
+      tasks: payload.tasks.map(migrateTaskAddUpdatedAt),
+      bosses: payload.bosses.map(migrateBossAddUpdatedAt),
+      accounts: [],
+      accountTombstones: [],
+    };
+  },
 };
 
 /** 把任意版本的備份內容升級到 CURRENT_VERSION;版本較新、或缺少對應 migration 時中止並丟出錯誤 */
 export function migrateToLatest(payload: { version: number }): DriveBackupPayload {
   if (payload.version > CURRENT_VERSION) {
-    throw new Error('此備份由較新版本的 app 建立,請更新 app 後再還原');
+    throw new Error('此備份由較新版本的 app 建立,請更新 app 後再匯入');
   }
   let current: { version: number } = payload;
   while (current.version < CURRENT_VERSION) {
     const migrate = MIGRATIONS[current.version];
     if (!migrate) {
-      throw new Error(`不支援從版本 ${current.version} 升級,請更新 app 或改用該版本的 app 還原`);
+      throw new Error(`不支援從版本 ${current.version} 升級,請更新 app 或改用該版本的 app 匯入`);
     }
     current = migrate(current);
   }
@@ -161,6 +210,8 @@ export interface BuildBackupPayloadInput {
   taskTombstones: Tombstone[];
   bosses: CharacterBossTrackList[];
   bossTombstones: Tombstone[];
+  accounts: Account[];
+  accountTombstones: Tombstone[];
 }
 
 export function buildBackupPayload(input: BuildBackupPayloadInput): DriveBackupPayload {
@@ -181,6 +232,7 @@ export function buildCurrentBackupPayloadJson(): string {
   const { characters, deletedIds: characterTombstones } = useCharacterStore.getState();
   const { tasks, deletedIds: taskTombstones } = useTaskStore.getState();
   const { bosses, deletedIds: bossTombstones } = useBossStore.getState();
+  const { accounts, deletedIds: accountTombstones } = useAccountStore.getState();
   return JSON.stringify(
     buildBackupPayload({
       characters,
@@ -189,6 +241,8 @@ export function buildCurrentBackupPayloadJson(): string {
       taskTombstones,
       bosses,
       bossTombstones,
+      accounts,
+      accountTombstones,
     }),
     null,
     2,

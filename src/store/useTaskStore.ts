@@ -2,9 +2,13 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { CharacterTask, ResetCycle, Settings } from '@/types';
 import { needsReset, isWeekendEventOpen } from '@/lib/reset';
-import { sortTasksByPresetOrder, type PresetTask } from '@/lib/presetTasks';
+import { renumberByPresetOrder, type PresetTask } from '@/lib/presetTasks';
+import { nextOrder } from '@/lib/order';
 import { trackLocalChange } from '@/lib/trackLocalChange';
+import { syncAcrossTabs } from '@/lib/crossTabSync';
 import { clearTombstone, recordTombstone, type Tombstone } from '@/lib/tombstone';
+import { migrateTaskAddUpdatedAt, type TaskBeforeUpdatedAt } from '@/lib/schemaMigrations';
+import { nextTimestamp } from '@/lib/timestamp';
 
 export interface NewTaskInput {
   characterId: string;
@@ -41,7 +45,6 @@ export const useTaskStore = create<TaskState>()(
         const name = input.name.trim();
         const category = input.category.trim() || '未分類';
         if (!name) return;
-        const orderInCharacter = get().tasks.filter((t) => t.characterId === input.characterId).length;
         const task: CharacterTask = {
           id: crypto.randomUUID(),
           characterId: input.characterId,
@@ -52,7 +55,8 @@ export const useTaskStore = create<TaskState>()(
           dueDate: input.dueDate,
           checked: false,
           lastResetAt: new Date().toISOString(),
-          order: orderInCharacter,
+          order: nextOrder(get().tasks.filter((t) => t.characterId === input.characterId)),
+          updatedAt: nextTimestamp(),
         };
         set((state) => ({ tasks: [...state.tasks, task] }));
       },
@@ -71,23 +75,27 @@ export const useTaskStore = create<TaskState>()(
             checked: false,
             lastResetAt: now,
             order: 0,
+            updatedAt: now,
           }));
           const otherCharacters = state.tasks.filter((t) => t.characterId !== characterId);
           const ownExisting = state.tasks.filter((t) => t.characterId === characterId);
           // 每次套用都把「這個角色現有的 + 新增的」preset 任務依目錄順序重新排一次,
-          // 不管分幾批加入都會得到同一個順序;非 preset 的手動任務排到最後,彼此保持原本相對順序
-          const merged = sortTasksByPresetOrder([...ownExisting, ...newTasks]).map((task, index) => ({
-            ...task,
-            order: index,
-          }));
-          return { tasks: [...otherCharacters, ...merged] };
+          // 不管分幾批加入都會得到同一個順序;非 preset 的手動任務排到最後,彼此保持原本相對順序。
+          // 既有任務的 order 被重新編號不算使用者修改,不更新 updatedAt:
+          // 這個順序可以由目錄重新算出來,同步合併後也會再排一次(見 backupMerge 的 renumberPresetTasks)
+          return { tasks: [...otherCharacters, ...renumberByPresetOrder([...ownExisting, ...newTasks])] };
         });
       },
       toggleTask: (id) => {
         set((state) => ({
           tasks: state.tasks.map((t) =>
             t.id === id
-              ? { ...t, checked: !t.checked, lastResetAt: !t.checked ? new Date().toISOString() : t.lastResetAt }
+              ? {
+                  ...t,
+                  checked: !t.checked,
+                  lastResetAt: !t.checked ? new Date().toISOString() : t.lastResetAt,
+                  updatedAt: nextTimestamp(t.updatedAt),
+                }
               : t,
           ),
         }));
@@ -101,7 +109,9 @@ export const useTaskStore = create<TaskState>()(
             if (t.characterId !== characterId || t.category !== category) return t;
             // 週末活動視窗關閉時,批次操作不可繞過個別任務的鎖定(與 TaskItem 的鎖定方向一致,勾選/取消勾選皆鎖)
             if (t.resetCycle === 'biweekly-weekend' && !weekendOpen) return t;
-            return { ...t, checked, lastResetAt: checked ? now : t.lastResetAt };
+            // 已經是目標狀態的任務不動,不然會被當成新的修改而在同步時蓋掉其他裝置的變更
+            if (t.checked === checked) return t;
+            return { ...t, checked, lastResetAt: checked ? now : t.lastResetAt, updatedAt: nextTimestamp(t.updatedAt, nowDate) };
           }),
         }));
       },
@@ -152,13 +162,18 @@ export const useTaskStore = create<TaskState>()(
       name: 'maplestory-todolist-tasks',
       // schema 版本:改動 CharacterTask 持久化結構(改名/刪除/改語意)時 version +1 並補 migrate,
       // 且需同步檢查 backupPayload.ts 的 CURRENT_VERSION/MIGRATIONS 是否也要升版
-      version: 1,
-      migrate: (persistedState) => {
-        const state = persistedState as TaskState;
-        return { ...state, deletedIds: state.deletedIds ?? [] };
+      version: 2,
+      migrate: (persistedState, version) => {
+        const state = persistedState as Omit<TaskState, 'tasks'> & { tasks: TaskBeforeUpdatedAt[] };
+        return {
+          ...state,
+          deletedIds: state.deletedIds ?? [],
+          tasks: version <= 1 ? state.tasks.map(migrateTaskAddUpdatedAt) : (state.tasks as CharacterTask[]),
+        };
       },
     },
   ),
 );
 
 trackLocalChange(useTaskStore, (s) => s.tasks);
+syncAcrossTabs(useTaskStore, 'maplestory-todolist-tasks');

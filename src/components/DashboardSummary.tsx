@@ -5,31 +5,14 @@ import { useTaskStore } from '@/store/useTaskStore';
 import { useBossStore } from '@/store/useBossStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useNow } from '@/hooks/useNow';
-import { isPresetExpired } from '@/lib/presetTasks';
-import {
-  findBossCatalogEntry,
-  getEffectiveCrystalValue,
-  getWeeklyRevenueCountedIds,
-  isCatalogEntryExpired,
-} from '@/lib/bossCatalog';
+import { summarizeCharacterCycles } from '@/lib/characterSummary';
+import { findBossCatalogEntry, isBossExpired } from '@/lib/bossCatalog';
 import { formatCrystalValue } from '@/lib/formatCrystal';
 import { hoursUntilExpiry } from '@/lib/reset';
-import type { Character, CharacterTask } from '@/types';
+import type { Character } from '@/types';
 
 /** 賽季卡的急迫感門檻,沿用 TaskItem 既有的 expiringSoon(<24小時)慣例 */
 const EXPIRY_IMMINENT_HOURS = 24;
-
-/** 任務對應的預設範本是否已下架(沒有 presetId 的任務視為未下架) */
-function isTaskExpired(task: CharacterTask): boolean {
-  return task.presetId ? isPresetExpired(task.presetId) : false;
-}
-
-/** BOSS 討伐記錄對應的目錄項目是否已下架(沒有 bossCatalogId 視為未下架) */
-function isBossExpired(boss: { bossCatalogId?: string }): boolean {
-  if (!boss.bossCatalogId) return false;
-  const entry = findBossCatalogEntry(boss.bossCatalogId);
-  return entry ? isCatalogEntryExpired(entry) : false;
-}
 
 /** 週期卡片內的單一列(任務或BOSS進度);該週期不適用該類型時(如賽季沒有任務)顯示「—」佔位,維持卡片列數一致 */
 function CycleRow({
@@ -112,79 +95,23 @@ export function DashboardSummary({ character, className }: { character: Characte
   const settings = useSettingsStore((s) => s.settings);
   const now = useNow();
 
-  const tasks = useMemo(
-    () => allTasks.filter((t) => t.characterId === character.id && !isTaskExpired(t)),
-    [allTasks, character.id],
-  );
-  const bosses = useMemo(
-    () => allBosses.filter((b) => b.characterId === character.id && !isBossExpired(b)),
-    [allBosses, character.id],
-  );
+  const tasks = useMemo(() => allTasks.filter((t) => t.characterId === character.id), [allTasks, character.id]);
+  const bosses = useMemo(() => allBosses.filter((b) => b.characterId === character.id), [allBosses, character.id]);
 
-  const dailyTasks = useMemo(() => tasks.filter((t) => t.resetCycle === 'daily'), [tasks]);
-  const weeklyTasks = useMemo(() => tasks.filter((t) => t.resetCycle === 'weekly'), [tasks]);
-  const monthlyTasks = useMemo(() => tasks.filter((t) => t.resetCycle === 'monthly'), [tasks]);
-  const seasonTasks = useMemo(() => tasks.filter((t) => t.resetCycle === 'season'), [tasks]);
-  const dailyDoneCount = useMemo(() => dailyTasks.filter((t) => t.checked).length, [dailyTasks]);
-  const weeklyDoneCount = useMemo(() => weeklyTasks.filter((t) => t.checked).length, [weeklyTasks]);
-  const monthlyDoneCount = useMemo(() => monthlyTasks.filter((t) => t.checked).length, [monthlyTasks]);
-  const seasonDoneCount = useMemo(() => seasonTasks.filter((t) => t.checked).length, [seasonTasks]);
+  const summary = useMemo(() => summarizeCharacterCycles(tasks, bosses, now), [tasks, bosses, now]);
+  const { daily, weekly, monthly, season, vip } = summary;
 
-  const dailyBosses = useMemo(() => bosses.filter((b) => b.resetCycle === 'daily'), [bosses]);
-  const weeklyBosses = useMemo(
-    () => bosses.filter((b) => b.resetCycle === 'weekly' && b.category !== 'season' && b.category !== 'vip'),
-    [bosses],
-  );
-  const monthlyBosses = useMemo(
-    () => bosses.filter((b) => b.resetCycle === 'monthly' && b.category !== 'vip'),
-    [bosses],
-  );
-  const seasonBosses = useMemo(() => bosses.filter((b) => b.category === 'season'), [bosses]);
-  const vipBosses = useMemo(() => bosses.filter((b) => b.category === 'vip'), [bosses]);
-  // VIP重置券裡「下/中/上/終極」是每週重置,跟一般週王共用同一個每週收益上限;「每月」不受週上限限制,收益併入每月討伐收益
-  const vipWeeklyBosses = useMemo(() => vipBosses.filter((b) => b.resetCycle === 'weekly'), [vipBosses]);
-  const vipMonthlyBosses = useMemo(() => vipBosses.filter((b) => b.resetCycle === 'monthly'), [vipBosses]);
-  // 討伐進度:該週期已勾選(已討伐)的 BOSS 數 / 該週期未下架的追蹤中 BOSS 總數
-  const dailyDoneBossCount = useMemo(() => dailyBosses.filter((b) => b.checked).length, [dailyBosses]);
-  const weeklyDoneBossCount = useMemo(() => weeklyBosses.filter((b) => b.checked).length, [weeklyBosses]);
-  const monthlyDoneBossCount = useMemo(() => monthlyBosses.filter((b) => b.checked).length, [monthlyBosses]);
-  const seasonDoneBossCount = useMemo(() => seasonBosses.filter((b) => b.checked).length, [seasonBosses]);
-  const vipDoneBossCount = useMemo(() => vipBosses.filter((b) => b.checked).length, [vipBosses]);
-  // 收益只計入已勾選(已討伐)的 BOSS,未勾選不算;收益依攻略人數平分後計算
-  const dailyTotal = useMemo(
-    () => dailyBosses.reduce((sum, b) => sum + (b.checked ? getEffectiveCrystalValue(b) : 0), 0),
-    [dailyBosses],
-  );
-  // 每週收益上限是一般週王+VIP週重置王共用同一個名額,已討伐的王依結晶價值取前 WEEKLY_BOSS_LIMIT 名計入收益
-  const weeklyTotal = useMemo(() => {
-    const weeklyEligibleBosses = [...weeklyBosses, ...vipWeeklyBosses];
-    const countedIds = getWeeklyRevenueCountedIds(weeklyEligibleBosses);
-    return weeklyEligibleBosses.reduce(
-      (sum, b) => sum + (countedIds.has(b.id) ? getEffectiveCrystalValue(b) : 0),
-      0,
-    );
-  }, [weeklyBosses, vipWeeklyBosses]);
-  // 每月收益不受週上限限制,一般月王 + VIP每月重置王一起計算,不單獨拆出VIP那一行
-  const monthlyTotal = useMemo(
-    () =>
-      [...monthlyBosses, ...vipMonthlyBosses].reduce(
-        (sum, b) => sum + (b.checked ? getEffectiveCrystalValue(b) : 0),
-        0,
-      ),
-    [monthlyBosses, vipMonthlyBosses],
-  );
-
-  const dailyHasTask = dailyTasks.length > 0;
-  const dailyHasBoss = dailyBosses.length > 0;
-  const weeklyHasTask = weeklyTasks.length > 0;
-  const weeklyHasBoss = weeklyBosses.length > 0;
-  const monthlyHasTask = monthlyTasks.length > 0;
-  const monthlyHasBoss = monthlyBosses.length > 0;
-  const seasonHasTask = seasonTasks.length > 0;
-  const seasonHasBoss = seasonBosses.length > 0;
-  const vipHasBoss = vipBosses.length > 0;
+  const dailyHasTask = daily.taskTotal > 0;
+  const dailyHasBoss = daily.bossTotal > 0;
+  const weeklyHasTask = weekly.taskTotal > 0;
+  const weeklyHasBoss = weekly.bossTotal > 0;
+  const monthlyHasTask = monthly.taskTotal > 0;
+  const monthlyHasBoss = monthly.bossTotal > 0;
+  const seasonHasTask = season.taskTotal > 0;
+  const seasonHasBoss = season.bossTotal > 0;
+  const vipHasBoss = vip.bossTotal > 0;
   // 本月討伐收益行是否顯示:一般月王或VIP每月重置王任一有追蹤即顯示(兩者收益已併計)
-  const monthlyHasRevenue = monthlyHasBoss || vipMonthlyBosses.length > 0;
+  const monthlyHasRevenue = monthly.revenue !== undefined;
 
   const dailyHasCard = dailyHasTask || dailyHasBoss;
   const weeklyHasCard = weeklyHasTask || weeklyHasBoss;
@@ -194,26 +121,22 @@ export function DashboardSummary({ character, className }: { character: Characte
 
   // 每日一定在當天結束前重置,永遠顯示急迫感標籤沒有意義,不提供;週/月改用「今天是不是重置日」判斷
   // (重置時間固定 00:00,直接比對星期幾/日期即可;賽季改用「距離賽季實際截止日期」判斷,沿用 TaskItem 既有的 expiringSoon 慣例)
-  const weeklyAllDone =
-    (!weeklyHasTask || weeklyDoneCount === weeklyTasks.length) &&
-    (!weeklyHasBoss || weeklyDoneBossCount === weeklyBosses.length);
+  const weeklyAllDone = weekly.taskDone === weekly.taskTotal && weekly.bossDone === weekly.bossTotal;
   const weeklyUrgent = weeklyHasCard && !weeklyAllDone && now.getDay() === settings.weeklyResetDay;
 
-  const monthlyAllDone =
-    (!monthlyHasTask || monthlyDoneCount === monthlyTasks.length) &&
-    (!monthlyHasBoss || monthlyDoneBossCount === monthlyBosses.length);
+  const monthlyAllDone = monthly.taskDone === monthly.taskTotal && monthly.bossDone === monthly.bossTotal;
   const monthlyUrgent = monthlyHasCard && !monthlyAllDone && now.getDate() === 1;
 
-  // 賽季沒有固定重置時間,改抓角色追蹤中的賽季 BOSS 目錄項目裡最早的截止日期
+  // 賽季沒有固定重置時間,改抓角色追蹤中「未下架」的賽季 BOSS 目錄項目裡最早的截止日期;
+  // 過期的賽季王不能排除在外,否則取最小日期會拿到過去的日期,讓急迫標籤誤亮
   const seasonExpiresAt = useMemo(() => {
-    const dates = seasonBosses
+    const activeSeasonBosses = bosses.filter((b) => b.category === 'season' && !isBossExpired(b, now));
+    const dates = activeSeasonBosses
       .map((b) => (b.bossCatalogId ? findBossCatalogEntry(b.bossCatalogId)?.expiresAt : undefined))
       .filter((d): d is string => !!d);
     return dates.length > 0 ? dates.reduce((min, d) => (d < min ? d : min)) : undefined;
-  }, [seasonBosses]);
-  const seasonAllDone =
-    (!seasonHasTask || seasonDoneCount === seasonTasks.length) &&
-    (!seasonHasBoss || seasonDoneBossCount === seasonBosses.length);
+  }, [bosses, now]);
+  const seasonAllDone = season.taskDone === season.taskTotal && season.bossDone === season.bossTotal;
   const seasonUrgent =
     seasonHasCard &&
     !seasonAllDone &&
@@ -232,10 +155,10 @@ export function DashboardSummary({ character, className }: { character: Characte
             label="每日"
             dotClassName="text-cycle-daily-foreground"
             barClassName="bg-cycle-daily-foreground"
-            taskDone={dailyHasTask ? dailyDoneCount : undefined}
-            taskTotal={dailyHasTask ? dailyTasks.length : undefined}
-            bossDone={dailyHasBoss ? dailyDoneBossCount : undefined}
-            bossTotal={dailyHasBoss ? dailyBosses.length : undefined}
+            taskDone={daily.taskDone}
+            taskTotal={daily.taskTotal}
+            bossDone={daily.bossDone}
+            bossTotal={daily.bossTotal}
           />
         )}
         {weeklyHasCard && (
@@ -245,10 +168,10 @@ export function DashboardSummary({ character, className }: { character: Characte
             dotClassName="text-cycle-weekly-foreground"
             badgeClassName="bg-cycle-weekly text-cycle-weekly-foreground"
             barClassName="bg-cycle-weekly-foreground"
-            taskDone={weeklyHasTask ? weeklyDoneCount : undefined}
-            taskTotal={weeklyHasTask ? weeklyTasks.length : undefined}
-            bossDone={weeklyHasBoss ? weeklyDoneBossCount : undefined}
-            bossTotal={weeklyHasBoss ? weeklyBosses.length : undefined}
+            taskDone={weekly.taskDone}
+            taskTotal={weekly.taskTotal}
+            bossDone={weekly.bossDone}
+            bossTotal={weekly.bossTotal}
           />
         )}
         {monthlyHasCard && (
@@ -258,10 +181,10 @@ export function DashboardSummary({ character, className }: { character: Characte
             dotClassName="text-cycle-monthly-foreground"
             badgeClassName="bg-cycle-monthly text-cycle-monthly-foreground"
             barClassName="bg-cycle-monthly-foreground"
-            taskDone={monthlyHasTask ? monthlyDoneCount : undefined}
-            taskTotal={monthlyHasTask ? monthlyTasks.length : undefined}
-            bossDone={monthlyHasBoss ? monthlyDoneBossCount : undefined}
-            bossTotal={monthlyHasBoss ? monthlyBosses.length : undefined}
+            taskDone={monthly.taskDone}
+            taskTotal={monthly.taskTotal}
+            bossDone={monthly.bossDone}
+            bossTotal={monthly.bossTotal}
           />
         )}
         {seasonHasCard && (
@@ -271,10 +194,10 @@ export function DashboardSummary({ character, className }: { character: Characte
             dotClassName="text-cycle-season-foreground"
             badgeClassName="bg-cycle-season text-cycle-season-foreground"
             barClassName="bg-cycle-season-foreground"
-            taskDone={seasonHasTask ? seasonDoneCount : undefined}
-            taskTotal={seasonHasTask ? seasonTasks.length : undefined}
-            bossDone={seasonHasBoss ? seasonDoneBossCount : undefined}
-            bossTotal={seasonHasBoss ? seasonBosses.length : undefined}
+            taskDone={season.taskDone}
+            taskTotal={season.taskTotal}
+            bossDone={season.bossDone}
+            bossTotal={season.bossTotal}
           />
         )}
         {vipHasCard && (
@@ -282,8 +205,8 @@ export function DashboardSummary({ character, className }: { character: Characte
             label="VIP重置"
             dotClassName="text-cycle-vip-foreground"
             barClassName="bg-cycle-vip-foreground"
-            bossDone={vipDoneBossCount}
-            bossTotal={vipBosses.length}
+            bossDone={vip.bossDone}
+            bossTotal={vip.bossTotal}
           />
         )}
       </div>
@@ -297,7 +220,7 @@ export function DashboardSummary({ character, className }: { character: Characte
                 <span className="truncate">本日討伐收益</span>
               </span>
               <span className="shrink-0 font-semibold tabular-nums text-foreground">
-                ${formatCrystalValue(dailyTotal)}
+                ${formatCrystalValue(daily.revenue!)}
               </span>
             </div>
           )}
@@ -308,7 +231,7 @@ export function DashboardSummary({ character, className }: { character: Characte
                 <span className="truncate">本週討伐收益</span>
               </span>
               <span className="shrink-0 font-semibold tabular-nums text-foreground">
-                ${formatCrystalValue(weeklyTotal)}
+                ${formatCrystalValue(weekly.revenue!)}
               </span>
             </div>
           )}
@@ -319,7 +242,7 @@ export function DashboardSummary({ character, className }: { character: Characte
                 <span className="truncate">本月討伐收益</span>
               </span>
               <span className="shrink-0 font-semibold tabular-nums text-foreground">
-                ${formatCrystalValue(monthlyTotal)}
+                ${formatCrystalValue(monthly.revenue!)}
               </span>
             </div>
           )}

@@ -1,40 +1,27 @@
-import { useEffect, useRef } from 'react';
-import { ArrowLeft, Cloud, UserPlus } from 'lucide-react';
+import { ArrowLeft, ClipboardList, Cloud, Swords, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { AccountPicker } from '@/components/AccountPicker';
+import { ConfirmListSection } from '@/components/ConfirmListSection';
 import { CharacterFormFields } from '@/components/CharacterFormFields';
 import { CharacterLookupResult } from '@/components/CharacterLookupResult';
 import { PresetTaskPicker } from '@/components/PresetTaskPicker';
+import { SelectedAccountSummary } from '@/components/SelectedAccountSummary';
 import { PresetTaskPreview } from '@/components/PresetTaskPreview';
 import { BossCatalogPicker, WeeklyBossLimitHint } from '@/components/BossCatalogPicker';
 import { BossSelectionPreview } from '@/components/BossSelectionPreview';
 import { useAddCharacterFlow } from '@/hooks/useAddCharacterFlow';
 import { resolveSelectedPresetTasks } from '@/lib/presetTasks';
 import { flattenBossSelections } from '@/lib/bossCatalog';
-import { HourglassIcon, type HourglassIconHandle } from './ui/hourglass-icon';
-
-/** HourglassIcon 的單次翻轉動畫時長(秒),查詢中期間會用同一個數字重複觸發動畫 */
-const LOADING_ICON_DURATION = 1;
+import { LoadingHourglass } from '@/components/LoadingHourglass';
 
 /** 首次使用引導畫面:角色數為 0 時顯示,提供 NEXON API 查詢或手動輸入建立第一個角色 */
 export function FirstCharacterOnboarding({ onImport }: { onImport: () => void }) {
   const flow = useAddCharacterFlow();
-  const hourglassRef = useRef<HourglassIconHandle>(null);
-
-  // 查詢中期間持續播放沙漏翻轉動畫:HourglassIcon 的動畫是「觸發一次」,不是自動 loop,
-  // 所以用 interval 每隔一個動畫週期(0.9 * duration 秒)重新觸發一次,做出持續轉動的效果
-  useEffect(() => {
-    if (!flow.lookupLoading) return;
-    hourglassRef.current?.startAnimation();
-    const intervalId = setInterval(() => {
-      hourglassRef.current?.startAnimation();
-    }, LOADING_ICON_DURATION * 900);
-    return () => clearInterval(intervalId);
-  }, [flow.lookupLoading]);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 px-6 text-center overflow-y-auto">
+    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 px-6 py-6 text-center overflow-y-auto">
       {flow.step === 'info' && flow.lookupPhase === 'search' && (
         <>
           <div className="flex size-14 items-center justify-center rounded-full bg-accent text-accent-foreground">
@@ -64,9 +51,7 @@ export function FirstCharacterOnboarding({ onImport }: { onImport: () => void })
             </div>
             {flow.lookupError && <p className="text-sm text-destructive">{flow.lookupError}</p>}
             <Button type="submit" className="gap-1.5" disabled={!flow.name.trim() || flow.lookupLoading}>
-              {flow.lookupLoading && (
-                <HourglassIcon ref={hourglassRef} size={16} duration={LOADING_ICON_DURATION} color="#ffffff" />
-              )}
+              {flow.lookupLoading && <LoadingHourglass />}
               {flow.lookupLoading ? '查詢中…' : '查詢角色'}
             </Button>
             <Button type="button" variant="outline" onClick={flow.switchToManualEntry}>
@@ -213,8 +198,8 @@ export function FirstCharacterOnboarding({ onImport }: { onImport: () => void })
             </Button>
           </div>
         </div>
-      ) : (
-        <div className="flex w-full max-w-sm sm:max-w-md lg:max-w-2xl flex-col gap-4 text-left">
+      ) : flow.step === 'account' ? (
+        <div className="flex w-full max-w-xs sm:max-w-sm flex-col gap-4 text-left">
           <Button
             type="button"
             variant="ghost"
@@ -227,20 +212,68 @@ export function FirstCharacterOnboarding({ onImport }: { onImport: () => void })
           </Button>
 
           <div className="space-y-1.5">
+            <h2 className="text-lg font-semibold text-foreground">選擇帳號</h2>
+            <p className="text-sm text-muted-foreground">選擇角色要加入的帳號，同帳號的角色共用 VIP 等級與重置券。</p>
+          </div>
+
+          <AccountPicker accounts={flow.accounts} value={flow.accountId} onChange={flow.setAccountId} />
+
+          <div className="flex flex-col gap-2">
+            <Button type="button" onClick={() => flow.setStep('confirm')}>
+              前往確認
+            </Button>
+            <Button type="button" variant="outline" onClick={flow.skipAccount}>
+              跳過，不加入帳號
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex w-full max-w-sm sm:max-w-md md:max-w-3xl lg:max-w-4xl flex-col gap-4 text-left">
+          <div className="space-y-1.5">
             <h2 className="text-lg font-semibold text-foreground">確認建立以下內容</h2>
             <p className="text-sm text-muted-foreground">確認無誤後即可建立角色，建立後可再自行調整。</p>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-foreground">預設任務 ( {flow.resolvedPresetTasks.length} )</p>
-              <PresetTaskPreview tasks={flow.resolvedPresetTasks} />
-            </div>
+          {flow.hasAccounts && (
+            <SelectedAccountSummary
+              accountName={flow.selectedAccountName}
+              unassigned={flow.isUnassignedSelected}
+              onChange={() => flow.setStep('account')}
+            />
+          )}
 
-            <div className="space-y-2">
-              <p className="text-sm font-semibold text-foreground">BOSS ( {flow.resolvedBossSelections.length} )</p>
-              <BossSelectionPreview selections={flow.resolvedBossSelections} />
-            </div>
+          {/* 與新增角色 Dialog 的確認頁同一套規則:窄畫面(上下疊)清單不限高,交給整頁捲動;
+              寬畫面(兩欄並排)兩個分區固定同高(25.5rem 約是頁首、上下留白與確認頁其餘內容的高度),清單在分區內捲動 */}
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <ConfirmListSection
+              icon={ClipboardList}
+              label="預設任務"
+              count={flow.resolvedPresetTasks.length}
+              unit="項"
+              onChange={() => flow.setStep('presets')}
+              className="md:h-[min(30rem,calc(100dvh-25.5rem))]"
+            >
+              <PresetTaskPreview
+                tasks={flow.resolvedPresetTasks}
+                className="max-h-none md:min-h-0 md:flex-1"
+                itemClassName="border-transparent bg-background"
+              />
+            </ConfirmListSection>
+
+            <ConfirmListSection
+              icon={Swords}
+              label="BOSS"
+              count={flow.resolvedBossSelections.length}
+              unit="隻"
+              onChange={() => flow.setStep('bosses')}
+              className="md:h-[min(30rem,calc(100dvh-25.5rem))]"
+            >
+              <BossSelectionPreview
+                selections={flow.resolvedBossSelections}
+                className="max-h-none md:min-h-0 md:flex-1"
+                itemClassName="border-transparent bg-background"
+              />
+            </ConfirmListSection>
           </div>
 
           <Button

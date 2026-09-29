@@ -5,6 +5,8 @@ export type ResetCycle = 'daily' | 'weekly' | 'monthly' | 'biweekly-weekend' | '
 
 /** 角色名稱最大長度 */
 export const CHARACTER_NAME_MAX_LENGTH = 20;
+/** 帳號名稱最大長度 */
+export const ACCOUNT_NAME_MAX_LENGTH = 20;
 /** 任務名稱最大長度 */
 export const TASK_NAME_MAX_LENGTH = 20;
 /** 任務分類名稱最大長度 */
@@ -24,8 +26,23 @@ export interface Character {
   imageUrl?: string;
   order: number;
   source: CharacterSource;
-  /** VIP會員等級,未設定代表沒有VIP資格;只會影響「新增BOSS」對話框裡是否顯示VIP重置區塊 */
+  /** 所屬帳號 id,null 代表尚未歸類到任何帳號(未歸類) */
+  accountId: string | null;
+  /** 角色資料(名稱、伺服器、等級、職業、外觀圖、來源)最後修改時間,同步合併時較新者勝 */
+  updatedAt: string;
+  /** 角色位置(所屬帳號、排序)最後修改時間;與 updatedAt 分開,讓「A 裝置改等級、B 裝置搬帳號」兩邊的修改都能保留 */
+  placementUpdatedAt: string;
+}
+
+/** 使用者自訂的角色分組,對應現實中的一個 MapleStory 帳號(一個帳號底下可以有多個角色) */
+export interface Account {
+  id: string;
+  name: string;
+  order: number;
+  /** VIP會員等級,未設定代表這個帳號沒有VIP資格;VIP資格屬於整個帳號,而非個別角色 */
   vipTier?: VipTier;
+  /** 最後修改時間,同步合併時較新者勝 */
+  updatedAt: string;
 }
 
 /** 角色底下的實際任務(勾選狀態、重置時間都是角色獨立的) */
@@ -44,6 +61,8 @@ export interface CharacterTask {
   /** 上次重置勾選狀態的時間(ISO string),用來判斷是否已跨越下一次重置點 */
   lastResetAt: string;
   order: number;
+  /** 使用者最後修改時間(勾選、改名、排序等),同步合併時較新者勝;自動重置不算修改 */
+  updatedAt: string;
 }
 
 /** 重置時間設定 */
@@ -60,7 +79,7 @@ export interface Settings {
 export type BossDifficulty = '簡單' | '普通' | '困難' | '渾沌' | '極限' | '終極';
 
 /** VIP 會員等級,未設定代表沒有VIP資格 */
-export type VipTier = 'gold' | 'diamond' | 'royal' | 'royalBlack';
+export type VipTier = 'silver' | 'gold' | 'diamond' | 'royal' | 'royalBlack';
 
 /** VIP重置券等級:下/中/上/終極為每週重置,每月為每月重置 */
 export type VipTicketLevel = '下' | '中' | '上' | '終極' | '每月';
@@ -86,4 +105,6 @@ export interface CharacterBossTrackList {
   partySize: number;
   checked: boolean;
   lastResetAt: string;
+  /** 使用者最後修改時間(勾選、攻略人數等),同步合併時較新者勝;自動重置不算修改 */
+  updatedAt: string;
 }

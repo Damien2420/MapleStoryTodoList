@@ -1,5 +1,14 @@
-import type { BossDifficulty, CharacterBossTrackList, CharacterSource, VipTicketLevel } from '@/types';
+import type {
+  BossDifficulty,
+  Character,
+  CharacterBossTrackList,
+  CharacterSource,
+  CharacterTask,
+  ResetCycle,
+  VipTicketLevel,
+} from '@/types';
 import type { Server } from '@/lib/servers';
+import { LEGACY_TIMESTAMP } from '@/lib/timestamp';
 
 /**
  * 共用的 schema 升級邏輯:persist store 的 migrate 與 backupPayload 的 MIGRATIONS 都要呼叫同一份,
@@ -21,7 +30,7 @@ export interface CharacterBeforeSource {
   order: number;
 }
 
-/** Character 新增 source 之後的形狀 */
+/** Character 新增 source 之後、accountId 之前的形狀 */
 export interface CharacterWithSource extends CharacterBeforeSource {
   source: CharacterSource;
 }
@@ -31,6 +40,41 @@ export function migrateCharacterAddSource(
   character: CharacterBeforeSource & Partial<Pick<CharacterWithSource, 'source'>>,
 ): CharacterWithSource {
   return { ...character, source: character.source ?? 'manual' };
+}
+
+/**
+ * Character v2 → v3:新增 accountId 欄位,舊資料查無所屬帳號一律視為未歸類;
+ * 同時補上同步合併用的 updatedAt / placementUpdatedAt,舊資料沒有修改紀錄一律視為最舊(LEGACY_TIMESTAMP)
+ */
+export function migrateCharacterAddAccountId(
+  character: CharacterWithSource & Partial<Pick<Character, 'accountId' | 'updatedAt' | 'placementUpdatedAt'>>,
+): Character {
+  return {
+    ...character,
+    accountId: character.accountId ?? null,
+    updatedAt: character.updatedAt ?? LEGACY_TIMESTAMP,
+    placementUpdatedAt: character.placementUpdatedAt ?? LEGACY_TIMESTAMP,
+  };
+}
+
+/** CharacterTask 新增 updatedAt 之前的舊資料形狀 */
+export interface TaskBeforeUpdatedAt {
+  id: string;
+  characterId: string;
+  presetId?: string;
+  name: string;
+  category: string;
+  resetCycle: ResetCycle;
+  weeklyResetDay?: number;
+  dueDate?: string;
+  checked: boolean;
+  lastResetAt: string;
+  order: number;
+}
+
+/** CharacterTask v1 → v2:新增同步合併用的 updatedAt,舊資料沒有修改紀錄一律視為最舊(LEGACY_TIMESTAMP) */
+export function migrateTaskAddUpdatedAt(task: TaskBeforeUpdatedAt & Partial<Pick<CharacterTask, 'updatedAt'>>): CharacterTask {
+  return { ...task, updatedAt: task.updatedAt ?? LEGACY_TIMESTAMP };
 }
 
 /** CharacterBossTrackList v0 : 新增 partySize 欄位之前的舊資料形狀(此時仍保留後來才移除的 order 欄位) */
@@ -69,9 +113,22 @@ export function migrateBossAddPartySize(
 /**
  * CharacterBossTrackList v1 → v2:移除 order 欄位,顯示順序改為每次讀取時依 BOSS_CATALOG 目錄順序即時計算
  * (見 lib/bossCatalog.ts 的 sortTrackedBossesByCatalogOrder),不再需要持久化的排序快取值。
+ * 同時補上同步合併用的 updatedAt(見 migrateBossAddUpdatedAt)。
  */
-export function migrateBossRemoveOrder(boss: BossWithPartySize): CharacterBossTrackList {
+export function migrateBossRemoveOrder(
+  boss: BossWithPartySize & Partial<Pick<CharacterBossTrackList, 'updatedAt'>>,
+): CharacterBossTrackList {
   const { order, ...rest } = boss;
   void order;
-  return rest;
+  return migrateBossAddUpdatedAt(rest);
+}
+
+/** CharacterBossTrackList 移除 order 之後、新增 updatedAt 之前的形狀 */
+export type BossBeforeUpdatedAt = Omit<BossWithPartySize, 'order'>;
+
+/** 補上同步合併用的 updatedAt,舊資料沒有修改紀錄一律視為最舊(LEGACY_TIMESTAMP) */
+export function migrateBossAddUpdatedAt(
+  boss: BossBeforeUpdatedAt & Partial<Pick<CharacterBossTrackList, 'updatedAt'>>,
+): CharacterBossTrackList {
+  return { ...boss, updatedAt: boss.updatedAt ?? LEGACY_TIMESTAMP };
 }

@@ -3,8 +3,17 @@ import { persist } from 'zustand/middleware';
 import type { Character, CharacterSource } from '@/types';
 import type { Server } from '@/lib/servers';
 import { trackLocalChange } from '@/lib/trackLocalChange';
-import { type CharacterBeforeSource, migrateCharacterAddSource } from '@/lib/schemaMigrations';
+import { syncAcrossTabs } from '@/lib/crossTabSync';
+import {
+  type CharacterBeforeSource,
+  type CharacterWithSource,
+  migrateCharacterAddAccountId,
+  migrateCharacterAddSource,
+} from '@/lib/schemaMigrations';
 import { recordTombstone, type Tombstone } from '@/lib/tombstone';
+import { applyCharacterLayout, type CharacterContainer } from '@/lib/accountLayout';
+import { nextTimestamp } from '@/lib/timestamp';
+import { nextOrder } from '@/lib/order';
 
 export interface NewCharacterInput {
   name: string;
@@ -13,11 +22,13 @@ export interface NewCharacterInput {
   job: string;
   imageUrl?: string;
   source: CharacterSource;
+  /** 要歸屬的帳號;省略或 null 代表未歸類。呼叫端負責確認帳號存在(這裡不能 import useAccountStore,會循環引用) */
+  accountId?: string | null;
 }
 
 /** 更新角色資料時可覆寫的欄位:api 來源會全部帶入,manual 來源只會帶名字/伺服器/等級/職業 */
 export type CharacterUpdateInput = Partial<
-  Pick<Character, 'name' | 'server' | 'level' | 'job' | 'imageUrl' | 'vipTier'>
+  Pick<Character, 'name' | 'server' | 'level' | 'job' | 'imageUrl' | 'accountId'>
 >;
 
 interface CharacterState {
@@ -28,8 +39,42 @@ interface CharacterState {
   addCharacter: (input: NewCharacterInput) => string;
   /** 更新既有角色的部分欄位,用於「更新角色」按鈕(api 重新查詢或 manual 手動編輯) */
   updateCharacter: (id: string, patch: CharacterUpdateInput) => void;
+  /**
+   * 一次把多隻角色歸到同一個帳號(accountId 傳 null 代表移出帳號)。
+   * 一次 set() 寫入,不論傳幾隻都只有一次 store 更新與一次 re-render;
+   * 迴圈呼叫 updateCharacter 會是 N 次寫入,trackLocalChange 也會每次都蓋一次 lastLocalChangeAt。
+   * 不存在的 id 直接略過。
+   */
+  assignCharactersToAccount: (ids: string[], accountId: string | null) => void;
+  /**
+   * 把拖曳排出來的結果一次寫回:更新被提到的角色的 accountId 與 order(細節見 applyCharacterLayout)。
+   * 看板的「排序角色」與管理帳號彈窗共用;一次 set(),不論搬幾隻都只有一次 store 更新。
+   */
+  applyCharacterLayout: (containers: CharacterContainer[]) => void;
   removeCharacter: (id: string) => void;
   setActiveCharacter: (id: string) => void;
+}
+
+/**
+ * 套用 updateCharacter 的部分欄位,並依實際有變的欄位更新對應的修改時間:
+ * 角色資料有變才更新 updatedAt,所屬帳號有變才更新 placementUpdatedAt,兩者都沒變就回傳原物件。
+ * @param character 修改前的角色
+ * @param patch 要覆寫的欄位
+ * @returns 修改後的角色
+ */
+function applyCharacterPatch(character: Character, patch: CharacterUpdateInput): Character {
+  const { accountId, ...dataPatch } = patch;
+  const dataChanged = (Object.keys(dataPatch) as (keyof typeof dataPatch)[]).some(
+    (key) => dataPatch[key] !== character[key],
+  );
+  const placementChanged = accountId !== undefined && accountId !== character.accountId;
+  if (!dataChanged && !placementChanged) return character;
+  return {
+    ...character,
+    ...patch,
+    updatedAt: dataChanged ? nextTimestamp(character.updatedAt) : character.updatedAt,
+    placementUpdatedAt: placementChanged ? nextTimestamp(character.placementUpdatedAt) : character.placementUpdatedAt,
+  };
 }
 
 export const useCharacterStore = create<CharacterState>()(
@@ -41,6 +86,7 @@ export const useCharacterStore = create<CharacterState>()(
       addCharacter: (input) => {
         const trimmed = input.name.trim();
         if (!trimmed) return '';
+        const now = nextTimestamp();
         const character: Character = {
           id: crypto.randomUUID(),
           name: trimmed,
@@ -48,8 +94,11 @@ export const useCharacterStore = create<CharacterState>()(
           level: input.level,
           job: input.job,
           imageUrl: input.imageUrl,
-          order: get().characters.length,
+          order: nextOrder(get().characters),
           source: input.source,
+          accountId: input.accountId ?? null,
+          updatedAt: now,
+          placementUpdatedAt: now,
         };
         set((state) => ({
           characters: [...state.characters, character],
@@ -59,8 +108,21 @@ export const useCharacterStore = create<CharacterState>()(
       },
       updateCharacter: (id, patch) => {
         set((state) => ({
-          characters: state.characters.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+          characters: state.characters.map((c) => (c.id === id ? applyCharacterPatch(c, patch) : c)),
         }));
+      },
+      assignCharactersToAccount: (ids, accountId) => {
+        const idSet = new Set(ids);
+        set((state) => ({
+          characters: state.characters.map((c) =>
+            idSet.has(c.id) && c.accountId !== accountId
+              ? { ...c, accountId, placementUpdatedAt: nextTimestamp(c.placementUpdatedAt) }
+              : c,
+          ),
+        }));
+      },
+      applyCharacterLayout: (containers) => {
+        set((state) => ({ characters: applyCharacterLayout(state.characters, containers) }));
       },
       removeCharacter: (id) => {
         set((state) => {
@@ -76,7 +138,7 @@ export const useCharacterStore = create<CharacterState>()(
       name: 'maplestory-todolist-characters',
       // schema 版本:改動 Character 持久化結構(改名/刪除/改語意)時 version +1 並補 migrate,
       // 且需同步檢查 backupPayload.ts 的 CURRENT_VERSION/MIGRATIONS 是否也要升版
-      version: 2,
+      version: 3,
       migrate: (persistedState, version) => {
         const state = persistedState as Omit<CharacterState, 'characters' | 'deletedIds'> & {
           characters: unknown[];
@@ -85,6 +147,9 @@ export const useCharacterStore = create<CharacterState>()(
         let characters = state.characters;
         if (version === 0) {
           characters = (characters as CharacterBeforeSource[]).map(migrateCharacterAddSource);
+        }
+        if (version <= 2) {
+          characters = (characters as CharacterWithSource[]).map(migrateCharacterAddAccountId);
         }
         return {
           ...state,
@@ -97,3 +162,4 @@ export const useCharacterStore = create<CharacterState>()(
 );
 
 trackLocalChange(useCharacterStore, (s) => s.characters);
+syncAcrossTabs(useCharacterStore, 'maplestory-todolist-characters');
