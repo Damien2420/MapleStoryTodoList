@@ -16,10 +16,14 @@ interface PickerCategorySectionProps {
  * 任務/BOSS 選擇清單的捲動面板:用 bg-muted 底色把「可以挑選的區域」跟 Dialog 的標題、按鈕分開,
  * 跟確認頁的歸屬帳號/任務/BOSS 分區同一個視覺語言。裡面放 PickerCategorySection。
  * 面板底色與 PickerCategorySection 的固定標題列底色必須相同,所以兩者放在同一個檔案維護。
+ * 高度固定而非只設上限:展開/收合分類時對話框大小不跟著跳動(分類少的 BOSS 清單尤其明顯)。
+ * 高度取 50vh 與 32rem 較小者,高螢幕上不會變成一大片挑選區。
  * @param props.children 各分類區塊
  */
 export function PickerCategoryList({ children }: { children: ReactNode }) {
-  return <div className="flex min-h-0 max-h-[50vh] flex-col overflow-y-auto rounded-lg bg-muted px-2">{children}</div>;
+  return (
+    <div className="flex h-[min(50vh,32rem)] min-h-0 flex-col overflow-y-auto rounded-lg bg-muted px-2">{children}</div>
+  );
 }
 
 /**
