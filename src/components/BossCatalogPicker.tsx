@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BossAvatar } from '@/components/BossAvatar';
@@ -24,9 +24,11 @@ interface BossCatalogPickerProps {
   trackedGroupKeys: Set<string>;
   /** 該角色已追蹤且計入每週上限的筆數,與對話框內勾選數相加後判斷上限;新增角色流程沒有既有紀錄,省略即為 0 */
   trackedWeeklyCount?: number;
+  /** 工具列右側的內容(例如每週上限徽章),與「全部展開」同一列;省略則工具列只有展開按鈕 */
+  toolbarEnd?: ReactNode;
 }
 
-/** 每週 BOSS 上限提示:固定顯示於描述文字下方,不隨清單捲動;顯示「已追蹤 + 已勾選」的合計,達上限時切換為主色提示已滿 */
+/** 每週 BOSS 上限提示:透過 BossCatalogPicker 的 toolbarEnd 放在「全部展開」同一列右側,不隨清單捲動;顯示「已追蹤 + 已勾選」的合計,達上限時切換為主色提示已滿 */
 export function WeeklyBossLimitHint({
   selections,
   trackedWeeklyCount = 0,
@@ -110,6 +112,7 @@ export function BossCatalogPicker({
   onToggleDifficulty,
   trackedGroupKeys,
   trackedWeeklyCount = 0,
+  toolbarEnd,
 }: BossCatalogPickerProps) {
   const weeklyCount = trackedWeeklyCount + countWeeklyBossSelections(selections);
   const weeklyFull = weeklyCount >= WEEKLY_BOSS_LIMIT;
@@ -136,17 +139,14 @@ export function BossCatalogPicker({
 
   return (
     <div className="flex min-h-0 flex-col gap-3">
-      {/* 與 PresetTaskPicker 的工具列同一個位置與樣式 */}
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="gap-1.5 self-start"
-        onClick={handleToggleAllCategories}
-      >
-        {allOpen ? <ChevronsDownUp className="size-4" /> : <ChevronsUpDown className="size-4" />}
-        {allOpen ? '全部收合' : '全部展開'}
-      </Button>
+      {/* 與 PresetTaskPicker 的工具列同一個位置與樣式;toolbarEnd 靠右放在同一列 */}
+      <div className="flex items-center justify-between gap-2">
+        <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={handleToggleAllCategories}>
+          {allOpen ? <ChevronsDownUp className="size-4" /> : <ChevronsUpDown className="size-4" />}
+          {allOpen ? '全部收合' : '全部展開'}
+        </Button>
+        {toolbarEnd}
+      </div>
 
       <PickerCategoryList>
         {GROUPED_BOSS_CATALOG.map(([label, rows]) => {

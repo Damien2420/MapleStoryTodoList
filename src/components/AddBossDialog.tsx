@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowLeft, Gem, Info, Plus, Swords } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Gem, Info, Plus, Swords } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -168,21 +168,28 @@ export function AddBossDialog({ characterId }: AddBossDialogProps) {
               )}
             </DialogHeader>
 
-            <div className="flex items-center justify-between gap-2">
-              <WeeklyBossLimitHint selections={selections} trackedWeeklyCount={trackedWeeklyCount} />
-              {hasVipTicketAllocation(account?.vipTier) && (
-                <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => setStep('vip')}>
-                  <Gem className="size-4" />
-                  新增VIP重置BOSS
-                </Button>
-              )}
-            </div>
+            {/* VIP 是切換到另一份清單的導覽,做成撐滿寬度的入口列,窄畫面也不會跟其他按鈕擠在一起 */}
+            {hasVipTicketAllocation(account?.vipTier) && (
+              <button
+                type="button"
+                onClick={() => setStep('vip')}
+                className="flex w-full items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-left outline-none transition-colors hover:bg-muted/60 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                <Gem className="size-4 shrink-0" aria-hidden="true" />
+                <span className="flex min-w-0 flex-1 flex-col leading-tight">
+                  <span className="text-sm font-medium">新增VIP重置BOSS</span>
+                  <span className="text-xs text-muted-foreground">追蹤目前帳號的 VIP 重置券額度</span>
+                </span>
+                <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              </button>
+            )}
 
             <BossCatalogPicker
               selections={selections}
               onToggleDifficulty={handleToggleDifficulty}
               trackedGroupKeys={trackedGroupKeys}
               trackedWeeklyCount={trackedWeeklyCount}
+              toolbarEnd={<WeeklyBossLimitHint selections={selections} trackedWeeklyCount={trackedWeeklyCount} />}
             />
 
             <DialogFooter>
