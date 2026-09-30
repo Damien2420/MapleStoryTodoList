@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowLeft, Gem, Info, Plus, Swords } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Gem, Info, Plus, Swords } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -13,11 +13,11 @@ import {
 import { BossCatalogPicker, WeeklyBossLimitHint } from '@/components/BossCatalogPicker';
 import { ConfirmListSection } from '@/components/ConfirmListSection';
 import { VipBossCatalogPicker } from '@/components/VipBossCatalogPicker';
+import { VipTicketIcon } from '@/components/VipTicketIcon';
 import { BossSelectionPreview } from '@/components/BossSelectionPreview';
 import { buildTrackedGroupKeys, countTrackedWeeklyBosses, findBossCatalogEntry, flattenBossSelections } from '@/lib/bossCatalog';
 import { DIFFICULTY_BADGE_CLASSES } from '@/lib/difficultyBadge';
 import {
-  buildTrackedVipGroupKeys,
   buildVipSelectionKey,
   countTrackedVipBossesByLevelForCharacters,
   hasVipTicketAllocation,
@@ -71,7 +71,6 @@ export function AddBossDialog({ characterId }: AddBossDialogProps) {
   const trackedGroupKeys = useMemo(() => buildTrackedGroupKeys(bosses, characterId), [bosses, characterId]);
   // 該角色已追蹤且計入每週上限的筆數,與對話框內勾選數合計判斷 12 筆上限
   const trackedWeeklyCount = useMemo(() => countTrackedWeeklyBosses(bosses, characterId), [bosses, characterId]);
-  const trackedVipGroupKeys = useMemo(() => buildTrackedVipGroupKeys(bosses, characterId), [bosses, characterId]);
   // 配額是帳號共用的:用量要算帳號內所有角色,不只是目前這一隻
   const accountMembers = useMemo(
     () => (account ? characters.filter((c) => c.accountId === account.id) : []),
@@ -169,21 +168,28 @@ export function AddBossDialog({ characterId }: AddBossDialogProps) {
               )}
             </DialogHeader>
 
-            <div className="flex items-center justify-between gap-2">
-              <WeeklyBossLimitHint selections={selections} trackedWeeklyCount={trackedWeeklyCount} />
-              {hasVipTicketAllocation(account?.vipTier) && (
-                <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => setStep('vip')}>
-                  <Gem className="size-4" />
-                  新增VIP重置BOSS
-                </Button>
-              )}
-            </div>
+            {/* VIP 是切換到另一份清單的導覽,做成撐滿寬度的入口列,窄畫面也不會跟其他按鈕擠在一起 */}
+            {hasVipTicketAllocation(account?.vipTier) && (
+              <button
+                type="button"
+                onClick={() => setStep('vip')}
+                className="flex w-full items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-left outline-none transition-colors hover:bg-muted/60 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                <Gem className="size-4 shrink-0" aria-hidden="true" />
+                <span className="flex min-w-0 flex-1 flex-col leading-tight">
+                  <span className="text-sm font-medium">新增VIP重置BOSS</span>
+                  <span className="text-xs text-muted-foreground">追蹤目前帳號的 VIP 重置券額度</span>
+                </span>
+                <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+              </button>
+            )}
 
             <BossCatalogPicker
               selections={selections}
               onToggleDifficulty={handleToggleDifficulty}
               trackedGroupKeys={trackedGroupKeys}
               trackedWeeklyCount={trackedWeeklyCount}
+              toolbarEnd={<WeeklyBossLimitHint selections={selections} trackedWeeklyCount={trackedWeeklyCount} />}
             />
 
             <DialogFooter>
@@ -215,7 +221,6 @@ export function AddBossDialog({ characterId }: AddBossDialogProps) {
               vipTier={account.vipTier}
               selections={vipSelections}
               onToggle={handleToggleVip}
-              trackedGroupKeys={trackedVipGroupKeys}
               trackedCountsByLevel={trackedVipCountsByLevel}
             />
 
@@ -283,7 +288,10 @@ export function AddBossDialog({ characterId }: AddBossDialogProps) {
                 <div className="flex flex-col gap-1.5">
                   {flatVipSelections.map(({ ticketLevel, bossCatalogId, difficulty }, index) => (
                     <div key={index} className="flex flex-col gap-1 rounded-md bg-popover px-3 py-2">
-                      <span className="text-xs text-vip-accent-text">{VIP_TICKET_LEVEL_LABELS[ticketLevel]}</span>
+                      <span className="flex items-center gap-1.5 text-xs text-vip-accent-text">
+                        <VipTicketIcon level={ticketLevel} className="size-5" />
+                        {VIP_TICKET_LEVEL_LABELS[ticketLevel]}
+                      </span>
                       <div className="flex items-center justify-between gap-3">
                         <span className="text-sm font-medium">
                           {findBossCatalogEntry(bossCatalogId)?.name ?? bossCatalogId}

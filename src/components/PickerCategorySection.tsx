@@ -16,10 +16,14 @@ interface PickerCategorySectionProps {
  * 任務/BOSS 選擇清單的捲動面板:用 bg-muted 底色把「可以挑選的區域」跟 Dialog 的標題、按鈕分開,
  * 跟確認頁的歸屬帳號/任務/BOSS 分區同一個視覺語言。裡面放 PickerCategorySection。
  * 面板底色與 PickerCategorySection 的固定標題列底色必須相同,所以兩者放在同一個檔案維護。
+ * 高度固定而非只設上限:展開/收合分類時對話框大小不跟著跳動(分類少的 BOSS 清單尤其明顯)。
+ * 高度取 50vh 與 32rem 較小者,高螢幕上不會變成一大片挑選區。
  * @param props.children 各分類區塊
  */
 export function PickerCategoryList({ children }: { children: ReactNode }) {
-  return <div className="flex min-h-0 max-h-[50vh] flex-col overflow-y-auto rounded-lg bg-muted px-2">{children}</div>;
+  return (
+    <div className="flex h-[min(50vh,32rem)] min-h-0 flex-col overflow-y-auto rounded-lg bg-muted px-2">{children}</div>
+  );
 }
 
 /**
@@ -31,7 +35,8 @@ export function PickerCategoryStatus({ tone, children }: { tone: 'active' | 'mut
   return (
     <span
       className={cn(
-        'rounded-full px-2 text-[11px] leading-5 font-semibold tabular-nums',
+        // 不跟分類名稱一起被壓縮:窄畫面由較長的名稱(例如 VIP 券名)換行讓出寬度,標記維持單行
+        'shrink-0 rounded-full px-2 text-[11px] leading-5 font-semibold whitespace-nowrap tabular-nums',
         // 標題列底色是面板的 bg-muted,灰色標記改用 bg-background 才看得出底
         tone === 'active' ? 'bg-primary/15 text-primary' : 'bg-background text-muted-foreground',
       )}
@@ -65,9 +70,12 @@ export function PickerCategorySection({ label, status, open, onToggle, children 
       >
         <ChevronDown
           aria-hidden="true"
-          className={cn('size-4 shrink-0 text-muted-foreground transition-transform', !open && '-rotate-90')}
+          className={cn(
+            'size-4 shrink-0 text-muted-foreground transition-[rotate,color] duration-200 ease-out-quart group-hover/category:text-primary',
+            !open && '-rotate-90',
+          )}
         />
-        <span className="flex items-center gap-1.5 text-sm font-semibold group-hover/category:text-primary">
+        <span className="flex items-center gap-1.5 text-sm font-semibold transition-colors duration-200 ease-out-quart group-hover/category:text-primary">
           {label}
         </span>
         {status}

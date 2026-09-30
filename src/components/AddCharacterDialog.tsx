@@ -204,12 +204,11 @@ export function AddCharacterDialog() {
               <DialogDescription>勾選要一併追蹤的 BOSS 與難度，或直接跳過。</DialogDescription>
             </DialogHeader>
 
-            <WeeklyBossLimitHint selections={flow.bossSelections} />
-
             <BossCatalogPicker
               selections={flow.bossSelections}
               onToggleDifficulty={flow.toggleBossDifficulty}
               trackedGroupKeys={new Set<string>()}
+              toolbarEnd={<WeeklyBossLimitHint selections={flow.bossSelections} />}
             />
 
             <DialogFooter className="flex-col sm:flex-col">

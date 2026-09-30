@@ -177,12 +177,11 @@ export function FirstCharacterOnboarding({ onImport }: { onImport: () => void })
             <p className="text-sm text-muted-foreground">勾選要一併追蹤的 BOSS 討伐難度。</p>
           </div>
 
-          <WeeklyBossLimitHint selections={flow.bossSelections} />
-
           <BossCatalogPicker
             selections={flow.bossSelections}
             onToggleDifficulty={flow.toggleBossDifficulty}
             trackedGroupKeys={new Set<string>()}
+            toolbarEnd={<WeeklyBossLimitHint selections={flow.bossSelections} />}
           />
 
           <div className="flex flex-col gap-2">

@@ -5,6 +5,7 @@ import { needsMonthlyReset, needsReset } from '@/lib/reset';
 import {
   findBossCatalogEntry,
   findDifficultyOption,
+  getEditableDifficulties,
   getMaxPartySize,
   sortTrackedBossesByCatalogOrder,
   type BossSelection,
@@ -41,6 +42,8 @@ interface BossState {
   removeBossesByIds: (ids: string[]) => void;
   /** 設定指定 BOSS 追蹤紀錄的攻略人數,自動夾在 1 ~ 該難度的 maxPartySize 之間 */
   setBossPartySize: (id: string, partySize: number) => void;
+  /** 將已追蹤 BOSS 換成同週期(VIP 為同券)的另一個難度,收益與人數上限隨新難度調整,勾選狀態保留 */
+  changeBossDifficulty: (id: string, difficulty: BossDifficulty) => void;
   /** 還原被刪除的 BOSS(用於刪除後的 toast 還原按鈕) */
   restoreBoss: (boss: CharacterBossTrackList) => void;
   removeBossesForCharacter: (characterId: string) => void;
@@ -172,6 +175,30 @@ export const useBossStore = create<BossState>()(
             return { ...b, partySize: clamped, updatedAt: nextTimestamp(b.updatedAt) };
           }),
         }));
+      },
+      changeBossDifficulty: (id, difficulty) => {
+        set((state) => {
+          const target = state.bosses.find((b) => b.id === id);
+          if (!target?.bossCatalogId || target.difficulty === difficulty) return state;
+          if (!getEditableDifficulties(target).includes(difficulty)) return state;
+          const entry = findBossCatalogEntry(target.bossCatalogId);
+          const option = entry && findDifficultyOption(entry, difficulty);
+          if (!option) return state;
+          const updated: CharacterBossTrackList = {
+            ...target,
+            difficulty,
+            crystalValue: option.crystalValue,
+            // VIP 的重置星期由券決定,不隨難度變動
+            weeklyResetDay: target.category === 'vip' ? target.weeklyResetDay : option.weeklyResetDay,
+            partySize: Math.min(target.partySize, option.maxPartySize),
+            updatedAt: nextTimestamp(target.updatedAt),
+          };
+          const otherCharacters = state.bosses.filter((b) => b.characterId !== target.characterId);
+          const own = state.bosses
+            .filter((b) => b.characterId === target.characterId)
+            .map((b) => (b.id === id ? updated : b));
+          return { bosses: [...otherCharacters, ...sortTrackedBossesByCatalogOrder(own)] };
+        });
       },
       restoreBoss: (boss) => {
         set((state) =>

@@ -39,6 +39,15 @@ export interface VipBossMapping {
   difficulties: BossDifficulty[];
 }
 
+/** 各券等級對應的圖示(public 目錄下的檔案),尺寸不一,顯示端需自行用固定大小的框統一 */
+export const VIP_TICKET_LEVEL_ICONS: Record<VipTicketLevel, string> = {
+  下: '/vip-reset-weekly-low.png',
+  中: '/vip-reset-weekly-medium.png',
+  上: '/vip-reset-weekly-high.png',
+  終極: '/vip-reset-weekly-ultimate.png',
+  每月: '/vip-reset-monthly.png',
+};
+
 /** 各VIP等級每週(終極/每月除外)可用的重置券張數配置,累加制;銀牌與黃金沒有任何配額,皇家黑比照皇家、不額外增加 */
 export const VIP_TIER_ALLOCATIONS: Record<VipTier, Record<VipTicketLevel, number>> = {
   silver: { 下: 0, 中: 0, 上: 0, 終極: 0, 每月: 0 },
@@ -139,14 +148,4 @@ export function summarizeVipQuota(
     cap += allocation[level];
   }
   return { used, cap };
-}
-
-/** 蒐集指定角色「追蹤中」的VIP群組鍵,用於在新增BOSS對話框中鎖住已追蹤的VIP項目 */
-export function buildTrackedVipGroupKeys(bosses: CharacterBossTrackList[], characterId: string): Set<string> {
-  const keys = new Set<string>();
-  for (const boss of bosses) {
-    if (boss.characterId !== characterId || boss.category !== 'vip' || !boss.vipTicketLevel || !boss.bossCatalogId) continue;
-    keys.add(buildVipSelectionKey(boss.vipTicketLevel, boss.bossCatalogId, boss.difficulty));
-  }
-  return keys;
 }

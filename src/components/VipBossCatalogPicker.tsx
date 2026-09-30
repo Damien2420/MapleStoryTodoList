@@ -2,7 +2,9 @@ import { useState } from 'react';
 import { ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { BossAvatar } from '@/components/BossAvatar';
 import { PickerCategoryList, PickerCategorySection, PickerCategoryStatus } from '@/components/PickerCategorySection';
+import { VipTicketIcon } from '@/components/VipTicketIcon';
 import { findBossCatalogEntry, findDifficultyOption, isCatalogEntryExpired } from '@/lib/bossCatalog';
 import { DIFFICULTY_BADGE_CLASSES } from '@/lib/difficultyBadge';
 import {
@@ -21,8 +23,6 @@ interface VipBossCatalogPickerProps {
   /** 目前已選取的VIP選取鍵集合(buildVipSelectionKey 格式) */
   selections: Set<string>;
   onToggle: (level: VipTicketLevel, bossCatalogId: string, difficulty: BossDifficulty) => void;
-  /** 該角色已追蹤中的VIP群組鍵,對應項目鎖住 */
-  trackedGroupKeys: Set<string>;
   /** 整個帳號(所有角色合計)已追蹤中的VIP BOSS,依券等級分組計數;配額是帳號共用的 */
   trackedCountsByLevel: Record<VipTicketLevel, number>;
 }
@@ -32,7 +32,6 @@ export function VipBossCatalogPicker({
   vipTier,
   selections,
   onToggle,
-  trackedGroupKeys,
   trackedCountsByLevel,
 }: VipBossCatalogPickerProps) {
   // 只在掛載時決定一次:已追蹤數(不含對話框內的勾選)還沒達到配額的券等級預設展開,
@@ -82,7 +81,12 @@ export function VipBossCatalogPicker({
           return (
             <PickerCategorySection
               key={level}
-              label={VIP_TICKET_LEVEL_LABELS[level]}
+              label={
+                <>
+                  <VipTicketIcon level={level} />
+                  {VIP_TICKET_LEVEL_LABELS[level]}
+                </>
+              }
               status={
                 // 已追蹤就佔滿(不含勾選)與 BOSS 的「已全部追蹤」同一個語意;其餘顯示已用/配額
                 trackedCountsByLevel[level] >= cap ? (
@@ -111,29 +115,30 @@ export function VipBossCatalogPicker({
                     <div
                       key={bossCatalogId}
                       className={cn(
-                        'flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 rounded-lg border px-3 py-2',
+                        'flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 rounded-lg border px-3 py-2 transition-colors duration-200 ease-out-quart',
                         hasSelection ? 'border-primary bg-primary/5' : 'border-border bg-popover',
                       )}
                     >
-                      <span className="shrink-0 text-sm font-medium">{entry.name}</span>
-                      <div className="flex flex-wrap gap-1.5">
+                      <span className="flex shrink-0 items-center gap-2 text-sm font-medium">
+                        <BossAvatar bossCatalogId={entry.id} name={entry.name} />
+                        {entry.name}
+                      </span>
+                      <div className="ml-auto flex flex-wrap justify-end gap-1.5">
                         {validDifficulties.map((difficulty) => {
                           const key = buildVipSelectionKey(level, bossCatalogId, difficulty);
                           const active = selections.has(key);
-                          const trackedLocked = trackedGroupKeys.has(key);
-                          // 已追蹤中的項目與配額已用完的券等級(已勾選的仍可取消)都直接停用
-                          const quotaBlocked = !active && full;
-                          const disabled = trackedLocked || quotaBlocked;
+                          // 配額已用完的券等級直接停用(已勾選的仍可取消);同角色允許重複追蹤完全相同的組合
+                          const disabled = !active && full;
                           return (
                             <button
                               key={key}
                               type="button"
                               disabled={disabled}
-                              title={trackedLocked ? '此券等級已在追蹤中' : undefined}
                               onClick={() => onToggle(level, bossCatalogId, difficulty)}
                               className={cn(
-                                'rounded-md border px-2.5 py-2 text-xs font-medium outline-none transition-all focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
-                                !disabled && 'hover:scale-105 active:scale-95',
+                                'rounded-md border px-2.5 py-2 text-xs font-medium outline-none transition-all duration-200 ease-out-quart focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
+                                // 縮放屬於位移動態,使用者開啟「減少動態效果」時只保留顏色變化
+                                !disabled && 'motion-safe:hover:scale-105 motion-safe:active:scale-95',
                                 active
                                   ? cn('border-transparent', DIFFICULTY_BADGE_CLASSES[difficulty])
                                   : disabled

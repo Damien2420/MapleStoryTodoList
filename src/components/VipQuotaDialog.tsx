@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { ChevronRight, Info } from 'lucide-react';
 import { PickerCategoryStatus } from '@/components/PickerCategorySection';
+import { VipTicketIcon } from '@/components/VipTicketIcon';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -82,6 +83,7 @@ function VipQuotaContent({ account, quota }: VipQuotaDialogProps) {
           return (
             <section key={level} className="not-first:border-t not-first:border-border">
               <div className="flex items-center gap-2 pt-2.5 pb-2">
+                <VipTicketIcon level={level} />
                 <h3 className="text-sm font-semibold text-vip-accent-text">{VIP_TICKET_LEVEL_LABELS[level]}</h3>
                 <span className="ml-auto shrink-0">
                   <PickerCategoryStatus tone="muted">

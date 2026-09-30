@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { BossAvatar } from '@/components/BossAvatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { PickerCategoryList, PickerCategorySection, PickerCategoryStatus } from '@/components/PickerCategorySection';
@@ -23,9 +24,11 @@ interface BossCatalogPickerProps {
   trackedGroupKeys: Set<string>;
   /** 該角色已追蹤且計入每週上限的筆數,與對話框內勾選數相加後判斷上限;新增角色流程沒有既有紀錄,省略即為 0 */
   trackedWeeklyCount?: number;
+  /** 工具列右側的內容(例如每週上限徽章),與「全部展開」同一列;省略則工具列只有展開按鈕 */
+  toolbarEnd?: ReactNode;
 }
 
-/** 每週 BOSS 上限提示:固定顯示於描述文字下方,不隨清單捲動;顯示「已追蹤 + 已勾選」的合計,達上限時切換為主色提示已滿 */
+/** 每週 BOSS 上限提示:透過 BossCatalogPicker 的 toolbarEnd 放在「全部展開」同一列右側,不隨清單捲動;顯示「已追蹤 + 已勾選」的合計,達上限時切換為主色提示已滿 */
 export function WeeklyBossLimitHint({
   selections,
   trackedWeeklyCount = 0,
@@ -109,6 +112,7 @@ export function BossCatalogPicker({
   onToggleDifficulty,
   trackedGroupKeys,
   trackedWeeklyCount = 0,
+  toolbarEnd,
 }: BossCatalogPickerProps) {
   const weeklyCount = trackedWeeklyCount + countWeeklyBossSelections(selections);
   const weeklyFull = weeklyCount >= WEEKLY_BOSS_LIMIT;
@@ -135,17 +139,14 @@ export function BossCatalogPicker({
 
   return (
     <div className="flex min-h-0 flex-col gap-3">
-      {/* 與 PresetTaskPicker 的工具列同一個位置與樣式 */}
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="gap-1.5 self-start"
-        onClick={handleToggleAllCategories}
-      >
-        {allOpen ? <ChevronsDownUp className="size-4" /> : <ChevronsUpDown className="size-4" />}
-        {allOpen ? '全部收合' : '全部展開'}
-      </Button>
+      {/* 與 PresetTaskPicker 的工具列同一個位置與樣式;toolbarEnd 靠右放在同一列 */}
+      <div className="flex items-center justify-between gap-2">
+        <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={handleToggleAllCategories}>
+          {allOpen ? <ChevronsDownUp className="size-4" /> : <ChevronsUpDown className="size-4" />}
+          {allOpen ? '全部收合' : '全部展開'}
+        </Button>
+        {toolbarEnd}
+      </div>
 
       <PickerCategoryList>
         {GROUPED_BOSS_CATALOG.map(([label, rows]) => {
@@ -177,12 +178,15 @@ export function BossCatalogPicker({
                     <div
                       key={entry.id}
                       className={cn(
-                        'flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 rounded-lg border px-3 py-2',
+                        'flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 rounded-lg border px-3 py-2 transition-colors duration-200 ease-out-quart',
                         hasSelection ? 'border-primary bg-primary/5' : 'border-border bg-popover',
                       )}
                     >
-                      <span className="shrink-0 text-sm font-medium">{entry.name}</span>
-                      <div className="flex flex-wrap gap-1.5">
+                      <span className="flex shrink-0 items-center gap-2 text-sm font-medium">
+                        <BossAvatar bossCatalogId={entry.id} name={entry.name} />
+                        {entry.name}
+                      </span>
+                      <div className="ml-auto flex flex-wrap justify-end gap-1.5">
                         {options.map((option) => {
                           const active = selectedDifficulties?.has(option.difficulty) ?? false;
                           // 已追蹤鎖定:該角色此王在此週期已有追蹤紀錄,整群(含相同難度)鎖住
@@ -207,8 +211,9 @@ export function BossCatalogPicker({
                               title={trackedLocked ? '此週期已在追蹤中' : undefined}
                               onClick={() => onToggleDifficulty(entry.id, option.difficulty)}
                               className={cn(
-                                'rounded-md border px-2.5 py-2 text-xs font-medium outline-none transition-all focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
-                                !disabled && 'hover:scale-105 active:scale-95',
+                                'rounded-md border px-2.5 py-2 text-xs font-medium outline-none transition-all duration-200 ease-out-quart focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
+                                // 縮放屬於位移動態,使用者開啟「減少動態效果」時只保留顏色變化
+                                !disabled && 'motion-safe:hover:scale-105 motion-safe:active:scale-95',
                                 active
                                   ? cn('border-transparent', DIFFICULTY_BADGE_CLASSES[option.difficulty])
                                   : disabled

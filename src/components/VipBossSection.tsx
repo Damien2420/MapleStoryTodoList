@@ -1,5 +1,6 @@
 import { ChevronDown } from 'lucide-react';
 import { BossItem } from '@/components/BossItem';
+import { VipTicketIcon } from '@/components/VipTicketIcon';
 import { WeeklyRevenueCapHint } from '@/components/WeeklyRevenueCapHint';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -85,8 +86,11 @@ export function VipBossSection({
           <div className="flex flex-col gap-3">
             {groups.map(({ level, cap, visible }) => (
               <div key={level} className="flex flex-col gap-1">
-                <p className="px-1 text-xs font-semibold text-vip-accent-text">
-                  {VIP_TICKET_LEVEL_LABELS[level]} (帳號共用 {usedByLevel[level]}/{cap})
+                <p className="flex items-center gap-1.5 px-1 text-xs font-semibold text-vip-accent-text">
+                  <VipTicketIcon level={level} className="size-5" />
+                  <span>
+                    {VIP_TICKET_LEVEL_LABELS[level]} (帳號共用 {usedByLevel[level]}/{cap})
+                  </span>
                 </p>
                 <div className="flex flex-col divide-y divide-border">
                   {visible.map((boss) => (
