@@ -66,9 +66,12 @@ export function PickerCategorySection({ label, status, open, onToggle, children 
       >
         <ChevronDown
           aria-hidden="true"
-          className={cn('size-4 shrink-0 text-muted-foreground transition-transform', !open && '-rotate-90')}
+          className={cn(
+            'size-4 shrink-0 text-muted-foreground transition-[rotate,color] duration-200 ease-out-quart group-hover/category:text-primary',
+            !open && '-rotate-90',
+          )}
         />
-        <span className="flex items-center gap-1.5 text-sm font-semibold group-hover/category:text-primary">
+        <span className="flex items-center gap-1.5 text-sm font-semibold transition-colors duration-200 ease-out-quart group-hover/category:text-primary">
           {label}
         </span>
         {status}
