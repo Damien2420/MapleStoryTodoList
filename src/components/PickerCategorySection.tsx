@@ -31,7 +31,8 @@ export function PickerCategoryStatus({ tone, children }: { tone: 'active' | 'mut
   return (
     <span
       className={cn(
-        'rounded-full px-2 text-[11px] leading-5 font-semibold tabular-nums',
+        // 不跟分類名稱一起被壓縮:窄畫面由較長的名稱(例如 VIP 券名)換行讓出寬度,標記維持單行
+        'shrink-0 rounded-full px-2 text-[11px] leading-5 font-semibold whitespace-nowrap tabular-nums',
         // 標題列底色是面板的 bg-muted,灰色標記改用 bg-background 才看得出底
         tone === 'active' ? 'bg-primary/15 text-primary' : 'bg-background text-muted-foreground',
       )}
