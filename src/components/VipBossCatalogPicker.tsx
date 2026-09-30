@@ -123,7 +123,7 @@ export function VipBossCatalogPicker({
                         <BossAvatar bossCatalogId={entry.id} name={entry.name} />
                         {entry.name}
                       </span>
-                      <div className="flex flex-wrap gap-1.5">
+                      <div className="ml-auto flex flex-wrap justify-end gap-1.5">
                         {validDifficulties.map((difficulty) => {
                           const key = buildVipSelectionKey(level, bossCatalogId, difficulty);
                           const active = selections.has(key);

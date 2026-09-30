@@ -186,7 +186,7 @@ export function BossCatalogPicker({
                         <BossAvatar bossCatalogId={entry.id} name={entry.name} />
                         {entry.name}
                       </span>
-                      <div className="flex flex-wrap gap-1.5">
+                      <div className="ml-auto flex flex-wrap justify-end gap-1.5">
                         {options.map((option) => {
                           const active = selectedDifficulties?.has(option.difficulty) ?? false;
                           // 已追蹤鎖定:該角色此王在此週期已有追蹤紀錄,整群(含相同難度)鎖住
