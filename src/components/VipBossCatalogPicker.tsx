@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { BossAvatar } from '@/components/BossAvatar';
 import { PickerCategoryList, PickerCategorySection, PickerCategoryStatus } from '@/components/PickerCategorySection';
 import { VipTicketIcon } from '@/components/VipTicketIcon';
 import { findBossCatalogEntry, findDifficultyOption, isCatalogEntryExpired } from '@/lib/bossCatalog';
@@ -118,7 +119,10 @@ export function VipBossCatalogPicker({
                         hasSelection ? 'border-primary bg-primary/5' : 'border-border bg-popover',
                       )}
                     >
-                      <span className="shrink-0 text-sm font-medium">{entry.name}</span>
+                      <span className="flex shrink-0 items-center gap-2 text-sm font-medium">
+                        <BossAvatar bossCatalogId={entry.id} name={entry.name} />
+                        {entry.name}
+                      </span>
                       <div className="flex flex-wrap gap-1.5">
                         {validDifficulties.map((difficulty) => {
                           const key = buildVipSelectionKey(level, bossCatalogId, difficulty);

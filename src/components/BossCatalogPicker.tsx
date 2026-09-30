@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { BossAvatar } from '@/components/BossAvatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { PickerCategoryList, PickerCategorySection, PickerCategoryStatus } from '@/components/PickerCategorySection';
@@ -181,7 +182,10 @@ export function BossCatalogPicker({
                         hasSelection ? 'border-primary bg-primary/5' : 'border-border bg-popover',
                       )}
                     >
-                      <span className="shrink-0 text-sm font-medium">{entry.name}</span>
+                      <span className="flex shrink-0 items-center gap-2 text-sm font-medium">
+                        <BossAvatar bossCatalogId={entry.id} name={entry.name} />
+                        {entry.name}
+                      </span>
                       <div className="flex flex-wrap gap-1.5">
                         {options.map((option) => {
                           const active = selectedDifficulties?.has(option.difficulty) ?? false;

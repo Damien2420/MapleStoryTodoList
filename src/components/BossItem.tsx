@@ -1,6 +1,7 @@
 import { memo, useRef } from 'react';
 import { Hourglass, Minus, Pencil, Plus, RefreshCw, Trash2, User } from 'lucide-react';
 import { toast } from 'sonner';
+import { BossAvatar } from '@/components/BossAvatar';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import {
@@ -195,21 +196,12 @@ export const BossItem = memo(function BossItem({
   return (
     <div
       className={cn(
-        'group relative flex flex-col gap-1 rounded-lg px-2 py-2.5 transition-colors hover:bg-muted/60 @min-[640px]:flex-row @min-[640px]:items-center @min-[640px]:gap-3',
+        'group relative flex items-center gap-2 rounded-lg px-2 py-2.5 transition-colors hover:bg-muted/60',
         boss.checked && 'opacity-60',
       )}
     >
-      {/* 標題列:勾選框 + 王名稱 + 難度標籤,400-640px 這段額外容納攻略人數與刪除鈕
-          點擊只在這個區域生效,避免右側人數、收益、倒數旁邊的空白誤觸勾選;反白高亮則留給整列(見外層 div),
-          讓滑鼠移到任何欄位都看得出目前在哪一列,跟「哪裡可以點」的游標樣式分開表達 */}
-      <div
-        className={cn(
-          'flex cursor-pointer items-center gap-2 @min-[400px]:pr-2 @min-[640px]:min-w-0 @min-[640px]:flex-1',
-          // <400px 時鉛筆與垃圾桶絕對定位在右上角(28+4+28px + 右側 6px),預留空間避免壓到王名與難度標籤
-          canEditDifficulty ? 'pr-17' : 'pr-8',
-        )}
-        onClick={() => toggleBoss(boss.id)}
-      >
+      {/* 左欄:勾選框 + 頭像。<640px 時右欄拆成王名列與數值列兩行,左欄在兩行之間垂直置中 */}
+      <div className="flex shrink-0 cursor-pointer items-center gap-2" onClick={() => toggleBoss(boss.id)}>
         <span className="shrink-0" onClick={(e) => e.stopPropagation()}>
           <Checkbox
             checked={boss.checked}
@@ -218,76 +210,92 @@ export const BossItem = memo(function BossItem({
             className="size-5 rounded-md"
           />
         </span>
-
-        <div className="flex min-w-0 flex-1 items-center gap-2 text-sm leading-snug font-medium">
-          <span className={cn('min-w-0 truncate', boss.checked && 'line-through decoration-muted-foreground')}>
-            {boss.bossName}
-          </span>
-          <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-xs font-normal', DIFFICULTY_BADGE_CLASSES[boss.difficulty])}>
-            {boss.difficulty}
-          </span>
-        </div>
-
-        {showStepper && <div className="hidden @min-[400px]:flex @min-[640px]:hidden" onClick={(e) => e.stopPropagation()}>{stepperControl}</div>}
-
-        <div
-          className="absolute top-1.5 right-1.5 flex items-center gap-1 @min-[400px]:static @min-[400px]:top-auto @min-[400px]:right-auto @min-[640px]:hidden"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {editButton}
-          {deleteButton}
-        </div>
+        <BossAvatar bossCatalogId={boss.bossCatalogId} name={boss.bossName} />
       </div>
 
-      {/* 數值/狀態列:<400px 拆成兩行(攻略人數+收益 / 倒數),400-640px 合併一行(收益+倒數),≥640px 併回單一列 */}
-      <div
-        className="flex flex-col gap-1 pl-7 @min-[400px]:flex-row @min-[400px]:items-center @min-[400px]:gap-3 @min-[400px]:shrink-0 @min-[640px]:pl-0"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex flex-wrap items-center gap-2">
-          {expiresAt !== undefined && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <span
-                  className={cn(
-                    'flex items-center gap-1 text-xs tabular-nums',
-                    expiringSoon ? 'font-semibold text-destructive' : 'text-muted-foreground',
-                  )}
-                >
-                  <Hourglass className="size-3" />
-                  {formatTimeUntilExpiry(expiresAt, now)}
-                </span>
-              </TooltipTrigger>
-              <TooltipContent>{formatExpiryDate(expiresAt)}</TooltipContent>
-            </Tooltip>
+      {/* 右欄:<640px 為王名列 + 數值列上下兩行,≥640px 併回單一列 */}
+      <div className="flex min-w-0 flex-1 flex-col gap-1 @min-[640px]:flex-row @min-[640px]:items-center @min-[640px]:gap-3">
+        {/* 標題列:王名稱 + 難度標籤,400-640px 這段額外容納攻略人數與刪除鈕
+            點擊只在這個區域(與左欄)生效,避免右側人數、收益、倒數旁邊的空白誤觸勾選;反白高亮則留給整列(見外層 div),
+            讓滑鼠移到任何欄位都看得出目前在哪一列,跟「哪裡可以點」的游標樣式分開表達 */}
+        <div
+          className={cn(
+            'flex cursor-pointer items-center gap-2 @min-[400px]:pr-2 @min-[640px]:min-w-0 @min-[640px]:flex-1',
+            // <400px 時鉛筆與垃圾桶絕對定位在右上角(28+4+28px + 右側 6px),預留空間避免壓到王名與難度標籤
+            canEditDifficulty ? 'pr-17' : 'pr-8',
           )}
+          onClick={() => toggleBoss(boss.id)}
+        >
+          <div className="flex min-w-0 flex-1 items-center gap-2 text-sm leading-snug font-medium">
+            <span className={cn('min-w-0 truncate', boss.checked && 'line-through decoration-muted-foreground')}>
+              {boss.bossName}
+            </span>
+            <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-xs font-normal', DIFFICULTY_BADGE_CLASSES[boss.difficulty])}>
+              {boss.difficulty}
+            </span>
+          </div>
 
-          {boss.category !== 'season' && (
-            <>
-              {showStepper && <div className="@min-[400px]:hidden @min-[640px]:mr-4 @min-[640px]:flex">{stepperControl}</div>}
+          {showStepper && <div className="hidden @min-[400px]:flex @min-[640px]:hidden" onClick={(e) => e.stopPropagation()}>{stepperControl}</div>}
 
-              {hideRevenue ? (
-                <span className="text-xs whitespace-nowrap text-muted-foreground @min-[640px]:w-[14em]">不計入收益</span>
-              ) : (
-                <span className="flex items-center gap-1 text-xs tabular-nums whitespace-nowrap text-muted-foreground @min-[640px]:w-[14em]">
-                  <img src="/coin.png" alt="" className="size-4 shrink-0" />
-                  {formatCrystalValue(getEffectiveCrystalValue(boss))}
-                  {boss.partySize > 1 && <span className="shrink-0">(每人)</span>}
-                </span>
-              )}
-            </>
-          )}
+          <div
+            className="absolute top-1.5 right-1.5 flex items-center gap-1 @min-[400px]:static @min-[400px]:top-auto @min-[400px]:right-auto @min-[640px]:hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {editButton}
+            {deleteButton}
+          </div>
         </div>
 
-        <span
-          className={cn(
-            'flex items-center gap-1 text-xs whitespace-nowrap @min-[640px]:w-[10.5em]',
-            resetImminent ? 'font-semibold text-destructive' : 'text-muted-foreground',
-          )}
+        {/* 數值/狀態列:<400px 拆成兩行(攻略人數+收益 / 倒數),400-640px 合併一行(收益+倒數),≥640px 併回單一列 */}
+        <div
+          className="flex flex-col gap-1 @min-[400px]:flex-row @min-[400px]:items-center @min-[400px]:gap-3 @min-[400px]:shrink-0"
+          onClick={(e) => e.stopPropagation()}
         >
-          <RefreshCw className="size-3 shrink-0" />
-          {cycleLabel}
-        </span>
+          <div className="flex flex-wrap items-center gap-2">
+            {expiresAt !== undefined && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    className={cn(
+                      'flex items-center gap-1 text-xs tabular-nums',
+                      expiringSoon ? 'font-semibold text-destructive' : 'text-muted-foreground',
+                    )}
+                  >
+                    <Hourglass className="size-3" />
+                    {formatTimeUntilExpiry(expiresAt, now)}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>{formatExpiryDate(expiresAt)}</TooltipContent>
+              </Tooltip>
+            )}
+
+            {boss.category !== 'season' && (
+              <>
+                {showStepper && <div className="@min-[400px]:hidden @min-[640px]:mr-4 @min-[640px]:flex">{stepperControl}</div>}
+
+                {hideRevenue ? (
+                  <span className="text-xs whitespace-nowrap text-muted-foreground @min-[640px]:w-[14em]">不計入收益</span>
+                ) : (
+                  <span className="flex items-center gap-1 text-xs tabular-nums whitespace-nowrap text-muted-foreground @min-[640px]:w-[14em]">
+                    <img src="/coin.png" alt="" className="size-4 shrink-0" />
+                    {formatCrystalValue(getEffectiveCrystalValue(boss))}
+                    {boss.partySize > 1 && <span className="shrink-0">(每人)</span>}
+                  </span>
+                )}
+              </>
+            )}
+          </div>
+
+          <span
+            className={cn(
+              'flex items-center gap-1 text-xs whitespace-nowrap @min-[640px]:w-[10.5em]',
+              resetImminent ? 'font-semibold text-destructive' : 'text-muted-foreground',
+            )}
+          >
+            <RefreshCw className="size-3 shrink-0" />
+            {cycleLabel}
+          </span>
+        </div>
       </div>
 
       {/* ≥640px 的操作區:沒有更改難度鈕的列留一個空位,讓刪除鈕在每一列都對齊 */}
