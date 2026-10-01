@@ -150,20 +150,21 @@ export function CharacterHeader({
             />
           )}
           <div className="min-w-0 flex flex-col gap-0.5">
-            {/* 角色頁的主標題就是角色名稱 */}
-            <h1 data-morph="name" className="truncate text-lg font-semibold text-foreground" title={character.name}>
-              {character.name}
-            </h1>
+            <div className="flex min-w-0 flex-col items-start gap-1 lg:flex-row lg:items-center lg:gap-2">
+              <h1 data-morph="name" className="max-w-full truncate text-lg font-semibold text-foreground" title={character.name}>
+                {character.name}
+              </h1>
+              {vipTier && vipTierIconSrc && (
+                <Badge variant="secondary" className={cn('shrink-0 rounded-sm', VIP_TIER_BADGE_CLASSES[vipTier])}>
+                  <img src={vipTierIconSrc} alt="" className="size-3" />
+                  {VIP_TIER_LABELS[vipTier]}
+                </Badge>
+              )}
+            </div>
             <p className="text-sm text-muted-foreground">
               {character.server} · Lv.{character.level}
               {character.job && ` · ${character.job}`}
             </p>
-            {vipTier && vipTierIconSrc && (
-              <Badge variant="secondary" className={cn('mt-1.5 w-fit rounded-sm', VIP_TIER_BADGE_CLASSES[vipTier])}>
-                <img src={vipTierIconSrc} alt="" className="size-3" />
-                {VIP_TIER_LABELS[vipTier]}
-              </Badge>
-            )}
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1 max-[560px]:flex-col lg:hidden">
