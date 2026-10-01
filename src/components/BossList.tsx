@@ -52,7 +52,10 @@ function BossSection({
   const allDone = allBosses.length > 0 && allBosses.every((b) => b.checked);
 
   return (
-    <section className="flex flex-col gap-1 rounded-lg border border-border bg-card px-3 py-2.5">
+    <section
+      className="flex scroll-mt-16 flex-col gap-1 rounded-lg border border-border bg-card px-3 py-2.5"
+      data-jump-anchor={`boss-${cycleKey}`}
+    >
       <div className="flex items-center justify-between gap-2">
         <h3 className="flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground">
           <button
@@ -171,7 +174,7 @@ export function BossList({ character }: { character: Character }) {
   const visibleSections = sections.filter((s) => s.bosses.length > 0);
 
   return (
-    <div className="@container flex flex-col gap-6">
+    <div className="@container flex flex-col gap-6" data-jump-list="boss">
       {bosses.length === 0 ? (
         <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed border-border py-16 text-center">
           <Swords className="size-8 text-muted-foreground" strokeWidth={1.5} />
@@ -189,7 +192,7 @@ export function BossList({ character }: { character: Character }) {
             <AddBossDialog characterId={character.id} />
           </div>
 
-          <div className="flex flex-col gap-6 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+          <div className="flex flex-col gap-6 lg:min-h-0 lg:flex-1 lg:overflow-y-auto" data-jump-scroller="boss">
             {vipBosses.length > 0 && (
               <VipBossSection
                 allocation={vipAllocation}

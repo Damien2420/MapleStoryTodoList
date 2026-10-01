@@ -1,3 +1,4 @@
+import { useCallback, useState } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { CharacterTabs } from '@/components/CharacterTabs';
@@ -6,14 +7,32 @@ import { TaskList } from '@/components/TaskList';
 import { BossList } from '@/components/BossList';
 import { BackupStatusBar } from '@/components/BackupStatusBar';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { scrollToCycle, type JumpList } from '@/lib/listJump';
+import { matchesMedia, WIDE_LIST_LAYOUT_QUERY } from '@/lib/media';
 import { ROUTES } from '@/lib/routes';
 import { useCharacterStore } from '@/store/useCharacterStore';
+import type { BossCycleKey } from '@/store/useListFilterStore';
 import { useActiveCharacter } from '@/hooks/useActiveCharacter';
 
 /** 角色頁(路由 /character):角色分頁列、角色摘要、備份狀態列,以及任務/BOSS 清單;顯示哪隻角色由 useCharacterStore 的 activeCharacterId 決定 */
 export function CharacterPage() {
   const activeCharacter = useActiveCharacter();
   const setActiveCharacter = useCharacterStore((s) => s.setActiveCharacter);
+  // 清單分頁改成受控:跳轉磚在窄螢幕要能切到目標清單
+  const [listTab, setListTab] = useState<'tasks' | 'bosses'>('tasks');
+
+  const handleJump = useCallback((cycle: BossCycleKey, lists: JumpList[]) => {
+    if (matchesMedia(WIDE_LIST_LAYOUT_QUERY)) {
+      // 寬螢幕兩欄並排、各自有捲動容器,兩欄各自捲到該週期
+      lists.forEach((list) => scrollToCycle(document, list, cycle, 'container'));
+      return;
+    }
+    const list = lists[0];
+    if (!list) return;
+    setListTab(list === 'task' ? 'tasks' : 'bosses');
+    // 目標分頁原本是 hidden,等切換後的畫面更新再捲動整頁
+    requestAnimationFrame(() => scrollToCycle(document, list, cycle, 'page'));
+  }, []);
 
   // CharacterGuard 已擋掉沒有角色的情況,這裡只是收斂型別
   if (!activeCharacter) return null;
@@ -35,9 +54,9 @@ export function CharacterPage() {
           <CharacterTabs />
         </div>
         <TabsContent value={activeCharacter.id} id={`character-panel-${activeCharacter.id}`} className="contents">
-          <CharacterHeader character={activeCharacter} />
+          <CharacterHeader character={activeCharacter} onJump={handleJump} />
           <BackupStatusBar />
-          <Tabs defaultValue="tasks" className="gap-4">
+          <Tabs value={listTab} onValueChange={(value) => setListTab(value as 'tasks' | 'bosses')} className="gap-4">
             <TabsList className="mx-auto lg:hidden" aria-label="清單類型切換">
               <TabsTrigger value="tasks">任務清單</TabsTrigger>
               <TabsTrigger value="bosses">BOSS 清單</TabsTrigger>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CharacterBossTrackList, CharacterTask } from '@/types';
-import { summarizeCharacterCycles } from '@/lib/characterSummary';
+import { hasAnyTrackedCycle, summarizeCharacterCycles } from '@/lib/characterSummary';
 
 let taskIdCounter = 0;
 function makeTask(overrides: Partial<CharacterTask> = {}): CharacterTask {
@@ -220,5 +220,20 @@ describe('summarizeCharacterCycles', () => {
       expect(summary.monthly.bossTotal).toBe(0);
       expect(summary.monthly.revenue).toBe(500);
     });
+  });
+});
+
+describe('hasAnyTrackedCycle', () => {
+  it('完全沒有任務與 BOSS 時為 false', () => {
+    expect(hasAnyTrackedCycle(summarizeCharacterCycles([], []))).toBe(false);
+  });
+
+  it('任一週期有項目時為 true', () => {
+    expect(hasAnyTrackedCycle(summarizeCharacterCycles([makeTask()], []))).toBe(true);
+    expect(hasAnyTrackedCycle(summarizeCharacterCycles([], [makeBoss()]))).toBe(true);
+  });
+
+  it('只有單次任務(不屬於任何週期)時為 false', () => {
+    expect(hasAnyTrackedCycle(summarizeCharacterCycles([makeTask({ resetCycle: 'once' })], []))).toBe(false);
   });
 });

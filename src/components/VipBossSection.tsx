@@ -48,7 +48,10 @@ export function VipBossSection({
   })).filter((group) => group.all.length > 0);
 
   return (
-    <section className="flex flex-col gap-2 rounded-lg border border-border bg-card px-3 py-2.5">
+    <section
+      className="flex scroll-mt-16 flex-col gap-2 rounded-lg border border-border bg-card px-3 py-2.5"
+      data-jump-anchor="boss-vip"
+    >
       <div className="flex items-center justify-between gap-2">
         <h3 className="flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground">
           <button

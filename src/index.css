@@ -182,6 +182,12 @@
     --difficulty-extreme-foreground: oklch(0.4 0.17 312);
     --difficulty-ultimate: oklch(0.815 0.16 284);
     --difficulty-ultimate-foreground: oklch(0.38 0.18 284);
+
+    /* 動態時長與曲線,沿用 transitions.dev 的 motion tokens;深淺主題共用 */
+    --duration-micro: 80ms;
+    --duration-quick: 150ms;
+    --duration-fast: 250ms;
+    --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .dark {
@@ -283,5 +289,46 @@
     }
   ::-webkit-scrollbar-thumb:hover {
     background-color: var(--muted-foreground);
+    }
+}
+
+@layer components {
+  /*
+   * 週期跳轉按鈕(收合版跳轉磚、展開版週期卡)的 hover 與按下回饋。
+   * 元素需提供 --cf(週期色)與 --cycle-jump-base(靜止底色);底色與邊框色由這裡統一給,
+   * 元素上不要再加 bg-* / border-border,否則 utilities 層會蓋掉 hover/按下的顏色。
+   * hover 只染週期色、不位移;維持扁平不加陰影;按下往下沉 1px,與按鈕一致。
+   */
+  .cycle-jump {
+    border-color: var(--border);
+    background-color: var(--cycle-jump-base);
+    transition:
+      transform var(--duration-quick) var(--ease-smooth-out),
+      background-color var(--duration-quick) var(--ease-smooth-out),
+      border-color var(--duration-quick) var(--ease-smooth-out);
+    }
+  /* hover 只在有滑鼠的裝置生效,手機點完不會卡在 hover 狀態 */
+  @media (hover: hover) and (pointer: fine) {
+    .cycle-jump:hover {
+      border-color: color-mix(in oklch, var(--cf) 50%, var(--border));
+      background-color: color-mix(in oklch, var(--cf) 12%, var(--cycle-jump-base));
+      transition-duration: var(--duration-fast);
+      }
+    }
+  /* 窄螢幕跳出「任務 / BOSS」選單時,開啟選單的那一顆維持 hover 的染色 */
+  .cycle-jump[data-open] {
+    border-color: color-mix(in oklch, var(--cf) 50%, var(--border));
+    background-color: color-mix(in oklch, var(--cf) 12%, var(--cycle-jump-base));
+    }
+  .cycle-jump:active {
+    transform: translateY(1px);
+    border-color: color-mix(in oklch, var(--cf) 60%, var(--border));
+    background-color: color-mix(in oklch, var(--cf) 18%, var(--cycle-jump-base));
+    transition-duration: var(--duration-micro);
+    }
+  @media (prefers-reduced-motion: reduce) {
+    .cycle-jump:active {
+      transform: none;
+      }
     }
 }
