@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { Info } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { CycleJumpTrigger } from '@/components/CycleJumpTrigger';
@@ -52,7 +53,7 @@ function CycleCard({
   onJump,
   label,
   urgentLabel,
-  urgentColor,
+  color,
   dotClassName,
   barClassName,
   taskDone,
@@ -65,8 +66,8 @@ function CycleCard({
   onJump: (cycle: BossCycleKey, lists: JumpList[]) => void;
   label: string;
   urgentLabel?: string;
-  /** 急迫標籤的週期色,例如 'var(--cycle-weekly-foreground)' */
-  urgentColor?: string;
+  /** 週期色,例如 'var(--cycle-weekly-foreground)';用於急迫標籤與 hover/按下的染色 */
+  color: string;
   dotClassName: string;
   barClassName: string;
   taskDone?: number;
@@ -88,11 +89,12 @@ function CycleCard({
       lists={lists}
       onJump={onJump}
       aria-label={`${label}:${progressText}${urgentLabel ? `,${urgentLabel}` : ''},前往清單`}
-      className="flex min-w-36 flex-1 basis-[calc(50%-0.3125rem)] flex-col gap-2 rounded-lg border border-border bg-card p-2.5 text-left outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 lg:basis-[calc(33.3333%-0.41667rem)]"
+      style={{ '--cf': color } as CSSProperties}
+      className="flex min-w-36 flex-1 basis-[calc(50%-0.3125rem)] flex-col gap-2 rounded-lg border p-2.5 text-left outline-none [--cycle-jump-base:var(--card)] focus-visible:ring-3 focus-visible:ring-ring/50 lg:basis-[calc(33.3333%-0.41667rem)]"
     >
       <span className="flex items-baseline justify-between gap-2">
         <span className={cn('text-xs font-bold', dotClassName)}>{label}</span>
-        {urgentLabel && urgentColor && <CycleUrgencyBadge label={urgentLabel} color={urgentColor} />}
+        {urgentLabel && <CycleUrgencyBadge label={urgentLabel} color={color} />}
       </span>
       <CycleRow kind="任務" done={taskDone} total={taskTotal} barClassName={barClassName} />
       <CycleRow kind="BOSS" done={bossDone} total={bossTotal} barClassName={barClassName} />
@@ -158,6 +160,7 @@ export function DashboardSummary({
             lists={listsWithItems(daily)}
             onJump={onJump}
             label="每日"
+            color="var(--cycle-daily-foreground)"
             dotClassName="text-cycle-daily-foreground"
             barClassName="bg-cycle-daily-foreground"
             taskDone={daily.taskDone}
@@ -173,7 +176,7 @@ export function DashboardSummary({
             onJump={onJump}
             label="每週"
             urgentLabel={weeklyUrgent ? URGENCY_LABELS.weekly : undefined}
-            urgentColor="var(--cycle-weekly-foreground)"
+            color="var(--cycle-weekly-foreground)"
             dotClassName="text-cycle-weekly-foreground"
             barClassName="bg-cycle-weekly-foreground"
             taskDone={weekly.taskDone}
@@ -189,7 +192,7 @@ export function DashboardSummary({
             onJump={onJump}
             label="每月"
             urgentLabel={monthlyUrgent ? URGENCY_LABELS.monthly : undefined}
-            urgentColor="var(--cycle-monthly-foreground)"
+            color="var(--cycle-monthly-foreground)"
             dotClassName="text-cycle-monthly-foreground"
             barClassName="bg-cycle-monthly-foreground"
             taskDone={monthly.taskDone}
@@ -205,7 +208,7 @@ export function DashboardSummary({
             onJump={onJump}
             label="賽季"
             urgentLabel={seasonUrgent ? URGENCY_LABELS.season : undefined}
-            urgentColor="var(--cycle-season-foreground)"
+            color="var(--cycle-season-foreground)"
             dotClassName="text-cycle-season-foreground"
             barClassName="bg-cycle-season-foreground"
             taskDone={season.taskDone}
@@ -220,6 +223,7 @@ export function DashboardSummary({
             lists={listsWithItems(vip)}
             onJump={onJump}
             label="VIP重置"
+            color="var(--cycle-vip-foreground)"
             dotClassName="text-cycle-vip-foreground"
             barClassName="bg-cycle-vip-foreground"
             bossDone={vip.bossDone}

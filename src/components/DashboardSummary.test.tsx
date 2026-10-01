@@ -73,10 +73,13 @@ describe('DashboardSummary 週期卡跳轉', () => {
   it('窄螢幕點兩種項目都有的週期時跳出選單,選了再跳轉', () => {
     act(() => card('每日').click());
     expect(onJump).not.toHaveBeenCalled();
+    // 選單開著時,開啟它的那張卡標示 data-open
+    expect(card('每日').hasAttribute('data-open')).toBe(true);
 
     const taskButton = Array.from(document.body.querySelectorAll('button')).find((b) => b.textContent === '任務')!;
     act(() => taskButton.click());
     expect(onJump).toHaveBeenCalledWith('daily', ['task']);
+    expect(card('每日').hasAttribute('data-open')).toBe(false);
   });
 
   it('寬螢幕點兩種項目都有的週期時兩個清單一起跳轉', () => {

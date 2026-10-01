@@ -110,7 +110,7 @@ export function CycleJumpTiles({
             onJump={onJump}
             style={{ '--cf': color } as CSSProperties}
             aria-label={`${label}:${progressText}${urgentText ? `,${urgentText}` : ''},前往清單`}
-            className="@container relative flex min-w-0 flex-col gap-2.5 rounded-md border border-border bg-background px-[7px] pt-[9px] pb-2 text-left outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 lg:max-w-[120px] lg:min-w-[88px] lg:flex-1 lg:basis-0"
+            className="@container relative flex min-w-0 flex-col gap-2.5 rounded-md border px-[7px] pt-[9px] pb-2 text-left outline-none [--cycle-jump-base:var(--background)] focus-visible:ring-3 focus-visible:ring-ring/50 lg:max-w-[120px] lg:min-w-[88px] lg:flex-1 lg:basis-0"
           >
             {urgentText && (
               <CycleUrgencyBadge
