@@ -136,9 +136,8 @@ export function VipBossCatalogPicker({
                               disabled={disabled}
                               onClick={() => onToggle(level, bossCatalogId, difficulty)}
                               className={cn(
-                                'rounded-md border px-2.5 py-2 text-xs font-medium outline-none transition-all duration-200 ease-out-quart focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
-                                // 縮放屬於位移動態,使用者開啟「減少動態效果」時只保留顏色變化
-                                !disabled && 'motion-safe:hover:scale-105 motion-safe:active:scale-95',
+                                'rounded-md border px-2.5 py-2 text-xs font-medium outline-none transition-[color,background-color,border-color,scale] duration-200 ease-out-quart focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
+                                !disabled && 'motion-safe:active:scale-95',
                                 active
                                   ? cn('border-transparent', DIFFICULTY_BADGE_CLASSES[difficulty])
                                   : disabled
