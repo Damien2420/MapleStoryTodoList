@@ -1,10 +1,10 @@
 import { findBossCatalogEntry, isBossExpired } from '@/lib/bossCatalog';
-import type { CycleSummary } from '@/lib/characterSummary';
-import { hoursUntilExpiry } from '@/lib/reset';
-import type { BossCycleKey } from '@/store/useListFilterStore';
-import type { CharacterBossTrackList } from '@/types';
+import { isRegularMonthlyBoss, isRegularWeeklyBoss } from '@/lib/characterSummary';
+import { findPresetExpiresAt, isTaskExpired } from '@/lib/presetTasks';
+import { hoursUntilExpiry, nextResetBoundary } from '@/lib/reset';
+import type { CharacterBossTrackList, CharacterTask, Settings } from '@/types';
 
-/** 賽季的急迫感門檻,沿用 TaskItem 既有的 expiringSoon(<24小時)慣例 */
+/** 距下次重置/截止不到這個時數就顯示急迫標籤,沿用 TaskItem 既有的 expiringSoon(<24小時)慣例 */
 export const EXPIRY_IMMINENT_HOURS = 24;
 
 /** 各週期是否要顯示急迫標籤;每日一定在當天結束前重置、VIP 沒有共同截止時間,所以不提供 */
@@ -21,54 +21,51 @@ export const URGENCY_LABELS: Record<keyof CycleUrgency, string> = {
   season: '即將截止',
 };
 
-function hasItems(cycle: CycleSummary): boolean {
-  return cycle.taskTotal > 0 || cycle.bossTotal > 0;
-}
-
-function isAllDone(cycle: CycleSummary): boolean {
-  return cycle.taskDone === cycle.taskTotal && cycle.bossDone === cycle.bossTotal;
-}
-
-/**
- * 角色追蹤中「未下架」的賽季王裡最早的截止日期。
- * 過期的賽季王要排除,否則取最小日期會拿到過去的日期,讓急迫標籤誤亮。
- * @param bosses 該角色追蹤中的 BOSS
- * @param now 目前時間
- * @returns 最早的截止日期(YYYY-MM-DD),沒有則為 undefined
- */
-function getSeasonExpiresAt(bosses: CharacterBossTrackList[], now: Date): string | undefined {
-  const dates = bosses
-    .filter((b) => b.category === 'season' && !isBossExpired(b, now))
-    .map((b) => (b.bossCatalogId ? findBossCatalogEntry(b.bossCatalogId)?.expiresAt : undefined))
-    .filter((d): d is string => !!d);
-  return dates.length > 0 ? dates.reduce((min, d) => (d < min ? d : min)) : undefined;
-}
-
 /**
  * 判斷每週/每月/賽季是否要顯示急迫標籤,展開版週期卡與收合版跳轉磚共用。
- * 每週:今天是設定的重置日;每月:今天是 1 號;賽季:距最早截止日不到 24 小時。三者都要求該週期有項目且尚未全部完成。
- * 注意:每週比對的是全域重置日而非各項目自己的重置日,這是已知問題,本次刻意維持原行為。
- * @param summary 各週期的進度摘要(summarizeCharacterCycles 的結果)
- * @param bosses 該角色追蹤中的 BOSS,用來找賽季截止日
- * @param weeklyResetDay 設定中的每週重置日(0 = 星期日)
+ * 只看「未完成且未下架」的項目,週期分桶與 summarizeCharacterCycles 一致(VIP 王不算進每週/每月):
+ * - 每週:任一項距它自己的下次重置不到 24 小時(重置日取項目自己的 weeklyResetDay,沒有才用全域設定)
+ * - 每月:有項目且距下次每月重置(1 號)不到 24 小時
+ * - 賽季:任一項距截止日不到 24 小時;任務的截止日取預設範本的 expiresAt,手動建立的沒有範本才用 dueDate
+ * 下次重置時間用 nextResetBoundary 計算,與清單每一列顯示的「剩餘 X 小時」一致。
+ * @param tasks 該角色的任務
+ * @param bosses 該角色追蹤中的 BOSS
+ * @param settings 重置時間設定
  * @param now 目前時間
  * @returns 各週期是否急迫
  */
 export function getCycleUrgency(
-  summary: Record<BossCycleKey, CycleSummary>,
+  tasks: CharacterTask[],
   bosses: CharacterBossTrackList[],
-  weeklyResetDay: number,
+  settings: Settings,
   now: Date,
 ): CycleUrgency {
-  const { weekly, monthly, season } = summary;
-  const seasonExpiresAt = getSeasonExpiresAt(bosses, now);
+  const pendingTasks = tasks.filter((t) => !t.checked && !isTaskExpired(t, now));
+  const pendingBosses = bosses.filter((b) => !b.checked && !isBossExpired(b, now));
+
+  const resetsSoon = (cycle: 'weekly' | 'monthly', weeklyResetDay?: number) =>
+    nextResetBoundary(cycle, settings, now, weeklyResetDay).getTime() - now.getTime() <
+    EXPIRY_IMMINENT_HOURS * 3_600_000;
+  const expiresSoon = (expiresAt: string | undefined) =>
+    expiresAt !== undefined && hoursUntilExpiry(expiresAt, now) < EXPIRY_IMMINENT_HOURS;
+
+  const weeklyItems = [...pendingTasks.filter((t) => t.resetCycle === 'weekly'), ...pendingBosses.filter(isRegularWeeklyBoss)];
+  const hasMonthlyItems =
+    pendingTasks.some((t) => t.resetCycle === 'monthly') || pendingBosses.some(isRegularMonthlyBoss);
+
   return {
-    weekly: hasItems(weekly) && !isAllDone(weekly) && now.getDay() === weeklyResetDay,
-    monthly: hasItems(monthly) && !isAllDone(monthly) && now.getDate() === 1,
+    weekly: weeklyItems.some((item) => resetsSoon('weekly', item.weeklyResetDay)),
+    monthly: hasMonthlyItems && resetsSoon('monthly'),
     season:
-      hasItems(season) &&
-      !isAllDone(season) &&
-      seasonExpiresAt !== undefined &&
-      hoursUntilExpiry(seasonExpiresAt, now) < EXPIRY_IMMINENT_HOURS,
+      pendingTasks.some(
+        (t) =>
+          t.resetCycle === 'season' &&
+          expiresSoon((t.presetId ? findPresetExpiresAt(t.presetId) : undefined) ?? t.dueDate),
+      ) ||
+      pendingBosses.some(
+        (b) =>
+          b.category === 'season' &&
+          expiresSoon(b.bossCatalogId ? findBossCatalogEntry(b.bossCatalogId)?.expiresAt : undefined),
+      ),
   };
 }

@@ -15,15 +15,15 @@ import type { Character } from '@/types';
 export function useCharacterCycles(character: Character) {
   const allTasks = useTaskStore((s) => s.tasks);
   const allBosses = useBossStore((s) => s.bosses);
-  const weeklyResetDay = useSettingsStore((s) => s.settings.weeklyResetDay);
+  const settings = useSettingsStore((s) => s.settings);
   const now = useNow();
 
   const tasks = useMemo(() => allTasks.filter((t) => t.characterId === character.id), [allTasks, character.id]);
   const bosses = useMemo(() => allBosses.filter((b) => b.characterId === character.id), [allBosses, character.id]);
   const summary = useMemo(() => summarizeCharacterCycles(tasks, bosses, now), [tasks, bosses, now]);
   const urgency = useMemo(
-    () => getCycleUrgency(summary, bosses, weeklyResetDay, now),
-    [summary, bosses, weeklyResetDay, now],
+    () => getCycleUrgency(tasks, bosses, settings, now),
+    [tasks, bosses, settings, now],
   );
 
   return { summary, urgency };
