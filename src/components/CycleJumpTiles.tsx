@@ -31,6 +31,8 @@ const LIST_LABELS: Record<JumpList, string> = { task: '任務', boss: 'BOSS' };
  * 後方寫出這一類還剩幾項,做完時以灰色 0 表示。
  * 該週期沒有這類項目時寫「無項目」佔位、圖示一起變淡,讓上條任務、下條 BOSS 的位置固定;
  * 不用虛線佔位,虛線容易被看成載入失敗。
+ * 磚內寬不足 48px(極窄螢幕排 4~5 顆)時進度條只剩一小段,看起來像圓點:改成隱藏進度條但保留它的空間,
+ * 讓剩餘數維持靠右;「無項目」縮成「無」並放到剩餘數的位置。斷點以磚自身寬度判斷(container query)。
  * @param icon 進度條前方的圖示
  * @param done 已完成數
  * @param total 總數
@@ -40,10 +42,13 @@ function ProgressTrack({ icon: Icon, done, total }: { icon: LucideIcon; done: nu
     <span aria-hidden="true" className="flex items-center gap-[3px]">
       <Icon className={cn('size-2.5 shrink-0 text-muted-foreground', total === 0 && 'opacity-40')} strokeWidth={2.5} />
       {total === 0 ? (
-        <span className="flex-1 text-[10px] leading-none text-muted-foreground">無項目</span>
+        <span className="flex-1 text-[10px] leading-none whitespace-nowrap text-muted-foreground @max-[48px]:text-right">
+          <span className="@max-[48px]:hidden">無項目</span>
+          <span className="hidden @max-[48px]:inline">無</span>
+        </span>
       ) : (
         <>
-          <span className="relative h-[7px] flex-1 overflow-hidden rounded-full bg-[color-mix(in_oklch,var(--cf)_25%,var(--card))]">
+          <span className="relative h-[7px] flex-1 overflow-hidden rounded-full @max-[48px]:invisible bg-[color-mix(in_oklch,var(--cf)_25%,var(--card))]">
             <span
               className="absolute inset-y-0 left-0 rounded-full bg-(--cf)"
               style={{ width: `${(done / total) * 100}%` }}
@@ -118,7 +123,7 @@ export function CycleJumpTiles({
                 onClick={() => handleClick(cycle, lists)}
                 style={{ '--cf': color } as CSSProperties}
                 aria-label={`${label}:${progressText}${urgentText ? `,${urgentText}` : ''},前往清單`}
-                className="relative flex min-w-0 flex-col gap-2.5 rounded-md border border-border bg-background px-[7px] pt-[9px] pb-2 text-left outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 lg:max-w-[120px] lg:min-w-[88px] lg:flex-1 lg:basis-0"
+                className="@container relative flex min-w-0 flex-col gap-2.5 rounded-md border border-border bg-background px-[7px] pt-[9px] pb-2 text-left outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 lg:max-w-[120px] lg:min-w-[88px] lg:flex-1 lg:basis-0"
               >
                 {urgentText && (
                   <CycleUrgencyBadge
