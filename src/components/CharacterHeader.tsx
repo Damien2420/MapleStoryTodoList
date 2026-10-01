@@ -46,7 +46,7 @@ interface AnimatedIconHandle {
  * 收合時為精簡身分列加週期跳轉磚與收益列。切換由卡片底部的抽屜把手觸發,狀態所有角色共用並存在這台裝置。
  * 兩種排版都提供更新/刪除角色入口。
  * @param character 目前的角色
- * @param onJump 收合版點擊跳轉磚時呼叫,由 CharacterPage 負責切換清單分頁與捲動
+ * @param onJump 點擊週期卡(展開版)或跳轉磚(收合版)時呼叫,由 CharacterPage 負責切換清單分頁與捲動
  */
 export function CharacterHeader({
   character,
@@ -199,6 +199,7 @@ export function CharacterHeader({
 
       <DashboardSummary
         character={character}
+        onJump={onJump}
         className="min-w-0 flex-1 border-t border-border pt-4 lg:border-t-0 lg:border-l lg:pt-0 lg:pr-8 lg:pl-6"
       />
 

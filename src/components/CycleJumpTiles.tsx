@@ -1,12 +1,10 @@
-import { useState, type CSSProperties } from 'react';
+import type { CSSProperties } from 'react';
 import { Check, ClipboardList, Swords, type LucideIcon } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
+import { CycleJumpTrigger } from '@/components/CycleJumpTrigger';
 import { CycleUrgencyBadge } from '@/components/CycleUrgencyBadge';
 import type { CycleSummary } from '@/lib/characterSummary';
 import { URGENCY_LABELS, type CycleUrgency } from '@/lib/cycleUrgency';
 import { listsWithItems, type JumpList } from '@/lib/listJump';
-import { matchesMedia, WIDE_LIST_LAYOUT_QUERY } from '@/lib/media';
 import { cn } from '@/lib/utils';
 import type { BossCycleKey } from '@/store/useListFilterStore';
 
@@ -23,8 +21,6 @@ const TILE_CYCLES: {
   { cycle: 'season', label: '賽季', color: 'var(--cycle-season-foreground)', urgencyKey: 'season' },
   { cycle: 'vip', label: 'VIP', color: 'var(--cycle-vip-foreground)' },
 ];
-
-const LIST_LABELS: Record<JumpList, string> = { task: '任務', boss: 'BOSS' };
 
 /**
  * 磚內的一條進度條,前方以圖示標示是任務(ClipboardList)還是 BOSS(Swords),沿用專案其他地方的圖示慣例;
@@ -72,7 +68,7 @@ function ProgressTrack({ icon: Icon, done, total }: { icon: LucideIcon; done: nu
 /**
  * 角色頁 Header 收合版的週期跳轉磚:每個有追蹤項目的週期一顆,顯示週期名稱與任務、BOSS 兩條進度(各附剩餘數)。
  * 即將重置/截止的週期在磚頂邊中央壓上文字標籤;剩餘數寫在各條進度條後方,不跟標籤搶位置。
- * 寬螢幕點擊時兩個清單一起跳轉;窄螢幕若該週期同時有任務與 BOSS,先在磚下方跳出選單讓使用者選。
+ * 點擊行為由 CycleJumpTrigger 處理(寬螢幕兩個清單一起跳轉;窄螢幕兩種都有時先跳選單)。
  * @param summary 各週期進度摘要
  * @param urgency 每週/每月/賽季是否急迫
  * @param onJump 要跳轉時呼叫,lists 為要捲動的清單
@@ -86,16 +82,7 @@ export function CycleJumpTiles({
   urgency: CycleUrgency;
   onJump: (cycle: BossCycleKey, lists: JumpList[]) => void;
 }) {
-  const [openCycle, setOpenCycle] = useState<BossCycleKey | null>(null);
   const tiles = TILE_CYCLES.filter(({ cycle }) => listsWithItems(summary[cycle]).length > 0);
-
-  function handleClick(cycle: BossCycleKey, lists: JumpList[]) {
-    if (lists.length > 1 && !matchesMedia(WIDE_LIST_LAYOUT_QUERY)) {
-      setOpenCycle(cycle);
-      return;
-    }
-    onJump(cycle, lists);
-  }
 
   return (
     <div
@@ -116,55 +103,36 @@ export function CycleJumpTiles({
           .join(',');
 
         return (
-          <Popover key={cycle} open={openCycle === cycle} onOpenChange={(open) => setOpenCycle(open ? cycle : null)}>
-            <PopoverAnchor asChild>
-              <button
-                type="button"
-                onClick={() => handleClick(cycle, lists)}
-                style={{ '--cf': color } as CSSProperties}
-                aria-label={`${label}:${progressText}${urgentText ? `,${urgentText}` : ''},前往清單`}
-                className="@container relative flex min-w-0 flex-col gap-2.5 rounded-md border border-border bg-background px-[7px] pt-[9px] pb-2 text-left outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 lg:max-w-[120px] lg:min-w-[88px] lg:flex-1 lg:basis-0"
-              >
-                {urgentText && (
-                  <CycleUrgencyBadge
-                    label={urgentText}
-                    color={color}
-                    className="absolute -top-[9px] left-1/2 -translate-x-1/2 shadow-[0_0_0_2px_var(--card)]"
-                  />
-                )}
-                <span
-                  className={cn(
-                    'flex items-center justify-center gap-0.5 text-[13px] leading-tight font-bold whitespace-nowrap text-(--cf)',
-                    done && 'opacity-45',
-                  )}
-                >
-                  {label}
-                  {done && <Check aria-hidden="true" className="size-3" strokeWidth={3} />}
-                </span>
-                <span className={cn('flex flex-col gap-0.5', done && 'opacity-45')}>
-                  <ProgressTrack icon={ClipboardList} done={s.taskDone} total={s.taskTotal} />
-                  <ProgressTrack icon={Swords} done={s.bossDone} total={s.bossTotal} />
-                </span>
-              </button>
-            </PopoverAnchor>
-            {/* collisionPadding 讓選單在螢幕邊緣的磚下方時,仍與視窗邊界保留頁面 gutter 的距離 */}
-            <PopoverContent align="center" collisionPadding={16} className="w-auto flex-row gap-2 p-2">
-              {lists.map((list) => (
-                <Button
-                  key={list}
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setOpenCycle(null);
-                    onJump(cycle, [list]);
-                  }}
-                >
-                  {LIST_LABELS[list]}
-                </Button>
-              ))}
-            </PopoverContent>
-          </Popover>
+          <CycleJumpTrigger
+            key={cycle}
+            cycle={cycle}
+            lists={lists}
+            onJump={onJump}
+            style={{ '--cf': color } as CSSProperties}
+            aria-label={`${label}:${progressText}${urgentText ? `,${urgentText}` : ''},前往清單`}
+            className="@container relative flex min-w-0 flex-col gap-2.5 rounded-md border border-border bg-background px-[7px] pt-[9px] pb-2 text-left outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 lg:max-w-[120px] lg:min-w-[88px] lg:flex-1 lg:basis-0"
+          >
+            {urgentText && (
+              <CycleUrgencyBadge
+                label={urgentText}
+                color={color}
+                className="absolute -top-[9px] left-1/2 -translate-x-1/2 shadow-[0_0_0_2px_var(--card)]"
+              />
+            )}
+            <span
+              className={cn(
+                'flex items-center justify-center gap-0.5 text-[13px] leading-tight font-bold whitespace-nowrap text-(--cf)',
+                done && 'opacity-45',
+              )}
+            >
+              {label}
+              {done && <Check aria-hidden="true" className="size-3" strokeWidth={3} />}
+            </span>
+            <span className={cn('flex flex-col gap-0.5', done && 'opacity-45')}>
+              <ProgressTrack icon={ClipboardList} done={s.taskDone} total={s.taskTotal} />
+              <ProgressTrack icon={Swords} done={s.bossDone} total={s.bossTotal} />
+            </span>
+          </CycleJumpTrigger>
         );
       })}
     </div>

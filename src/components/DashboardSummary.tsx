@@ -1,9 +1,13 @@
+import { Info } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
+import { CycleJumpTrigger } from '@/components/CycleJumpTrigger';
 import { CycleUrgencyBadge } from '@/components/CycleUrgencyBadge';
 import { cn } from '@/lib/utils';
 import { useCharacterCycles } from '@/hooks/useCharacterCycles';
 import { URGENCY_LABELS } from '@/lib/cycleUrgency';
 import { formatCrystalValue } from '@/lib/formatCrystal';
+import { listsWithItems, type JumpList } from '@/lib/listJump';
+import type { BossCycleKey } from '@/store/useListFilterStore';
 import type { Character } from '@/types';
 
 /** 週期卡片內的單一列(任務或BOSS進度);該週期不適用該類型時(如賽季沒有任務)顯示「—」佔位,維持卡片列數一致 */
@@ -20,7 +24,7 @@ function CycleRow({
 }) {
   const applicable = total !== undefined && total > 0;
   return (
-    <div className="flex min-w-0 items-center gap-2">
+    <span className="flex min-w-0 items-center gap-2">
       <span className="w-9 shrink-0 text-[11px] font-semibold text-muted-foreground">{kind}</span>
       {applicable ? (
         <>
@@ -37,12 +41,15 @@ function CycleRow({
       ) : (
         <span className="flex-1 text-[11px] text-muted-foreground">此週期無此類項目</span>
       )}
-    </div>
+    </span>
   );
 }
 
-/** 單一週期(日/週/月/賽季)的進度小卡:任務+BOSS 兩列固定並存,四張卡結構對稱、高度一致 */
+/** 單一週期(日/週/月/賽季)的進度小卡:任務+BOSS 兩列固定並存,四張卡結構對稱、高度一致;點擊跳轉到該週期有項目的清單 */
 function CycleCard({
+  cycle,
+  lists,
+  onJump,
   label,
   urgentLabel,
   urgentColor,
@@ -53,6 +60,9 @@ function CycleCard({
   bossDone,
   bossTotal,
 }: {
+  cycle: BossCycleKey;
+  lists: JumpList[];
+  onJump: (cycle: BossCycleKey, lists: JumpList[]) => void;
   label: string;
   urgentLabel?: string;
   /** 急迫標籤的週期色,例如 'var(--cycle-weekly-foreground)' */
@@ -64,21 +74,48 @@ function CycleCard({
   bossDone?: number;
   bossTotal?: number;
 }) {
+  const progressText = [
+    taskTotal ? `任務 ${taskDone}/${taskTotal}` : '',
+    bossTotal ? `BOSS ${bossDone}/${bossTotal}` : '',
+  ]
+    .filter(Boolean)
+    .join(',');
+
   return (
     // basis 對應 2 欄(手機)/3 欄(桌面)等寬切法,flex-1 讓卡片數量不足整排時自動長大填滿,不會卡在靠左
-    <div className="flex min-w-36 flex-1 basis-[calc(50%-0.3125rem)] flex-col gap-2 rounded-lg border border-border bg-card p-2.5 lg:basis-[calc(33.3333%-0.41667rem)]">
-      <div className="flex items-baseline justify-between gap-2">
+    <CycleJumpTrigger
+      cycle={cycle}
+      lists={lists}
+      onJump={onJump}
+      aria-label={`${label}:${progressText}${urgentLabel ? `,${urgentLabel}` : ''},前往清單`}
+      className="flex min-w-36 flex-1 basis-[calc(50%-0.3125rem)] flex-col gap-2 rounded-lg border border-border bg-card p-2.5 text-left outline-none transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 lg:basis-[calc(33.3333%-0.41667rem)]"
+    >
+      <span className="flex items-baseline justify-between gap-2">
         <span className={cn('text-xs font-bold', dotClassName)}>{label}</span>
         {urgentLabel && urgentColor && <CycleUrgencyBadge label={urgentLabel} color={urgentColor} />}
-      </div>
+      </span>
       <CycleRow kind="任務" done={taskDone} total={taskTotal} barClassName={barClassName} />
       <CycleRow kind="BOSS" done={bossDone} total={bossTotal} barClassName={barClassName} />
-    </div>
+    </CycleJumpTrigger>
   );
 }
 
-/** 角色總覽摘要:依日/週/月/賽季分區顯示任務與 BOSS 討伐進度,下方接續已討伐 BOSS 的結晶收益(只計已勾選),不帶卡片外框,由 CharacterHeader 併入同一橫帶顯示 */
-export function DashboardSummary({ character, className }: { character: Character; className?: string }) {
+/**
+ * 角色總覽摘要:依日/週/月/賽季分區顯示任務與 BOSS 討伐進度,下方接續已討伐 BOSS 的結晶收益(只計已勾選),
+ * 不帶卡片外框,由 CharacterHeader 併入同一橫帶顯示。點擊週期卡可跳轉到該週期的清單。
+ * @param character 目前的角色
+ * @param onJump 點擊週期卡要跳轉時呼叫,lists 為要捲動的清單
+ * @param className 外層額外的 class
+ */
+export function DashboardSummary({
+  character,
+  onJump,
+  className,
+}: {
+  character: Character;
+  onJump: (cycle: BossCycleKey, lists: JumpList[]) => void;
+  className?: string;
+}) {
   const { summary, urgency } = useCharacterCycles(character);
   const { daily, weekly, monthly, season, vip } = summary;
 
@@ -110,9 +147,16 @@ export function DashboardSummary({ character, className }: { character: Characte
 
   return (
     <div className={cn('flex flex-col gap-3', className)}>
+      <p className="flex flex-row items-center gap-1 text-xs text-muted-foreground">
+        <Info className="size-3 shrink-0" aria-hidden="true" />
+        可點擊下方週期區塊快速跳轉至該週期項目
+      </p>
       <div className="flex flex-wrap gap-2.5">
         {dailyHasCard && (
           <CycleCard
+            cycle="daily"
+            lists={listsWithItems(daily)}
+            onJump={onJump}
             label="每日"
             dotClassName="text-cycle-daily-foreground"
             barClassName="bg-cycle-daily-foreground"
@@ -124,6 +168,9 @@ export function DashboardSummary({ character, className }: { character: Characte
         )}
         {weeklyHasCard && (
           <CycleCard
+            cycle="weekly"
+            lists={listsWithItems(weekly)}
+            onJump={onJump}
             label="每週"
             urgentLabel={weeklyUrgent ? URGENCY_LABELS.weekly : undefined}
             urgentColor="var(--cycle-weekly-foreground)"
@@ -137,6 +184,9 @@ export function DashboardSummary({ character, className }: { character: Characte
         )}
         {monthlyHasCard && (
           <CycleCard
+            cycle="monthly"
+            lists={listsWithItems(monthly)}
+            onJump={onJump}
             label="每月"
             urgentLabel={monthlyUrgent ? URGENCY_LABELS.monthly : undefined}
             urgentColor="var(--cycle-monthly-foreground)"
@@ -150,6 +200,9 @@ export function DashboardSummary({ character, className }: { character: Characte
         )}
         {seasonHasCard && (
           <CycleCard
+            cycle="season"
+            lists={listsWithItems(season)}
+            onJump={onJump}
             label="賽季"
             urgentLabel={seasonUrgent ? URGENCY_LABELS.season : undefined}
             urgentColor="var(--cycle-season-foreground)"
@@ -163,6 +216,9 @@ export function DashboardSummary({ character, className }: { character: Characte
         )}
         {vipHasCard && (
           <CycleCard
+            cycle="vip"
+            lists={listsWithItems(vip)}
+            onJump={onJump}
             label="VIP重置"
             dotClassName="text-cycle-vip-foreground"
             barClassName="bg-cycle-vip-foreground"
