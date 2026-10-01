@@ -1,18 +1,10 @@
-import { useMemo } from 'react';
 import { Progress } from '@/components/ui/progress';
+import { CycleUrgencyBadge } from '@/components/CycleUrgencyBadge';
 import { cn } from '@/lib/utils';
-import { useTaskStore } from '@/store/useTaskStore';
-import { useBossStore } from '@/store/useBossStore';
-import { useSettingsStore } from '@/store/useSettingsStore';
-import { useNow } from '@/hooks/useNow';
-import { summarizeCharacterCycles } from '@/lib/characterSummary';
-import { findBossCatalogEntry, isBossExpired } from '@/lib/bossCatalog';
+import { useCharacterCycles } from '@/hooks/useCharacterCycles';
+import { URGENCY_LABELS } from '@/lib/cycleUrgency';
 import { formatCrystalValue } from '@/lib/formatCrystal';
-import { hoursUntilExpiry } from '@/lib/reset';
 import type { Character } from '@/types';
-
-/** 賽季卡的急迫感門檻,沿用 TaskItem 既有的 expiringSoon(<24小時)慣例 */
-const EXPIRY_IMMINENT_HOURS = 24;
 
 /** 週期卡片內的單一列(任務或BOSS進度);該週期不適用該類型時(如賽季沒有任務)顯示「—」佔位,維持卡片列數一致 */
 function CycleRow({
@@ -53,8 +45,8 @@ function CycleRow({
 function CycleCard({
   label,
   urgentLabel,
+  urgentColor,
   dotClassName,
-  badgeClassName,
   barClassName,
   taskDone,
   taskTotal,
@@ -63,8 +55,9 @@ function CycleCard({
 }: {
   label: string;
   urgentLabel?: string;
+  /** 急迫標籤的週期色,例如 'var(--cycle-weekly-foreground)' */
+  urgentColor?: string;
   dotClassName: string;
-  badgeClassName?: string;
   barClassName: string;
   taskDone?: number;
   taskTotal?: number;
@@ -76,11 +69,7 @@ function CycleCard({
     <div className="flex min-w-36 flex-1 basis-[calc(50%-0.3125rem)] flex-col gap-2 rounded-lg border border-border bg-card p-2.5 lg:basis-[calc(33.3333%-0.41667rem)]">
       <div className="flex items-baseline justify-between gap-2">
         <span className={cn('text-xs font-bold', dotClassName)}>{label}</span>
-        {urgentLabel && (
-          <span className={cn('shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold', badgeClassName)}>
-            {urgentLabel}
-          </span>
-        )}
+        {urgentLabel && urgentColor && <CycleUrgencyBadge label={urgentLabel} color={urgentColor} />}
       </div>
       <CycleRow kind="任務" done={taskDone} total={taskTotal} barClassName={barClassName} />
       <CycleRow kind="BOSS" done={bossDone} total={bossTotal} barClassName={barClassName} />
@@ -90,15 +79,7 @@ function CycleCard({
 
 /** 角色總覽摘要:依日/週/月/賽季分區顯示任務與 BOSS 討伐進度,下方接續已討伐 BOSS 的結晶收益(只計已勾選),不帶卡片外框,由 CharacterHeader 併入同一橫帶顯示 */
 export function DashboardSummary({ character, className }: { character: Character; className?: string }) {
-  const allTasks = useTaskStore((s) => s.tasks);
-  const allBosses = useBossStore((s) => s.bosses);
-  const settings = useSettingsStore((s) => s.settings);
-  const now = useNow();
-
-  const tasks = useMemo(() => allTasks.filter((t) => t.characterId === character.id), [allTasks, character.id]);
-  const bosses = useMemo(() => allBosses.filter((b) => b.characterId === character.id), [allBosses, character.id]);
-
-  const summary = useMemo(() => summarizeCharacterCycles(tasks, bosses, now), [tasks, bosses, now]);
+  const { summary, urgency } = useCharacterCycles(character);
   const { daily, weekly, monthly, season, vip } = summary;
 
   const dailyHasTask = daily.taskTotal > 0;
@@ -119,29 +100,9 @@ export function DashboardSummary({ character, className }: { character: Characte
   const seasonHasCard = seasonHasTask || seasonHasBoss;
   const vipHasCard = vipHasBoss;
 
-  // 每日一定在當天結束前重置,永遠顯示急迫感標籤沒有意義,不提供;週/月改用「今天是不是重置日」判斷
-  // (重置時間固定 00:00,直接比對星期幾/日期即可;賽季改用「距離賽季實際截止日期」判斷,沿用 TaskItem 既有的 expiringSoon 慣例)
-  const weeklyAllDone = weekly.taskDone === weekly.taskTotal && weekly.bossDone === weekly.bossTotal;
-  const weeklyUrgent = weeklyHasCard && !weeklyAllDone && now.getDay() === settings.weeklyResetDay;
-
-  const monthlyAllDone = monthly.taskDone === monthly.taskTotal && monthly.bossDone === monthly.bossTotal;
-  const monthlyUrgent = monthlyHasCard && !monthlyAllDone && now.getDate() === 1;
-
-  // 賽季沒有固定重置時間,改抓角色追蹤中「未下架」的賽季 BOSS 目錄項目裡最早的截止日期;
-  // 過期的賽季王不能排除在外,否則取最小日期會拿到過去的日期,讓急迫標籤誤亮
-  const seasonExpiresAt = useMemo(() => {
-    const activeSeasonBosses = bosses.filter((b) => b.category === 'season' && !isBossExpired(b, now));
-    const dates = activeSeasonBosses
-      .map((b) => (b.bossCatalogId ? findBossCatalogEntry(b.bossCatalogId)?.expiresAt : undefined))
-      .filter((d): d is string => !!d);
-    return dates.length > 0 ? dates.reduce((min, d) => (d < min ? d : min)) : undefined;
-  }, [bosses, now]);
-  const seasonAllDone = season.taskDone === season.taskTotal && season.bossDone === season.bossTotal;
-  const seasonUrgent =
-    seasonHasCard &&
-    !seasonAllDone &&
-    seasonExpiresAt !== undefined &&
-    hoursUntilExpiry(seasonExpiresAt, now) < EXPIRY_IMMINENT_HOURS;
+  const weeklyUrgent = urgency.weekly;
+  const monthlyUrgent = urgency.monthly;
+  const seasonUrgent = urgency.season;
 
   const hasRevenue = dailyHasBoss || weeklyHasBoss || monthlyHasRevenue;
 
@@ -164,9 +125,9 @@ export function DashboardSummary({ character, className }: { character: Characte
         {weeklyHasCard && (
           <CycleCard
             label="每週"
-            urgentLabel={weeklyUrgent ? '今日刷新' : undefined}
+            urgentLabel={weeklyUrgent ? URGENCY_LABELS.weekly : undefined}
+            urgentColor="var(--cycle-weekly-foreground)"
             dotClassName="text-cycle-weekly-foreground"
-            badgeClassName="bg-cycle-weekly text-cycle-weekly-foreground"
             barClassName="bg-cycle-weekly-foreground"
             taskDone={weekly.taskDone}
             taskTotal={weekly.taskTotal}
@@ -177,9 +138,9 @@ export function DashboardSummary({ character, className }: { character: Characte
         {monthlyHasCard && (
           <CycleCard
             label="每月"
-            urgentLabel={monthlyUrgent ? '今日刷新' : undefined}
+            urgentLabel={monthlyUrgent ? URGENCY_LABELS.monthly : undefined}
+            urgentColor="var(--cycle-monthly-foreground)"
             dotClassName="text-cycle-monthly-foreground"
-            badgeClassName="bg-cycle-monthly text-cycle-monthly-foreground"
             barClassName="bg-cycle-monthly-foreground"
             taskDone={monthly.taskDone}
             taskTotal={monthly.taskTotal}
@@ -190,9 +151,9 @@ export function DashboardSummary({ character, className }: { character: Characte
         {seasonHasCard && (
           <CycleCard
             label="賽季"
-            urgentLabel={seasonUrgent ? '即將截止' : undefined}
+            urgentLabel={seasonUrgent ? URGENCY_LABELS.season : undefined}
+            urgentColor="var(--cycle-season-foreground)"
             dotClassName="text-cycle-season-foreground"
-            badgeClassName="bg-cycle-season text-cycle-season-foreground"
             barClassName="bg-cycle-season-foreground"
             taskDone={season.taskDone}
             taskTotal={season.taskTotal}

@@ -108,3 +108,12 @@ export function summarizeCharacterCycles(
     },
   };
 }
+
+/**
+ * 角色在日/週/月/賽季/VIP 任一週期是否有追蹤項目;單次與雙週週末任務不屬於任何週期,不計入。
+ * @param summary summarizeCharacterCycles 的結果
+ * @returns 有任一週期有項目時為 true
+ */
+export function hasAnyTrackedCycle(summary: Record<BossCycleKey, CycleSummary>): boolean {
+  return Object.values(summary).some((cycle) => cycle.taskTotal > 0 || cycle.bossTotal > 0);
+}
