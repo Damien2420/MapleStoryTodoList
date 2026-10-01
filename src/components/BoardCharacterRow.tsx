@@ -2,19 +2,13 @@ import { useId, type ReactNode } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { BoardCycleRing } from '@/components/BoardCycleRing';
-import { CrystalAmount } from '@/components/CrystalAmount';
+import { RevenueLedger } from '@/components/RevenueLedger';
 import { describeBoardRowProgress, type BoardCharacterRow as BoardCharacterRowData } from '@/lib/characterBoard';
+import { pickRevenueItems } from '@/lib/revenueItems';
 import { ROUTES } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 import { useCharacterStore } from '@/store/useCharacterStore';
 import type { Character } from '@/types';
-
-/** 討伐收益列上有收益的三個週期,順序即顯示順序 */
-const REVENUE_CYCLES = [
-  { cycle: 'daily', label: '日' },
-  { cycle: 'weekly', label: '週' },
-  { cycle: 'monthly', label: '月' },
-] as const;
 
 /**
  * 角色頭像:以照片為主的識別依據,96px 方形明顯大於旁邊的文字資訊,讓使用者滑過整排時先靠照片認出是哪隻角色。
@@ -30,35 +24,6 @@ function CharacterAvatar({ character }: { character: Character }) {
       className="flex size-24 shrink-0 items-center justify-center rounded-xl bg-muted text-3xl font-bold text-muted-foreground"
     >
       {[...character.name][0]}
-    </div>
-  );
-}
-
-/** 環下方的討伐收益列:有追蹤 BOSS 的週期才出現該項,有追蹤但都沒勾顯示灰色 $0;完全沒有 BOSS 顯示「尚未追蹤 BOSS」 */
-function RevenueLedger({ cycles }: { cycles: BoardCharacterRowData['cycles'] }) {
-  const items = REVENUE_CYCLES.flatMap(({ cycle, label }) => {
-    const revenue = cycles.find((c) => c.cycle === cycle)?.revenue;
-    return revenue === undefined ? [] : [{ cycle, label, revenue }];
-  });
-
-  return (
-    <div className="mt-2 flex min-h-6 flex-wrap items-center gap-x-2.5 gap-y-1.5 border-t border-border pt-2">
-      <span className="flex items-center gap-1 whitespace-nowrap text-[10px] font-semibold tracking-wide text-boss-foreground">
-        <img src="/coin.png" alt="" className="size-3.5 shrink-0" />
-        討伐收益
-      </span>
-      {items.length > 0 ? (
-        <div className="flex min-w-0 flex-auto flex-wrap justify-between gap-x-2.5 gap-y-1">
-          {items.map((item) => (
-            <span key={item.cycle} className="flex items-baseline gap-1 whitespace-nowrap">
-              <span className="text-[9.5px] font-semibold leading-none text-muted-foreground">{item.label}</span>
-              <CrystalAmount value={item.revenue} className="text-[12.5px]" />
-            </span>
-          ))}
-        </div>
-      ) : (
-        <span className="text-[10.5px] text-muted-foreground">尚未追蹤 BOSS</span>
-      )}
     </div>
   );
 }
@@ -114,7 +79,12 @@ export function BoardCharacterRow({
             <BoardCycleRing key={cycle.cycle} cycle={cycle} />
           ))}
         </div>
-        <RevenueLedger cycles={cycles} />
+        {/* 環下方的討伐收益列:完全沒有 BOSS 時顯示「尚未追蹤 BOSS」 */}
+        <RevenueLedger
+          items={pickRevenueItems((cycle) => cycles.find((c) => c.cycle === cycle)?.revenue)}
+          emptyText="尚未追蹤 BOSS"
+          className="mt-2"
+        />
       </div>
 
       {/* TODO(下一階段):其他進度的內容還沒定案,這裡只保留版位與寬度,不接任何資料,也不預先設計資料結構;
