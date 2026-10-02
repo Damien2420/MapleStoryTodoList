@@ -6,7 +6,7 @@ import type { VipTicketLevel } from '@/types';
  * 名稱/水晶收益/組隊人數上限不重複存放於此,一律查 BOSS_CATALOG。
  *
  * 難度收錄規則:沒有極限/終極難度的王,該王所有「每週重置」難度都收錄進所屬等級;
- * 有極限/終極難度的王(史烏/賽蓮/卡洛斯/最初的敵對者/咖凌/瑪莉西亞),
+ * 有極限/終極難度的王(史烏/賽蓮/卡洛斯/最初的敵對者/咖凌/瑪麗西亞),
  * 該王的極限/終極難度只收錄在「終極」券等級,其餘較低的每週難度收錄在中/上對應等級。
  */
 export const VIP_BOSS_MAPPING: Record<VipTicketLevel, VipBossMapping[]> = {
@@ -36,7 +36,7 @@ export const VIP_BOSS_MAPPING: Record<VipTicketLevel, VipBossMapping[]> = {
     { bossCatalogId: 'kalos', difficulties: ['簡單', '普通', '渾沌'] }, // 監視者卡洛斯(極限留給終極)
     { bossCatalogId: 'kaling', difficulties: ['簡單', '普通', '困難'] }, // 咖凌(極限留給終極)
     { bossCatalogId: 'first-adversary', difficulties: ['簡單', '普通', '困難'] }, // 最初的敵對者(極限留給終極)
-    { bossCatalogId: 'malitia', difficulties: ['普通'] }, // 瑪莉西亞(終極留給終極)
+    { bossCatalogId: 'malitia', difficulties: ['普通'] }, // 瑪麗西亞(終極留給終極)
   ],
   上: [
     { bossCatalogId: 'limbo', difficulties: ['普通', '困難'] }, // 林波
@@ -48,7 +48,7 @@ export const VIP_BOSS_MAPPING: Record<VipTicketLevel, VipBossMapping[]> = {
     { bossCatalogId: 'kalos', difficulties: ['極限'] }, // 卡洛斯
     { bossCatalogId: 'first-adversary', difficulties: ['極限'] }, // 最初的敵對者
     { bossCatalogId: 'kaling', difficulties: ['極限'] }, // 咖凌
-    { bossCatalogId: 'malitia', difficulties: ['終極'] }, // 瑪莉西亞
+    { bossCatalogId: 'malitia', difficulties: ['終極'] }, // 瑪麗西亞
   ],
   每月: [
     { bossCatalogId: 'black-mage', difficulties: ['困難', '極限'] }, // 黑魔法師(不限難度)
