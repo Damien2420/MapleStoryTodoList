@@ -289,7 +289,7 @@ export const BOSS_CATALOG: BossCatalogEntry[] = [
   },
   {
     id: 'malitia',
-    name: '瑪莉西亞',
+    name: '瑪麗西亞',
     difficulties: [
       { difficulty: '普通', crystalValue: 150_000_000, resetCycle: 'weekly', weeklyResetDay: 4, maxPartySize: 3 },
       { difficulty: '終極', crystalValue: 1_500_000_000, resetCycle: 'weekly', weeklyResetDay: 4, maxPartySize: 3 },
