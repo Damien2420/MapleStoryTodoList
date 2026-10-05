@@ -1,0 +1,223 @@
+import { ASTRA, DESTINY } from '@/data/weaponRates.data';
+import type { Settings } from '@/types';
+import { gameWeekBounds, localDateKey } from './cycle';
+import { clearAmounts } from './rates';
+import {
+  addCapped,
+  ASTRA_TRACE_CAP_UNITS,
+  destinyCap,
+  destinyNeed,
+  GENESIS_CAP_UNITS,
+  genesisNeed,
+  SOUL_CAP_UNITS,
+  soulAtGate,
+  soulLevelUp,
+  soulStageOf,
+} from './rules';
+import {
+  emptyWeaponState,
+  UNIT,
+  type AdjustPayload,
+  type BossClear,
+  type CharacterWeaponState,
+  type DailyClear,
+  type UpgradePayload,
+  type WeaponCheckpoint,
+  type WeaponEvent,
+  type WeaponKind,
+} from './types';
+
+/** fold 的輸入:同一個角色的存檔點、紀錄與事件 */
+export interface FoldInput {
+  checkpoint?: WeaponCheckpoint;
+  bossClears: BossClear[];
+  dailyClears: DailyClear[];
+  events: WeaponEvent[];
+  settings: Settings;
+}
+
+/** 單筆擊破被持有上限截掉的量(1/60 單位) */
+export interface ClearCapLoss {
+  genesis: number;
+  destiny: number;
+  astraTrace: number;
+}
+
+/** fold 的結果 */
+export interface FoldResult {
+  state: CharacterWeaponState;
+  /** 被持有上限截掉的量,key 為 BossClear id */
+  capLoss: Map<string, ClearCapLoss>;
+  /** 各武器最後一次初始設定 / 校正的時間;在這之前的紀錄已包含在使用者填的值裡 */
+  adjustAt: Partial<Record<WeaponKind, string>>;
+}
+
+type Item =
+  | { kind: 'clear'; at: string; id: string; clear: BossClear }
+  | { kind: 'daily'; at: string; id: string; daily: DailyClear }
+  | { kind: 'event'; at: string; id: string; event: WeaponEvent };
+
+/**
+ * 依時間排序紀錄與事件(相同時間以 id 排序),只取存檔點之後的部分
+ * @param input fold 的輸入
+ */
+function collectItems(input: FoldInput): Item[] {
+  const watermark = input.checkpoint?.watermark ?? '';
+  const items: Item[] = [
+    ...input.bossClears
+      .filter((c) => c.active)
+      .map((c): Item => ({ kind: 'clear', at: c.firstClearedAt, id: c.id, clear: c })),
+    ...input.dailyClears.map((d): Item => ({ kind: 'daily', at: d.firstClearedAt, id: d.id, daily: d })),
+    ...input.events.map((e): Item => ({ kind: 'event', at: e.at, id: e.id, event: e })),
+  ];
+  return items
+    .filter((it) => it.at >= watermark)
+    .sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+}
+
+/** 套用初始設定 / 校正:狀態直接設成使用者填的值(持有量套用上限) */
+function applyAdjust(state: CharacterWeaponState, p: AdjustPayload): void {
+  if (p.weapon === 'genesis') {
+    state.genesis = { status: 'active', stage: clampInt(p.stage, 1, 8), pool: Math.min(nonNegative(p.pool) * UNIT, GENESIS_CAP_UNITS) };
+  } else if (p.weapon === 'soul') {
+    const level = clampInt(p.level, 1, 100);
+    state.soul = soulLevelUp({
+      status: 'active',
+      level,
+      gatePassed: level % 10 === 0 && level < 100 && p.gatePassed,
+      pool: Math.min(nonNegative(p.pool) * UNIT, SOUL_CAP_UNITS),
+      soloCleared: [...new Set(p.soloCleared)],
+    });
+  } else if (p.weapon === 'destiny') {
+    const stage = clampInt(p.stage, 1, 6);
+    state.destiny = { status: 'active', stage, pool: Math.min(nonNegative(p.pool) * UNIT, destinyCap(stage) * UNIT) };
+  } else {
+    state.astra = {
+      status: 'active',
+      stage: clampInt(p.stage, 1, 3),
+      trace: Math.min(nonNegative(p.trace) * UNIT, ASTRA_TRACE_CAP_UNITS),
+      shard: nonNegative(p.shard) * UNIT,
+    };
+  }
+}
+
+/** 整數並夾在範圍內 */
+/** 校正量不接受負數與 NaN(UI 打不出來,資料被手動改過或損毀時才會遇到) */
+function nonNegative(v: number): number {
+  return Number.isFinite(v) ? Math.max(0, v) : 0;
+}
+
+function clampInt(v: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, Math.round(v) || min));
+}
+
+/** 套用升階:只有目前階段與事件記錄的階段相同時才生效;扣除本階需求,溢出保留,小於 0 時為 0 */
+function applyUpgrade(state: CharacterWeaponState, weapon: WeaponKind, p: UpgradePayload): void {
+  if (weapon === 'genesis') {
+    const g = state.genesis;
+    if (g.status !== 'active' || g.stage !== p.fromStage) return;
+    const pool = Math.max(0, g.pool - genesisNeed(g.stage) * UNIT);
+    state.genesis = g.stage >= 8 ? { status: 'done', stage: 8, pool } : { status: 'active', stage: g.stage + 1, pool };
+  } else if (weapon === 'destiny') {
+    const d = state.destiny;
+    if (d.status !== 'active' || d.stage !== p.fromStage) return;
+    const pool = Math.max(0, d.pool - destinyNeed(d.stage) * UNIT);
+    if (d.stage === 3) state.destiny = { status: 'phase1done', stage: 3, pool: 0 };
+    else if (d.stage >= DESTINY.needs.length) state.destiny = { status: 'done', stage: 6, pool };
+    else state.destiny = { status: 'active', stage: d.stage + 1, pool };
+  } else if (weapon === 'astra') {
+    const a = state.astra;
+    if (a.status !== 'active' || a.stage !== p.fromStage) return;
+    const trace = Math.max(0, a.trace - ASTRA.traceNeeds[a.stage - 1] * UNIT);
+    const shard = Math.max(0, a.shard - ASTRA.shardNeeds[a.stage - 1] * UNIT);
+    state.astra = a.stage >= 3 ? { status: 'done', stage: 3, trace, shard } : { status: 'active', stage: a.stage + 1, trace, shard };
+  } else {
+    const s = state.soul;
+    if (s.status !== 'active' || !soulAtGate(s) || soulStageOf(s.level, false) !== p.fromStage) return;
+    const soloCleared = p.soulQuestKey && !s.soloCleared.includes(p.soulQuestKey) ? [...s.soloCleared, p.soulQuestKey] : s.soloCleared;
+    state.soul = soulLevelUp({ ...s, gatePassed: true, soloCleared });
+  }
+}
+
+/**
+ * 存檔點 + 紀錄 + 事件 → 四把武器的狀態。純函式:不讀 store、不讀目前時間
+ * @param input 同一個角色的存檔點、紀錄、事件與重置設定
+ * @returns 狀態、每筆擊破被上限截掉的量、各武器最後一次校正的時間
+ */
+export function foldWeapons(input: FoldInput): FoldResult {
+  const state: CharacterWeaponState = structuredClone(input.checkpoint?.state ?? emptyWeaponState());
+  const capLoss = new Map<string, ClearCapLoss>();
+  const adjustAt: Partial<Record<WeaponKind, string>> = {};
+  // 靈魂:每個遊戲週已計入的最高量;校正前的擊破也會更新,避免校正後打較低的王又被重複計入
+  const soulWeekMax = new Map<string, number>();
+
+  for (const it of collectItems(input)) {
+    if (it.kind === 'event') {
+      const e = it.event;
+      if (e.kind === 'adjust' && e.payload && 'weapon' in e.payload) {
+        applyAdjust(state, e.payload);
+        adjustAt[e.weapon] = e.at;
+      } else if (e.kind === 'upgrade' && e.payload && 'fromStage' in e.payload) {
+        applyUpgrade(state, e.weapon, e.payload);
+      } else if (e.kind === 'complete') {
+        if (e.weapon === 'soul') state.soul = { ...state.soul, status: 'done', level: 100, gatePassed: false };
+        else if (e.weapon === 'genesis') state.genesis = { ...state.genesis, status: 'done', stage: 8 };
+        else if (e.weapon === 'destiny') state.destiny = { ...state.destiny, status: 'done', stage: 6 };
+        else state.astra = { ...state.astra, status: 'done', stage: 3 };
+      } else if (e.kind === 'destinyPhase2' && state.destiny.status === 'phase1done') {
+        state.destiny = { status: 'active', stage: 4, pool: 0 };
+      }
+      continue;
+    }
+
+    const genesisDone = state.genesis.status === 'done';
+    if (it.kind === 'daily') {
+      if (genesisDone && state.astra.status === 'active') {
+        state.astra = { ...state.astra, shard: state.astra.shard + it.daily.topRegionShards * UNIT };
+      }
+      continue;
+    }
+
+    const c = it.clear;
+    const amt = clearAmounts(c);
+    const loss: ClearCapLoss = { genesis: 0, destiny: 0, astraTrace: 0 };
+
+    // 靈魂:同一個遊戲週只取最高一隻,只補上比目前最高多出來的部分
+    if (amt.soul > 0) {
+      const weekKey = localDateKey(gameWeekBounds(input.settings, new Date(c.firstClearedAt)).start);
+      const prev = soulWeekMax.get(weekKey) ?? 0;
+      if (amt.soul > prev) {
+        soulWeekMax.set(weekKey, amt.soul);
+        if (state.soul.status === 'active') {
+          const { pool } = addCapped(state.soul.pool, amt.soul - prev, SOUL_CAP_UNITS);
+          state.soul = soulLevelUp({ ...state.soul, pool });
+        }
+      }
+    }
+    // 單人擊破(組隊人數 1)記入已攻略清單,作為之後升階任務的依據
+    if (c.partySize === 1 && state.soul.status !== 'unset') {
+      const key = `${c.bossCatalogId}|${c.difficulty}`;
+      if (!state.soul.soloCleared.includes(key)) state.soul = { ...state.soul, soloCleared: [...state.soul.soloCleared, key] };
+    }
+
+    if (amt.genesis > 0 && state.genesis.status === 'active') {
+      const r = addCapped(state.genesis.pool, amt.genesis, GENESIS_CAP_UNITS);
+      state.genesis = { ...state.genesis, pool: r.pool };
+      loss.genesis = r.lost;
+    }
+    // 命運、阿斯特拉:創世完成後才會累積;停在第一階段完成畫面期間不計入
+    if (amt.destiny > 0 && genesisDone && state.destiny.status === 'active') {
+      const r = addCapped(state.destiny.pool, amt.destiny, destinyCap(state.destiny.stage) * UNIT);
+      state.destiny = { ...state.destiny, pool: r.pool };
+      loss.destiny = r.lost;
+    }
+    if (genesisDone && state.astra.status === 'active' && (amt.astraTrace > 0 || amt.astraShard > 0)) {
+      const r = addCapped(state.astra.trace, amt.astraTrace, ASTRA_TRACE_CAP_UNITS);
+      state.astra = { ...state.astra, trace: r.pool, shard: state.astra.shard + amt.astraShard };
+      loss.astraTrace = r.lost;
+    }
+    if (loss.genesis || loss.destiny || loss.astraTrace) capLoss.set(c.id, loss);
+  }
+
+  return { state, capLoss, adjustAt };
+}
