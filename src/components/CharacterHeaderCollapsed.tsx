@@ -23,6 +23,7 @@ import { Info } from 'lucide-react';
  * @param urgency 每週/每月/賽季是否急迫
  * @param actions 更新/刪除按鈕(由 CharacterHeader 提供,手機橫排、桌面固定在右上角)
  * @param onJump 點擊跳轉磚要跳轉時呼叫
+ * @param weaponEntry 武器進度入口(手機排在週期區下方的第二列,桌面放在右側 1/3)
  */
 export function CharacterHeaderCollapsed({
   character,
@@ -31,6 +32,7 @@ export function CharacterHeaderCollapsed({
   urgency,
   actions,
   onJump,
+  weaponEntry,
 }: {
   character: Character;
   vipTier?: VipTier;
@@ -38,6 +40,7 @@ export function CharacterHeaderCollapsed({
   urgency: CycleUrgency;
   actions: ReactNode;
   onJump: (cycle: BossCycleKey, lists: JumpList[]) => void;
+  weaponEntry: ReactNode;
 }) {
   const revenueItems = pickRevenueItems((cycle) => summary[cycle].revenue);
   const hasCycles = hasAnyTrackedCycle(summary);
@@ -115,8 +118,8 @@ export function CharacterHeaderCollapsed({
 
       {/* 手機固定在第一列最後一欄;桌面由 actions 自己絕對定位到右上角 */}
       <div className="col-end-[-1] row-start-1 self-start lg:contents">{actions}</div>
-      {/* 武器進度預留位置:這一階段不渲染內容,只在桌面版佔住右側 1/3 寬度 */}
-      <div aria-hidden="true" className="hidden lg:block lg:flex-1" />
+      {/* 武器進度入口:手機跨整列排在週期區下方,桌面佔右側 1/3 寬度 */}
+      <div className="col-span-full min-w-0 lg:flex-1">{weaponEntry}</div>
     </div>
   );
 }

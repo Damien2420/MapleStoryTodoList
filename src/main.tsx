@@ -5,6 +5,10 @@ import { BrowserRouter } from "react-router-dom"
 import "./index.css"
 import App from "./App.tsx"
 import { ThemeProvider } from "@/components/theme-provider.tsx"
+import { startWeaponSync } from "@/lib/weapon/syncClears"
+
+// 武器進度:勾選框變動時同步本週期的擊破紀錄
+startWeaponSync()
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

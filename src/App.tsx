@@ -10,6 +10,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useBossStore } from '@/store/useBossStore';
+import { useWeaponStore } from '@/store/useWeaponStore';
 import { REDIRECT_NAV_STATE } from '@/hooks/useRouteChangeEffects';
 import { ROUTES } from '@/lib/routes';
 import { SpeedInsights } from '@vercel/speed-insights/react';
@@ -23,16 +24,23 @@ export function App() {
   const settings = useSettingsStore((s) => s.settings);
   const runTaskResetCheck = useTaskStore((s) => s.runResetCheck);
   const runBossResetCheck = useBossStore((s) => s.runResetCheck);
+  const compactWeapons = useWeaponStore((s) => s.compact);
 
   useEffect(() => {
+    // 武器紀錄超過寬限期的部分折入存檔點;store 還沒從 localStorage 讀完時不壓縮
+    const runWeaponCompact = () => {
+      if (useWeaponStore.persist.hasHydrated()) compactWeapons(new Date(), settings);
+    };
     runTaskResetCheck(settings);
     runBossResetCheck(settings);
+    runWeaponCompact();
     const interval = setInterval(() => {
       runTaskResetCheck(settings);
       runBossResetCheck(settings);
+      runWeaponCompact();
     }, RESET_CHECK_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [runTaskResetCheck, runBossResetCheck, settings]);
+  }, [runTaskResetCheck, runBossResetCheck, compactWeapons, settings]);
 
   return (
     <TooltipProvider>
