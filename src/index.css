@@ -41,6 +41,9 @@
     --color-task-foreground: var(--task-foreground);
     --color-done: var(--done);
     --color-done-foreground: var(--done-foreground);
+    --color-stock-enough: var(--stock-enough);
+    --color-stock-cap: var(--stock-cap);
+    --color-surface-raised: var(--surface-raised);
     --color-vip-accent-text: var(--vip-accent-text);
     --color-vip-silver: var(--vip-silver);
     --color-vip-silver-foreground: var(--vip-silver-foreground);
@@ -154,6 +157,11 @@
     --task-foreground: oklch(0.5 0.16 35);
     --done: oklch(0.93 0.05 150);
     --done-foreground: oklch(0.45 0.1 150);
+    /* 武器素材持有量的狀態色(數值文字與進度條共用):已達本階需求=綠、已達持有上限=黃 */
+    --stock-enough: oklch(0.508 0.118 165.612);
+    --stock-cap: oklch(0.555 0.163 48.998);
+    /* 視窗內的子區塊底色:card 與 popover 同色,視窗裡用 bg-card 分不出區塊,改用這個比視窗底色深(淺色)/亮(深色)一階的暖灰 */
+    --surface-raised: oklch(0.928 0.014 86);
     /* VIP券等級標籤直接顯示在卡片底色上(非徽章組合),低彩度紫呼應VIP皇家但刻意壓低存在感,不搶子標題的風頭 */
     --vip-accent-text: oklch(0.46 0.05 275);
     /* VIP等級徽章依等級各自指定色,淺/深主題共用同一組(不隨主題調整) */
@@ -244,6 +252,9 @@
     --task-foreground: oklch(0.72 0.16 40);
     --done: oklch(0.3 0.05 150);
     --done-foreground: oklch(0.82 0.11 150);
+    --stock-enough: oklch(0.765 0.177 163.223);
+    --stock-cap: oklch(0.828 0.189 84.429);
+    --surface-raised: oklch(0.29 0.02 80);
     --vip-accent-text: oklch(0.75 0.05 275);
     --difficulty-easy: oklch(0.27 0.045 75);
     --difficulty-easy-foreground: oklch(0.78 0.06 75);
