@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CharacterBossTrackList } from '@/types';
 import {
+  buildTrackedGroupKeys,
   getEditableDifficulties,
   getWeeklyRevenueCountedIds,
   isWeeklyRevenueExcluded,
@@ -98,6 +99,20 @@ function makeTracked(overrides: Partial<CharacterBossTrackList>): CharacterBossT
     ...overrides,
   };
 }
+
+describe('buildTrackedGroupKeys', () => {
+  it('一般追蹤的週王會鎖住該王的每週群組', () => {
+    const bosses = [makeTracked({ bossCatalogId: 'lotus', difficulty: '困難', resetCycle: 'weekly' })];
+    expect(buildTrackedGroupKeys(bosses, 'c1').has('lotus|weekly')).toBe(true);
+  });
+
+  it('VIP 重置券追蹤的王不鎖每週群組(VIP 是另外一次討伐)', () => {
+    const bosses = [
+      makeTracked({ bossCatalogId: 'lotus', difficulty: '困難', resetCycle: 'weekly', category: 'vip', vipTicketLevel: '中' }),
+    ];
+    expect(buildTrackedGroupKeys(bosses, 'c1').has('lotus|weekly')).toBe(false);
+  });
+});
 
 describe('getEditableDifficulties', () => {
   it('一般 BOSS 只回傳同一重置週期的難度(炎魔日王不含週王渾沌)', () => {
