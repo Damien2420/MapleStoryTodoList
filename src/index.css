@@ -36,6 +36,11 @@
     --color-cycle-weekend-foreground: var(--cycle-weekend-foreground);
     --color-cycle-vip: var(--cycle-vip);
     --color-cycle-vip-foreground: var(--cycle-vip-foreground);
+    --color-cycle-daily-accent: var(--cycle-daily-accent);
+    --color-cycle-weekly-accent: var(--cycle-weekly-accent);
+    --color-cycle-monthly-accent: var(--cycle-monthly-accent);
+    --color-cycle-season-accent: var(--cycle-season-accent);
+    --color-cycle-vip-accent: var(--cycle-vip-accent);
     --color-boss: var(--boss);
     --color-boss-foreground: var(--boss-foreground);
     --color-task-foreground: var(--task-foreground);
@@ -150,6 +155,13 @@
     --cycle-weekend-foreground: oklch(0.42 0.12 300);
     --cycle-vip: oklch(0.9 0.05 190);
     --cycle-vip-foreground: oklch(0.38 0.09 190);
+    /* 週期卡 / 跳轉磚的標題、進度條與急迫標籤:-foreground 是給淡色徽章底上的深字用,當進度條太暗(像黑色);
+       淺色主題改用提亮的同色相版本,仍維持對卡片底色 4.5:1(小字與急迫標籤的卡片色字都看得清楚) */
+    --cycle-daily-accent: oklch(0.53 0.17 38);
+    --cycle-weekly-accent: oklch(0.52 0.13 150);
+    --cycle-monthly-accent: oklch(0.53 0.11 75);
+    --cycle-season-accent: oklch(0.53 0.02 70);
+    --cycle-vip-accent: oklch(0.52 0.08 195);
     /* 進度看板專用:--boss 是BOSS進度弧(內圈)的鋼藍,--done 是「今日已完成」徽章的綠(新增任務清單的「已加入」徽章也沿用);週期身分不靠顏色,所以不與 --cycle-* 混用 */
     --boss: oklch(0.92 0.03 235);
     --boss-foreground: oklch(0.5 0.1 235);
@@ -247,6 +259,12 @@
     --cycle-weekend-foreground: oklch(0.88 0.09 300);
     --cycle-vip: oklch(0.32 0.06 190);
     --cycle-vip-foreground: oklch(0.86 0.08 190);
+    /* 深色主題的 -foreground 本來就夠亮,直接沿用 */
+    --cycle-daily-accent: var(--cycle-daily-foreground);
+    --cycle-weekly-accent: var(--cycle-weekly-foreground);
+    --cycle-monthly-accent: var(--cycle-monthly-foreground);
+    --cycle-season-accent: var(--cycle-season-foreground);
+    --cycle-vip-accent: var(--cycle-vip-foreground);
     --boss: oklch(0.32 0.05 235);
     --boss-foreground: oklch(0.74 0.09 235);
     --task-foreground: oklch(0.72 0.16 40);

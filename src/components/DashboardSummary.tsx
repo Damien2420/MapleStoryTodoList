@@ -66,7 +66,7 @@ function CycleCard({
   onJump: (cycle: BossCycleKey, lists: JumpList[]) => void;
   label: string;
   urgentLabel?: string;
-  /** 週期色,例如 'var(--cycle-weekly-foreground)';用於急迫標籤與 hover/按下的染色 */
+  /** 週期色,例如 'var(--cycle-weekly-accent)';用於急迫標籤與 hover/按下的染色 */
   color: string;
   dotClassName: string;
   barClassName: string;
@@ -160,9 +160,9 @@ export function DashboardSummary({
             lists={listsWithItems(daily)}
             onJump={onJump}
             label="每日"
-            color="var(--cycle-daily-foreground)"
-            dotClassName="text-cycle-daily-foreground"
-            barClassName="bg-cycle-daily-foreground"
+            color="var(--cycle-daily-accent)"
+            dotClassName="text-cycle-daily-accent"
+            barClassName="bg-cycle-daily-accent"
             taskDone={daily.taskDone}
             taskTotal={daily.taskTotal}
             bossDone={daily.bossDone}
@@ -176,9 +176,9 @@ export function DashboardSummary({
             onJump={onJump}
             label="每週"
             urgentLabel={weeklyUrgent ? URGENCY_LABELS.weekly : undefined}
-            color="var(--cycle-weekly-foreground)"
-            dotClassName="text-cycle-weekly-foreground"
-            barClassName="bg-cycle-weekly-foreground"
+            color="var(--cycle-weekly-accent)"
+            dotClassName="text-cycle-weekly-accent"
+            barClassName="bg-cycle-weekly-accent"
             taskDone={weekly.taskDone}
             taskTotal={weekly.taskTotal}
             bossDone={weekly.bossDone}
@@ -192,9 +192,9 @@ export function DashboardSummary({
             onJump={onJump}
             label="每月"
             urgentLabel={monthlyUrgent ? URGENCY_LABELS.monthly : undefined}
-            color="var(--cycle-monthly-foreground)"
-            dotClassName="text-cycle-monthly-foreground"
-            barClassName="bg-cycle-monthly-foreground"
+            color="var(--cycle-monthly-accent)"
+            dotClassName="text-cycle-monthly-accent"
+            barClassName="bg-cycle-monthly-accent"
             taskDone={monthly.taskDone}
             taskTotal={monthly.taskTotal}
             bossDone={monthly.bossDone}
@@ -208,9 +208,9 @@ export function DashboardSummary({
             onJump={onJump}
             label="賽季"
             urgentLabel={seasonUrgent ? URGENCY_LABELS.season : undefined}
-            color="var(--cycle-season-foreground)"
-            dotClassName="text-cycle-season-foreground"
-            barClassName="bg-cycle-season-foreground"
+            color="var(--cycle-season-accent)"
+            dotClassName="text-cycle-season-accent"
+            barClassName="bg-cycle-season-accent"
             taskDone={season.taskDone}
             taskTotal={season.taskTotal}
             bossDone={season.bossDone}
@@ -223,9 +223,9 @@ export function DashboardSummary({
             lists={listsWithItems(vip)}
             onJump={onJump}
             label="VIP重置"
-            color="var(--cycle-vip-foreground)"
-            dotClassName="text-cycle-vip-foreground"
-            barClassName="bg-cycle-vip-foreground"
+            color="var(--cycle-vip-accent)"
+            dotClassName="text-cycle-vip-accent"
+            barClassName="bg-cycle-vip-accent"
             bossDone={vip.bossDone}
             bossTotal={vip.bossTotal}
           />
