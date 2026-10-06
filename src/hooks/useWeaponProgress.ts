@@ -26,7 +26,52 @@ export interface WeaponProgress {
   now: Date;
 }
 
+/** useWeaponStatus 的結果:只有目前狀態與畫面狀態 */
+export type WeaponStatusResult = Pick<WeaponProgress, 'state' | 'status'>;
+
 const NO_PROFILE = { genesisPass: false, stormTraining: false };
+
+/**
+ * 各武器畫面上的狀態:命運、阿斯特拉要創世完成且等級足夠才解鎖
+ * @param state fold 後的武器狀態
+ * @param level 角色等級
+ * @returns 四把武器的畫面狀態
+ */
+function viewStatus(state: CharacterWeaponState, level: number): Record<WeaponKind, WeaponViewStatus> {
+  const genesisDone = state.genesis.status === 'done';
+  return {
+    soul: state.soul.status,
+    genesis: state.genesis.status,
+    destiny: genesisDone && level >= DESTINY.minLevel ? state.destiny.status : 'locked',
+    astra: genesisDone && level >= ASTRA.minLevel ? state.astra.status : 'locked',
+  };
+}
+
+/**
+ * 輕量版:只重播紀錄與事件得到目前狀態,不算本週已取得與預估時間(看板每一列用)。
+ * 不訂閱 BOSS、任務清單,也不每分鐘更新,只有武器資料或設定變動才重算
+ * @param character 角色
+ * @returns 目前狀態與各武器畫面狀態
+ */
+export function useWeaponStatus(character: Character): WeaponStatusResult {
+  const bossClears = useWeaponStore((s) => s.bossClears);
+  const dailyClears = useWeaponStore((s) => s.dailyClears);
+  const events = useWeaponStore((s) => s.events);
+  const checkpoints = useWeaponStore((s) => s.checkpoints);
+  const settings = useSettingsStore((s) => s.settings);
+
+  return useMemo(() => {
+    const id = character.id;
+    const { state } = foldWeapons({
+      checkpoint: checkpoints.find((c) => c.id === id),
+      bossClears: bossClears.filter((c) => c.characterId === id),
+      dailyClears: dailyClears.filter((d) => d.characterId === id),
+      events: events.filter((e) => e.characterId === id),
+      settings,
+    });
+    return { state, status: viewStatus(state, character.level) };
+  }, [character.id, character.level, bossClears, dailyClears, events, checkpoints, settings]);
+}
 
 /**
  * 角色四把武器的進度:由存檔點、紀錄與事件即時算出,並附上本週已取得與預估時間。
@@ -61,14 +106,7 @@ export function useWeaponProgress(character: Character): WeaponProgress {
     const thisWeek = computeThisWeek({ ...own, fold, trackedBosses, tasks: ownTasks, profile, settings, now: current });
     const soulDoneThisWeek = Math.max(0, ...thisWeek.weapons.soul.rows.map((r) => r.amount));
     const estimate = estimateWeapons({ state: fold.state, trackedBosses, tasks: ownTasks, profile, settings, now: current, soulDoneThisWeek });
-    const genesisDone = fold.state.genesis.status === 'done';
-    const status: Record<WeaponKind, WeaponViewStatus> = {
-      soul: fold.state.soul.status,
-      genesis: fold.state.genesis.status,
-      destiny: genesisDone && character.level >= DESTINY.minLevel ? fold.state.destiny.status : 'locked',
-      astra: genesisDone && character.level >= ASTRA.minLevel ? fold.state.astra.status : 'locked',
-    };
-    return { state: fold.state, fold, thisWeek, estimate, profile, status, now: current };
+    return { state: fold.state, fold, thisWeek, estimate, profile, status: viewStatus(fold.state, character.level), now: current };
   }, [character.id, character.level, bossClears, dailyClears, events, checkpoints, profiles, bosses, tasks, settings, minuteKey]);
 }
 

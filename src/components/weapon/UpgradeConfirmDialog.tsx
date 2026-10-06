@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { ASTRA, DESTINY, GENESIS, SOUL_QUESTS } from '@/data/weaponRates.data';
 import type { WeaponProgress } from '@/hooks/useWeaponProgress';
 import { toDisplay } from '@/lib/weapon/rates';
-import { destinyNeed, genesisNeed, soulNextCost, soulStageOf } from '@/lib/weapon/rules';
+import { destinyNeed, genesisNeed, soulStageOf } from '@/lib/weapon/rules';
 import { soloKey, type WeaponKind } from '@/lib/weapon/types';
 import { BossTilePicker } from './BossTilePicker';
 import { fmt } from './weaponUi';
@@ -136,7 +136,6 @@ function UpgradeBody({
     );
   } else {
     const s = state.soul;
-    const nextCost = soulNextCost(s.level);
     title = '靈魂武器升階';
     sub = `Lv.${s.level} · ${soulStage} 階 → ${soulStage + 1} 階`;
     canConfirm = soulPick !== null;
@@ -153,8 +152,7 @@ function UpgradeBody({
         </div>
         <Preview>
           <span>
-            升階不消耗碎片。升到 {soulStage + 1} 階後就能繼續升級：Lv.{s.level + 1} 需要 <b className="font-semibold text-foreground tabular-nums">{fmt(nextCost)}</b>，目前持有{' '}
-            <b className="font-semibold text-foreground tabular-nums">{fmt(toDisplay(s.pool))}</b>。
+            靈魂武器升階不消耗碎片。
           </span>
         </Preview>
       </>

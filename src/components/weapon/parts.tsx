@@ -33,6 +33,15 @@ export function MonthlyTag() {
   );
 }
 
+/** VIP 標籤:配色沿用 VIP 週期 */
+export function VipTag() {
+  return (
+    <span className="shrink-0 rounded-full bg-cycle-vip px-1.5 py-px text-[10.5px] leading-[1.3] font-semibold text-cycle-vip-foreground">
+      VIP
+    </span>
+  );
+}
+
 /**
  * 說明小圖示(桌面):hover、鍵盤 focus 或點擊時顯示說明;用 Tooltip(portal),不會撐出視窗捲軸
  * @param text 說明文字

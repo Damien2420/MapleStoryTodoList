@@ -1,4 +1,5 @@
 import { GRANDIS_DAILY_PRESET_ID, GRANDIS_DAILY_SHARDS } from '@/data/weaponRates.data';
+import { bossCatalogRank } from '@/lib/bossCatalog';
 import type { CharacterBossTrackList, CharacterTask, Settings } from '@/types';
 import { addDays, dayBounds, gameWeekBounds, localDateKey } from './cycle';
 import type { FoldResult } from './fold';
@@ -21,6 +22,8 @@ export interface ThisWeekRow {
 /** 單一武器的本週資料 */
 export interface WeaponThisWeek {
   rows: ThisWeekRow[];
+  /** 本週期所有已勾選的擊破(含已計入持有量的),調整進度時讓使用者選擇要不要加在填的值上;靈魂只有本週給最多的那一隻 */
+  cycleRows: ThisWeekRow[];
   /** 合計(1/60 單位);阿斯特拉為激戰的痕跡 */
   total: number;
   /** 阿斯特拉艾里溫碎片合計(BOSS + 每日),1/60 單位 */
@@ -90,6 +93,11 @@ function splitOf(c: Pick<BossClear, 'partySize' | 'genesisPass' | 'stormTraining
   return c.partySize;
 }
 
+/** 計入量最高的一列(同量時取排在前面的);沒有時回傳 undefined */
+function topOf(rows: ThisWeekRow[]): ThisWeekRow | undefined {
+  return rows.length > 0 ? rows.reduce((t, r) => (r.amount > t.amount ? r : t)) : undefined;
+}
+
 /** 地區取得量對應回地區名稱 */
 function regionOf(shards: number): string | undefined {
   return Object.entries(GRANDIS_DAILY_SHARDS).find(([, v]) => v === shards)?.[0];
@@ -110,8 +118,7 @@ export function computeThisWeek(input: ThisWeekInput): ThisWeekResult {
   );
 
   const build = (weapon: WeaponKind): WeaponThisWeek => {
-    // 校正之前打的也照樣列出(素材已包含在使用者填的持有量裡,fold 不會再加一次)
-    let rows: ThisWeekRow[] = current
+    const all: ThisWeekRow[] = current
       .map((c) => {
         const a = clearAmounts(c);
         return {
@@ -123,8 +130,27 @@ export function computeThisWeek(input: ThisWeekInput): ThisWeekResult {
         };
       })
       .filter((r) => r.amount > 0 || (r.shard ?? 0) > 0)
-      .sort((a, b) => b.amount - a.amount);
-    if (weapon === 'soul') rows = rows.slice(0, 1);
+      .sort((a, b) => bossCatalogRank(a.clear.bossCatalogId, a.clear.difficulty) - bossCatalogRank(b.clear.bossCatalogId, b.clear.difficulty));
+    // 校正之前打的不列出(校正時勾選加入的除外):素材已包含在使用者填的持有量裡,列出來會跟持有量對不上
+    const since = fold.adjustAt[weapon] ?? '';
+    const included = new Set(fold.adjustIncluded[weapon]);
+    const counted = (r: ThisWeekRow) => r.clear.firstClearedAt >= since || included.has(r.clear.id);
+    let rows = all.filter(counted);
+    if (weapon === 'soul') {
+      // 靈魂一週只算給最多的那一隻,和 fold 的算法一致:
+      // 本週計入 = 校正時選擇加入的量 + 校正後打到超過「校正前本週最高」的部分
+      const pre = all.filter((r) => r.clear.firstClearedAt < since);
+      const preMax = Math.max(0, ...pre.map((r) => r.amount));
+      const inc = topOf(pre.filter((r) => included.has(r.clear.id)));
+      const after = topOf(all.filter((r) => r.clear.firstClearedAt >= since));
+      const extra = after && after.amount > preMax ? after.amount - preMax : 0;
+      const shown = extra > 0 ? after : inc;
+      const amount = (inc?.amount ?? 0) + extra;
+      rows = shown && amount > 0 ? [{ ...shown, amount }] : [];
+    }
+    // 校正時讓使用者選擇要不要加在填的值上:本週期所有已勾選的;靈魂一週只算一隻,只給最多的那一隻
+    const soulTop = weapon === 'soul' ? topOf(all) : undefined;
+    const cycleRows = weapon === 'soul' ? (soulTop ? [soulTop] : []) : all;
 
     const capLoss = rows.reduce((s, r) => {
       const l = fold.capLoss.get(r.clear.id);
@@ -143,6 +169,7 @@ export function computeThisWeek(input: ThisWeekInput): ThisWeekResult {
 
     return {
       rows,
+      cycleRows,
       total: rows.reduce((s, r) => s + r.amount, 0),
       shardTotal: rows.reduce((s, r) => s + (r.shard ?? 0), 0),
       capLoss,

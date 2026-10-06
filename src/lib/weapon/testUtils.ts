@@ -91,6 +91,16 @@ export function upgrade(when: Date, weapon: WeaponEvent['weapon'], fromStage: nu
   };
 }
 
+/** 建立靈魂自動升級開關事件 */
+export function soulAuto(when: Date, enabled: boolean): WeaponEvent {
+  return { id: `c1:soul:soulAutoLevel:${when.toISOString()}`, characterId: 'c1', weapon: 'soul', kind: 'soulAutoLevel', payload: { enabled }, at: when.toISOString(), updatedAt: when.toISOString() };
+}
+
+/** 建立靈魂手動升級事件 */
+export function soulLevel(when: Date, toLevel: number): WeaponEvent {
+  return { id: `c1:soul:soulLevelUp:${when.toISOString()}`, characterId: 'c1', weapon: 'soul', kind: 'soulLevelUp', payload: { toLevel }, at: when.toISOString(), updatedAt: when.toISOString() };
+}
+
 /** 建立其他事件(標記完成、命運開始第二階段) */
 export function simpleEvent(when: Date, weapon: WeaponEvent['weapon'], kind: 'complete' | 'destinyPhase2'): WeaponEvent {
   return { id: `c1:${weapon}:${kind}:${when.toISOString()}`, characterId: 'c1', weapon, kind, at: when.toISOString(), updatedAt: when.toISOString() };

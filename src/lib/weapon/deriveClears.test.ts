@@ -19,7 +19,7 @@ function apply(clears: BossClear[], dailies: DailyClear[], input: Omit<DeriveInp
 const base = { characterId: 'c1', tasks: [], profile: PROFILE, settings: SETTINGS, now: NOW };
 
 describe('deriveClears', () => {
-  it('勾選產生紀錄,取消為同一筆 active = false,重新勾選保留 firstClearedAt', () => {
+  it('勾選產生紀錄,取消為同一筆 active = false,重新勾選視為重新擊破(firstClearedAt 改為重新勾選的時間)', () => {
     const checkedAt = at(2026, 10, 2, 9).toISOString();
     let s = apply([], [], { ...base, bosses: [boss({ bossCatalogId: 'lucid', difficulty: '困難', checked: true, lastResetAt: checkedAt })] });
     expect(s.clears).toHaveLength(1);
@@ -32,7 +32,7 @@ describe('deriveClears', () => {
 
     const recheck = at(2026, 10, 2, 11).toISOString();
     s = apply(s.clears, [], { ...base, bosses: [boss({ bossCatalogId: 'lucid', difficulty: '困難', checked: true, lastResetAt: recheck })] });
-    expect(s.clears[0]).toMatchObject({ id, active: true, firstClearedAt: checkedAt });
+    expect(s.clears[0]).toMatchObject({ id, active: true, firstClearedAt: recheck });
   });
 
   it('週中修改人數、難度更新同一筆;沒有變動時不輸出', () => {
@@ -45,9 +45,24 @@ describe('deriveClears', () => {
     expect(again.bossClears).toHaveLength(0);
   });
 
-  it('刪除追蹤項目後本週紀錄保留不動', () => {
-    const s = apply([], [], { ...base, bosses: [boss({ bossCatalogId: 'lucid', difficulty: '困難', checked: true, lastResetAt: at(2026, 10, 2, 9).toISOString() })] });
-    const r = deriveClears({ ...base, bosses: [], bossClears: s.clears, dailyClears: [] });
+  it('刪除追蹤項目視同取消勾選;加回來重新勾選恢復同一筆,視為重新擊破', () => {
+    const checkedAt = at(2026, 10, 2, 9).toISOString();
+    let s = apply([], [], { ...base, bosses: [boss({ bossCatalogId: 'black-mage', difficulty: '極限', resetCycle: 'monthly', checked: true, lastResetAt: checkedAt })] });
+    const id = s.clears[0].id;
+
+    s = apply(s.clears, [], { ...base, bosses: [] });
+    expect(s.clears).toHaveLength(1);
+    expect(s.clears[0]).toMatchObject({ id, active: false });
+
+    const readd = at(2026, 10, 2, 11).toISOString();
+    s = apply(s.clears, [], { ...base, bosses: [boss({ bossCatalogId: 'black-mage', difficulty: '困難', resetCycle: 'monthly', checked: true, lastResetAt: readd })] });
+    expect(s.clears).toHaveLength(1);
+    expect(s.clears[0]).toMatchObject({ id, active: true, difficulty: '困難', firstClearedAt: readd });
+  });
+
+  it('刪除追蹤項目不改動已結束週期的紀錄', () => {
+    const lastWeek = apply([], [], { ...base, now: at(2026, 9, 28, 12), bosses: [boss({ bossCatalogId: 'lucid', difficulty: '困難', checked: true, lastResetAt: at(2026, 9, 28, 9).toISOString() })] });
+    const r = deriveClears({ ...base, bosses: [], bossClears: lastWeek.clears, dailyClears: [] });
     expect(r.bossClears).toHaveLength(0);
   });
 
@@ -91,18 +106,33 @@ describe('deriveClears', () => {
     expect(r.bossClears).toHaveLength(0);
   });
 
-  it('加成設定寫入當下就固定在紀錄上', () => {
+  it('加成設定寫入紀錄', () => {
     const r = deriveClears({ ...base, profile: { genesisPass: true, stormTraining: true }, bosses: [boss({ bossCatalogId: 'lucid', difficulty: '困難', checked: true, lastResetAt: at(2026, 10, 2, 9).toISOString() })], bossClears: [], dailyClears: [] });
     expect(r.bossClears[0]).toMatchObject({ genesisPass: true, stormTraining: true });
   });
 
-  it('週中改通行證或暴風修練,本週已寫入的紀錄不追溯', () => {
+  it('週中改通行證或暴風修練,本週期勾選中的紀錄跟著改(官方會補發當週 / 當月的差額)', () => {
     const checkedAt = at(2026, 10, 2, 9).toISOString();
     const bosses = [boss({ bossCatalogId: 'lucid', difficulty: '困難', checked: true, lastResetAt: checkedAt })];
     const first = apply([], [], { ...base, bosses });
     const later = apply(first.clears, [], { ...base, profile: { genesisPass: true, stormTraining: true }, bosses });
-    expect(later.clears[0]).toMatchObject({ genesisPass: false, stormTraining: false });
-    expect(later.result.bossClears).toEqual([]);
+    expect(later.clears[0]).toMatchObject({ genesisPass: true, stormTraining: true, firstClearedAt: checkedAt });
+  });
+
+  it('改通行證不影響已結束週期的紀錄', () => {
+    const lastWeek = apply([], [], { ...base, now: at(2026, 9, 28, 12), bosses: [boss({ bossCatalogId: 'lucid', difficulty: '困難', checked: true, lastResetAt: at(2026, 9, 28, 9).toISOString() })] });
+    const r = deriveClears({ ...base, profile: { genesisPass: true, stormTraining: true }, bosses: [], bossClears: lastWeek.clears, dailyClears: [] });
+    expect(r.bossClears).toHaveLength(0);
+  });
+
+  it('取消勾選(或刪除)後重新勾選,加成改用目前的設定', () => {
+    const checkedAt = at(2026, 10, 2, 9).toISOString();
+    const first = apply([], [], { ...base, bosses: [boss({ bossCatalogId: 'lucid', difficulty: '困難', checked: true, lastResetAt: checkedAt })] });
+    const off = apply(first.clears, [], { ...base, bosses: [] });
+    const pass = { genesisPass: true, stormTraining: true };
+    const recheckAt = at(2026, 10, 2, 11).toISOString();
+    const recheck = apply(off.clears, [], { ...base, profile: pass, bosses: [boss({ bossCatalogId: 'lucid', difficulty: '困難', checked: true, lastResetAt: recheckAt })] });
+    expect(recheck.clears[0]).toMatchObject({ active: true, ...pass, firstClearedAt: recheckAt });
   });
 
   it('每日取最高地區;取消最高地區退回次高;全部取消為 0', () => {

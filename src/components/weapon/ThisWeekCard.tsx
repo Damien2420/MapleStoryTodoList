@@ -5,15 +5,15 @@ import { Button } from '@/components/ui/button';
 import type { WeaponThisWeek } from '@/lib/weapon/thisWeek';
 import type { WeaponKind } from '@/lib/weapon/types';
 import { cn } from '@/lib/utils';
-import { COARSE_HIT, DifficultyTag, InfoTip, MonthlyTag, Note, UnitText } from './parts';
+import { COARSE_HIT, DifficultyTag, InfoTip, MonthlyTag, Note, UnitText, VipTag } from './parts';
 import { bossName, fmtUnits, WEAPON_META } from './weaponUi';
 
 /** 各武器「本週已取得」的說明文字 */
 const NOTES: Record<WeaponKind, string> = {
-  soul: '只取本週打過的週王中給最多的那一隻。已包含在持有量裡，取消勾選會自動扣回。',
-  genesis: '勾選當下就已加進持有量，不必等重置；取消勾選會自動扣回。組隊時依人數平分，小數會保留在紀錄裡，畫面只顯示整數。',
-  destiny: '勾選當下就已加進持有量，不必等重置；取消勾選會自動扣回。組隊時依人數平分，小數會保留在紀錄裡，畫面只顯示整數。',
-  astra: '勾選當下就已加進持有量，取消勾選會自動扣回。激戰的痕跡組隊時依人數平分；艾里溫碎片不平分，每日任務每天只算完成的最高地區。',
+  soul: '只取本週打過的週王中給最多的那一隻的靈魂碎片數量。已包含在持有量裡，取消勾選會自動扣回。',
+  genesis: '勾選當下就會將該BOSS能獲得的黑暗的痕跡加入，取消勾選會自動扣回。依照列表中設定的攻略人數平分。',
+  destiny: '勾選當下就會將該BOSS能獲得的敵對者的決心加入，取消勾選會自動扣回。依照列表中設定的攻略人數平分。',
+  astra: '勾選當下就已加進持有量，取消勾選會自動扣回。激戰的痕跡組隊時依照列表中設定的攻略人數平分；艾里溫碎片不平分，每日任務每天只算完成的最高地區。',
 };
 
 /** 手機不在卡片內捲動:超過這個筆數先收合,點「顯示其餘」才展開 */
@@ -30,6 +30,7 @@ const CAP_TEXT: Partial<Record<WeaponKind, string>> = { genesis: '3,000', astra:
  * @param data 本週資料
  * @param mobile 是否為手機排版(說明直接顯示,不用 info 圖示)
  * @param destinyCap 命運目前階段的上限文字
+ * @param atCap 目前持有量是否在上限(預設 true);升階扣掉後不在上限時,被截掉的量改成說明當時沒有計入,不再建議升階
  * @param onGoBossList 點「前往 BOSS 清單」時呼叫
  * @param onRates 點「各 BOSS 取得量」時呼叫
  * @param className 額外的 class(桌面由外層決定高度)
@@ -39,6 +40,7 @@ export function ThisWeekCard({
   data,
   mobile,
   destinyCap,
+  atCap = true,
   onGoBossList,
   onRates,
   className,
@@ -47,6 +49,7 @@ export function ThisWeekCard({
   data: WeaponThisWeek;
   mobile: boolean;
   destinyCap?: string;
+  atCap?: boolean;
   onGoBossList: () => void;
   onRates: () => void;
   className?: string;
@@ -104,7 +107,7 @@ export function ThisWeekCard({
           </ul>
         ) : (
           <p className="flex min-h-[34px] items-center text-xs text-muted-foreground">
-            本週還沒打會給靈魂的週王
+            本週還沒有計入會給靈魂的週王
           </p>
         )}
         {ratesLink}
@@ -161,7 +164,8 @@ export function ThisWeekCard({
             </>
           ) : (
             <>
-              <b className="text-sm font-semibold">本週還沒打任何 BOSS</b>
+              {/* 設定前勾的 BOSS 不列出,所以不能說「還沒打」 */}
+              <b className="text-sm font-semibold">本週還沒有計入的 BOSS</b>
               <span className="text-xs text-muted-foreground">清單中追蹤的 BOSS 全部打完，本週還能取得</span>
               <span className="text-lg font-bold text-secondary-foreground tabular-nums">
                 +{fmtUnits(data.potential)}
@@ -177,10 +181,17 @@ export function ThisWeekCard({
           className="flex shrink-0 items-start gap-1.5 rounded-lg bg-[color-mix(in_oklch,var(--destructive)_10%,var(--card))] px-2 py-1.5 text-xs leading-[1.45] text-muted-foreground"
         >
           <CircleAlert aria-hidden="true" className="mt-0.5 size-3 shrink-0 text-destructive" />
-          <span>
-            超過上限 {capText}，<b className="font-semibold text-destructive tabular-nums">{fmtUnits(data.capLoss)} {unit}</b>
-            未計入，建議先升階
-          </span>
+          {atCap ? (
+            <span>
+              超過上限 {capText}，<b className="font-semibold text-destructive tabular-nums">{fmtUnits(data.capLoss)} {unit}</b>
+              未計入，建議先升階
+            </span>
+          ) : (
+            // 升階後已不在上限:被截掉的量不會補回,只說明當時沒有計入(上限可能已換成新階段的,不寫數字)
+            <span>
+              本週打王時已達上限，<b className="font-semibold text-destructive tabular-nums">{fmtUnits(data.capLoss)} {unit}</b>沒有計入
+            </span>
+          )}
         </div>
       )}
       {ratesLink}
@@ -188,7 +199,7 @@ export function ThisWeekCard({
   );
 }
 
-/** 單一 BOSS 列:頭像、名稱、難度、(月王)、(平分人數)、計入量 */
+/** 單一 BOSS 列:頭像、名稱、難度、(VIP)、(月王)、(平分人數)、計入量 */
 function BossRow({ kind, row, unit }: { kind: WeaponKind; row: WeaponThisWeek['rows'][number]; unit: string }) {
   const name = bossName(row.clear.bossCatalogId);
   return (
@@ -196,6 +207,7 @@ function BossRow({ kind, row, unit }: { kind: WeaponKind; row: WeaponThisWeek['r
       <BossAvatar bossCatalogId={row.clear.bossCatalogId} name={name} />
       <span className="leading-[1.2] font-medium whitespace-nowrap">{name}</span>
       <DifficultyTag difficulty={row.clear.difficulty} />
+      {row.clear.isVip && <VipTag />}
       {row.monthly && <MonthlyTag />}
       {row.split && (
         <span title={`${row.split} 人組隊平分`} className="ml-auto text-xs font-medium whitespace-nowrap text-muted-foreground tabular-nums">

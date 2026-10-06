@@ -46,8 +46,8 @@ function sameClear(a: BossClear, b: BossClear): boolean {
 /**
  * 依目前的勾選框狀態重建「本週期那幾格」紀錄。純函式,不讀目前時間(由 now 傳入)
  * - 紀錄的週期看勾選框的 lastResetAt(勾選時間),不看現在時間;只改動仍在進行中的週期,結束的週期凍結不動
- * - 勾選中 → active;已存在則保留 firstClearedAt,更新難度、人數與加成
- * - 取消勾選 → active = false;追蹤項目被刪除 → 該格保留不動
+ * - 勾選中 → active;生效中的紀錄保留 firstClearedAt,更新難度、人數與加成;失效的紀錄重新勾選視為重新擊破
+ * - 取消勾選或刪除追蹤項目 → active = false
  * - 每日:當天勾選中的格蘭蒂斯地區任務取最高地區的取得量
  * @param input 同一個角色的勾選框、既有紀錄、加成設定與時間
  * @returns 需要新增或更新的紀錄
@@ -87,15 +87,20 @@ export function deriveClears(input: DeriveInput): DeriveResult {
       difficulty: pick.difficulty,
       partySize: pick.partySize,
       isVip: pick.category === 'vip',
-      // 加成在紀錄第一次寫入時固定,之後改通行證或暴風修練不會追溯本週已勾的 BOSS
-      genesisPass: prev ? prev.genesisPass : profile.genesisPass,
-      stormTraining: prev ? prev.stormTraining : profile.stormTraining,
-      firstClearedAt: prev?.firstClearedAt ?? firstCheck,
+      // 加成一律用目前的設定:週中才買通行證,官方會補發當週 / 當月已打 BOSS 的差額;已結束的週期不會再進到這裡
+      genesisPass: profile.genesisPass,
+      stormTraining: profile.stormTraining,
+      // 取消勾選(或刪除)後重新勾選視為重新擊破,改用重新勾選的時間,校正後勾回來才會加進持有量
+      firstClearedAt: prev?.active ? prev.firstClearedAt : firstCheck,
       cycleEnd,
       active: true,
       updatedAt: nowIso,
     };
     if (!prev || !sameClear(prev, next)) bossClears.push(next);
+  }
+  // 追蹤項目被刪除:進行中週期的紀錄視同取消勾選;加回來重新勾選會恢復同一筆
+  for (const prev of input.bossClears) {
+    if (prev.active && prev.cycleEnd > nowIso && !groups.has(prev.id)) bossClears.push({ ...prev, active: false, updatedAt: nowIso });
   }
 
   const dailyClears: DailyClear[] = [];

@@ -1,4 +1,4 @@
-import { useRef, useState, type PointerEvent } from 'react';
+import { useRef, useState, type CSSProperties, type PointerEvent } from 'react';
 import { ChevronLeft, ChevronRight, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -11,17 +11,20 @@ import type { TimelineModel } from './weaponUi';
  * 預覽或固定後,軌道從今天填到該節點
  * @param model 時間軸資料
  * @param desktop 是否為桌面排版(說明用 info 圖示、提示文字不同)
+ * @param color 武器的顏色(CSS 色值),軌道、節點與終點文字都用這個顏色,和上方進度條一致
  * @param fullLabel 「查看完整預估」按鈕文字,沒有時不顯示
  * @param onFull 點完整預估按鈕時呼叫
  */
 export function EstimateTimeline({
   model,
   desktop,
+  color,
   fullLabel,
   onFull,
 }: {
   model: TimelineModel;
   desktop: boolean;
+  color: string;
   fullLabel?: string;
   onFull?: () => void;
 }) {
@@ -64,9 +67,8 @@ export function EstimateTimeline({
   const shown = preview ?? picked ?? last;
   const active = preview !== null || picked !== null;
   const tick = model.ticks[shown];
-  // 預覽或固定節點時填到該節點;沒有時,有 progress 的軌道(靈魂)填到目前進度,其他軌道不填色
-  const fillTo = active ? tick.position : (model.progress ?? 0);
-  const showFill = active || model.progress !== undefined;
+  // 預覽或固定節點時填到該節點;沒有時,有 progress 的軌道(靈魂)填到目前進度,其他軌道填到預設停的最後一個節點
+  const fillTo = active ? tick.position : (model.progress ?? tick.position);
   // 標籤會互相蓋住時略過較近的節點(手機軌道窄,間距門檻比桌面大);終點與目前選到的節點一定顯示
   const minLabelGap = desktop ? 5 : 15;
   const labelShown: boolean[] = [];
@@ -105,7 +107,7 @@ export function EstimateTimeline({
   };
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-1.5" style={{ '--bar': color } as CSSProperties}>
       <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
         <span className="inline-flex items-center gap-1.5 text-muted-foreground">
           <Clock aria-hidden="true" className="size-3.5" />
@@ -125,12 +127,9 @@ export function EstimateTimeline({
         onPointerCancel={endScrub}
         onPointerLeave={() => !scrubbing.current && setPreview(null)}
       >
-        <div className="absolute inset-x-0 bottom-2.5 h-2 rounded-[3px] bg-[color-mix(in_oklch,var(--secondary-foreground)_22%,var(--card))] before:absolute before:top-1/2 before:left-0 before:z-[1] before:size-2.5 before:translate-x-[-1px] before:-translate-y-1/2 before:rounded-full before:bg-secondary-foreground before:content-['']">
+        <div className="absolute inset-x-0 bottom-2.5 h-2 rounded-[3px] bg-[color-mix(in_oklab,var(--bar)_22%,var(--card))] before:absolute before:top-1/2 before:left-0 before:z-[1] before:size-2.5 before:translate-x-[-1px] before:-translate-y-1/2 before:rounded-full before:bg-(--bar) before:content-['']">
           <span
-            className={cn(
-              'pointer-events-none absolute inset-0 rounded-[3px] bg-[color-mix(in_oklch,var(--secondary-foreground)_60%,var(--card))] transition-[clip-path,opacity] duration-[250ms,120ms] ease-[var(--ease-smooth-out)] motion-reduce:transition-opacity',
-              showFill ? 'opacity-100' : 'opacity-0',
-            )}
+            className="pointer-events-none absolute inset-0 rounded-[3px] bg-[color-mix(in_oklab,var(--bar)_60%,var(--card))] transition-[clip-path] duration-[250ms] ease-[var(--ease-smooth-out)] motion-reduce:transition-none"
             style={{ clipPath: `inset(0 ${100 - fillTo}% 0 0 round 3px)` }}
           />
           {model.ticks.map((t, i) => {
@@ -145,7 +144,7 @@ export function EstimateTimeline({
                   'pointer-events-none absolute top-1/2 z-[2] -mt-3 size-6',
                   isEnd ? '-ml-[18px]' : '-ml-3',
                   // 圓點用 ::after 畫,只放大圓點,標籤文字不會被拉伸
-                  "after:absolute after:top-1/2 after:left-1/2 after:rounded-full after:bg-secondary-foreground after:shadow-[0_0_0_2px_var(--popover)] after:transition-transform after:duration-150 after:ease-[var(--ease-smooth-out)] after:content-[''] motion-reduce:after:transition-none",
+                  "after:absolute after:top-1/2 after:left-1/2 after:rounded-full after:bg-(--bar) after:shadow-[0_0_0_2px_var(--popover)] after:transition-transform after:duration-150 after:ease-[var(--ease-smooth-out)] after:content-[''] motion-reduce:after:transition-none",
                   isEnd ? 'after:-mt-1.5 after:-ml-1.5 after:size-3' : 'after:-mt-1 after:-ml-1 after:size-2',
                   on && (isEnd ? 'after:scale-125 motion-reduce:after:scale-100' : 'after:scale-[1.375] motion-reduce:after:scale-100'),
                 )}
@@ -155,7 +154,7 @@ export function EstimateTimeline({
                   <em
                     className={cn(
                       'absolute bottom-[calc(100%-4px)] text-[10.5px] font-semibold whitespace-nowrap not-italic transition-colors duration-150',
-                      isEnd ? 'right-1.5 text-secondary-foreground' : 'left-1/2 -translate-x-1/2',
+                      isEnd ? 'right-1.5 text-(--bar)' : 'left-1/2 -translate-x-1/2',
                       !isEnd && (on ? 'text-foreground' : 'text-muted-foreground'),
                     )}
                   >

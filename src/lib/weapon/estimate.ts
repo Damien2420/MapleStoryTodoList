@@ -124,7 +124,7 @@ function weekGainFn(input: EstimateInput): { fn: WeekGainFn; gain: WeeklyGain } 
   );
   const daysLeft = Math.min(7, Math.max(0, Math.round(daysBetween(today.start, week0.end)))) - (todayDone ? 1 : 0);
   // 本週靈魂:只取最高一隻,已打的部分已經計入,本週最多只會再增加「清單最高 − 本週已打的最高」
-  // 追蹤項目被刪掉後紀錄仍在,所以同時看追蹤中已勾選的項目(含設定前就打的)與本週紀錄,取較高者
+  // 同時看追蹤中已勾選的項目(含設定前就打的)與本週紀錄,取較高者
   const soulThisWeek = Math.max(
     input.soulDoneThisWeek ?? 0,
     ...input.trackedBosses

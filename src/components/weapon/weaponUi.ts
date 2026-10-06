@@ -1,5 +1,5 @@
 import { ASTRA, DESTINY, GENESIS, SOUL_QUESTS } from '@/data/weaponRates.data';
-import type { WeaponProgress, WeaponViewStatus } from '@/hooks/useWeaponProgress';
+import type { WeaponProgress, WeaponStatusResult, WeaponViewStatus } from '@/hooks/useWeaponProgress';
 import { findBossCatalogEntry } from '@/lib/bossCatalog';
 import { formatDate, formatEta, formatShortDate } from '@/lib/weapon/estimate';
 import { toDisplay } from '@/lib/weapon/rates';
@@ -19,7 +19,7 @@ import {
   soulPercent,
   soulStageOf,
 } from '@/lib/weapon/rules';
-import { soloKey, type CharacterWeaponState, type WeaponKind } from '@/lib/weapon/types';
+import { soloKey, WEAPON_KINDS, type CharacterWeaponState, type WeaponKind } from '@/lib/weapon/types';
 
 /** 各武器的名稱與素材 */
 export const WEAPON_META: Record<WeaponKind, { name: string; tab: string; unit: string; material: string; adjust: string }> = {
@@ -60,6 +60,104 @@ export function weaponPercent(kind: WeaponKind, state: CharacterWeaponState): nu
           : astraPercent(state.astra);
   if (state[kind].status === 'done') return 100;
   return Math.min(99, Math.round(raw));
+}
+
+/**
+ * 武器進度條與百分比的顏色
+ * @param kind 武器
+ * @param state 四把武器的狀態(命運依目前階段分第一 / 第二階段色)
+ * @returns CSS 顏色值(var(--weapon-*))
+ */
+export function weaponColor(kind: WeaponKind, state: CharacterWeaponState): string {
+  if (kind === 'destiny') return `var(--weapon-destiny-${destinyPhaseOf(state.destiny.stage)})`;
+  return `var(--weapon-${kind})`;
+}
+
+/**
+ * 武器目前的階段文字(看板與角色頁入口用):靈魂為等級,其他為第幾階
+ * @param kind 武器
+ * @param state 四把武器的狀態
+ * @returns 例如「Lv.86」「第 3 階」
+ */
+export function weaponStageLabel(kind: WeaponKind, state: CharacterWeaponState): string {
+  if (kind === 'soul') return `Lv.${state.soul.level}`;
+  return `第 ${kind === 'genesis' ? state.genesis.stage : kind === 'destiny' ? state.destiny.stage : state.astra.stage} 階`;
+}
+
+/**
+ * 本階素材已足夠、只差在遊戲裡升階(和 headModel 的 waiting 同一套判斷,但不需要本週資料)
+ * @param kind 武器
+ * @param state 武器狀態
+ */
+function weaponWaiting(kind: WeaponKind, state: CharacterWeaponState): boolean {
+  if (kind === 'soul') return soulAtGate(state.soul);
+  if (kind === 'genesis') return genesisReady(state.genesis);
+  if (kind === 'destiny') return destinyReady(state.destiny);
+  return astraReady(state.astra);
+}
+
+/** 武器進度清單的一行 */
+export interface WeaponListRow {
+  kind: WeaponKind;
+  status: WeaponViewStatus;
+  /** 進度條的百分比(0~100) */
+  pct: number;
+  /** 右欄文字:進行中為階段,其他狀態為狀態文字 */
+  label: string;
+  /** 素材夠了、只差在遊戲裡升階 */
+  waiting: boolean;
+}
+
+/**
+ * 四把武器的進度清單資料(看板與角色頁入口共用)
+ * - 進行中:階段文字;命運第一階段完成:「第一階段」(打勾);完成:「完成」(打勾);未設定、未解鎖:狀態文字
+ * @param p useWeaponProgress 或 useWeaponStatus 的結果(只用到 state 與 status)
+ */
+export function weaponListRows(p: WeaponStatusResult): WeaponListRow[] {
+  return WEAPON_KINDS.map((kind) => {
+    const status = p.status[kind];
+    // 命運第一階段完成也打勾,進度條填滿(weaponPercent 只有 done 才到 100)
+    const pct = status === 'phase1done' ? 100 : hasProgress(status) ? weaponPercent(kind, p.state) : 0;
+    const waiting = status === 'active' && weaponWaiting(kind, p.state);
+    const label =
+      status === 'active'
+        ? weaponStageLabel(kind, p.state)
+        : status === 'done'
+          ? '完成'
+          : status === 'phase1done'
+            ? '第一階段'
+            : status === 'unset'
+              ? '未設定'
+              : '未解鎖';
+    return { kind, status, pct, label, waiting };
+  });
+}
+
+/**
+ * 四把武器進度的螢幕閱讀器文字
+ * @param rows weaponListRows 的結果
+ * @returns 例如「靈魂武器 Lv.86，創世武器 完成，命運武器 第 3 階，待升階，阿斯特拉輔助武器 尚未解鎖」
+ */
+export function describeWeaponRows(rows: WeaponListRow[]): string {
+  return rows
+    .map(({ kind, status, label, waiting }) => {
+      const text = status === 'locked' ? '尚未解鎖' : status === 'phase1done' ? '第一階段完成' : `${label}${waiting ? '，待升階' : ''}`;
+      return `${WEAPON_META[kind].name} ${text}`;
+    })
+    .join('，');
+}
+
+/**
+ * 有持有上限的素材目前是否在上限(以畫面顯示的整數比較,和持有量格子的「已達上限」一致)
+ * @param kind 武器(靈魂沒有會截掉的上限,一律 false)
+ * @param state 四把武器的狀態
+ * @returns 在上限時為 true
+ */
+export function weaponAtCap(kind: WeaponKind, state: CharacterWeaponState): boolean {
+  if (kind === 'genesis') return toDisplay(state.genesis.pool) >= GENESIS.cap;
+  if (kind === 'destiny') return toDisplay(state.destiny.pool) >= DESTINY.phaseCaps[destinyPhaseOf(state.destiny.stage) - 1];
+  if (kind === 'astra') return toDisplay(state.astra.trace) >= ASTRA.traceCap;
+  return false;
 }
 
 /** 分段進度條的一段 */
@@ -113,7 +211,9 @@ export function headModel(kind: WeaponKind, p: WeaponProgress): WeaponHeadModel 
   const { state } = p;
   const tw = p.thisWeek.weapons[kind];
   const percent = weaponPercent(kind, state);
-  const weekSub = (cap: string, capped: boolean) => (capped ? `已達上限 ${cap}` : tw.total > 0 ? `含本週 +${fmtUnits(tw.total)}` : `上限 ${cap}`);
+  // 含本週只算實際加進持有量的部分:被上限截掉的沒有計入,升階扣掉後也不能算在目前持有量裡
+  const weekNet = tw.total - tw.capLoss;
+  const weekSub = (cap: string, capped: boolean) => (capped ? `已達上限 ${cap}` : weekNet > 0 ? `含本週 +${fmtUnits(weekNet)}` : `上限 ${cap}`);
 
   if (kind === 'genesis') {
     const g = state.genesis;
@@ -271,11 +371,11 @@ export function timelineModel(kind: WeaponKind, p: WeaponProgress): TimelineMode
   const per = (units: number) => `+${fmtUnits(units)}`;
   const tip =
     kind === 'soul'
-      ? `依清單中追蹤的週王推算，每週取給最多的一隻（目前 ${per(g.soul)}）；不含 BOSS 任務卡關的時間。`
+      ? `依 BOSS 列表中追蹤的週王推算，每週取給最多的一隻（目前 ${per(g.soul)}）；不含 BOSS 任務卡關的時間。`
       : kind === 'genesis'
-        ? `依清單中追蹤的 BOSS 推算：每週約 ${per(g.genesis)}${m.genesis ? `、每月 ${per(m.genesis)}` : ''}${p.profile.genesisPass ? '（目前套用創世通行證 ×3）' : ''}；不含 BOSS 任務卡關的時間。`
+        ? `依 BOSS 列表中追蹤的 BOSS 及組隊攻略人數推算：每週約 ${per(g.genesis)}${m.genesis ? `、每月 ${per(m.genesis)}` : ''}${p.profile.genesisPass ? '（目前套用創世通行證 ×3）' : ''}；不含 BOSS 任務卡關的時間。`
         : kind === 'destiny'
-          ? `依清單中追蹤的 BOSS 推算：每週約 ${per(g.destiny)}；不含決戰任務卡關的時間。`
+          ? `依清單中追蹤的 BOSS 及組隊攻略人數推算：每週約 ${per(g.destiny)}；不含決戰任務卡關的時間。`
           : `依清單推算：激戰的痕跡每週約 ${per(g.astraTrace)}，艾里溫碎片每週約 ${per(g.astraShard)}${p.thisWeek.daily.untracked ? '（清單沒有格蘭蒂斯每日任務，只算 BOSS）' : '（每日任務＋BOSS）'}，以較慢的素材為準。`;
   if (kind === 'soul') {
     const s = p.state.soul;

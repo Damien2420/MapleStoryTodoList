@@ -63,7 +63,7 @@ export function WeaponStatusView({
         <>
           {icon(Lock)}
           <b className="font-semibold">{name}尚未解鎖</b>
-          <p className="max-w-[30ch] text-sm text-muted-foreground">兩個條件都達成後，就可以開始記錄{name}的進度。</p>
+          <p className="max-w-[30ch] text-sm text-muted-foreground">請先滿足以下兩個條件</p>
           <ul className="flex flex-col gap-1.5 text-left text-sm">
             {[
               { ok: unlock.genesisDone, text: '完成創世武器的解放' },

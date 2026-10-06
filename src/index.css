@@ -172,6 +172,13 @@
     /* 武器素材持有量的狀態色(數值文字與進度條共用):已達本階需求=綠、已達持有上限=黃 */
     --stock-enough: oklch(0.508 0.118 165.612);
     --stock-cap: oklch(0.555 0.163 48.998);
+    /* 各武器的進度條與百分比色;命運分第一 / 第二階段。
+       百分比是小字,淺 / 深色主題都要對卡片底色有 4.5:1:命運第一階段 #91cdf3、阿斯特拉 #9983de 在淺底太淡,淺色主題改用同色相壓暗的版本 */
+    --weapon-soul: #604277;
+    --weapon-genesis: #8c3049;
+    --weapon-destiny-1: #23709f;
+    --weapon-destiny-2: #323491;
+    --weapon-astra: #6a52b8;
     /* 視窗內的子區塊底色:card 與 popover 同色,視窗裡用 bg-card 分不出區塊,改用這個比視窗底色深(淺色)/亮(深色)一階的暖灰 */
     --surface-raised: oklch(0.928 0.014 86);
     /* VIP券等級標籤直接顯示在卡片底色上(非徽章組合),低彩度紫呼應VIP皇家但刻意壓低存在感,不搶子標題的風頭 */
@@ -272,6 +279,12 @@
     --done-foreground: oklch(0.82 0.11 150);
     --stock-enough: oklch(0.765 0.177 163.223);
     --stock-cap: oklch(0.828 0.189 84.429);
+    --weapon-soul: #bf90d6;
+    /* 深底上原色太暗的(創世、命運第二階段)改用同色相的提亮版 */
+    --weapon-genesis: #d68a9b;
+    --weapon-destiny-1: #91cdf3;
+    --weapon-destiny-2: #8f9bf5;
+    --weapon-astra: #9983de;
     --surface-raised: oklch(0.29 0.02 80);
     --vip-accent-text: oklch(0.75 0.05 275);
     --difficulty-easy: oklch(0.27 0.045 75);

@@ -54,9 +54,13 @@ export function compactCharacter(
 ): CompactResult | null {
   const wm = watermark.toISOString();
   if (input.checkpoint && input.checkpoint.watermark >= wm) return null;
-  const oldBoss = input.bossClears.filter((c) => c.firstClearedAt < wm);
-  const oldDaily = input.dailyClears.filter((d) => d.firstClearedAt < wm);
   const oldEvents = input.events.filter((e) => e.at < wm);
+  const oldBoss = input.bossClears.filter((c) => c.firstClearedAt < wm);
+  // 還沒壓縮的校正事件勾選加入的擊破:照樣折進存檔點(對其他武器的累積不變),但紀錄要留著,fold 才找得到它們再加一次
+  const referenced = new Set(
+    input.events.filter((e) => e.at >= wm && e.payload && 'includeClearIds' in e.payload).flatMap((e) => (e.payload as { includeClearIds?: string[] }).includeClearIds ?? []),
+  );
+  const oldDaily = input.dailyClears.filter((d) => d.firstClearedAt < wm);
   if (oldBoss.length + oldDaily.length + oldEvents.length === 0) return null;
 
   const { state } = foldWeapons({
@@ -68,7 +72,7 @@ export function compactCharacter(
   });
   return {
     checkpoint: { id: input.characterId, watermark: wm, state, rulesVersion: RULES_VERSION, updatedAt: nowIso },
-    removeBossClearIds: oldBoss.map((c) => c.id),
+    removeBossClearIds: oldBoss.filter((c) => !referenced.has(c.id)).map((c) => c.id),
     removeDailyClearIds: oldDaily.map((d) => d.id),
     removeEventIds: oldEvents.map((e) => e.id),
   };

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { estimateWeapons, formatEta, type EstimateInput } from './estimate';
 import { foldWeapons } from './fold';
+import { clearAmounts } from './rates';
 import { computeThisWeek } from './thisWeek';
 import { emptyWeaponState, UNIT, type CharacterWeaponState } from './types';
 import { SOUL_LEVEL_COSTS } from '@/data/weaponRates.data';
@@ -150,7 +151,7 @@ describe('thisWeek 邊界', () => {
 describe('thisWeek', () => {
   const setup = adjust(at(2026, 9, 1), { weapon: 'genesis', stage: 3, pool: 2200 });
 
-  it('清單、計入量標記與超過上限的量', () => {
+  it('清單依 BOSS 目錄順序排列、計入量標記與超過上限的量', () => {
     const clears = [
       clear({ bossCatalogId: 'lucid', difficulty: '困難', genesisPass: true, firstClearedAt: at(2026, 10, 1, 10).toISOString() }),
       clear({ bossCatalogId: 'will', difficulty: '困難', genesisPass: true, partySize: 2, firstClearedAt: at(2026, 10, 1, 11).toISOString() }),
@@ -161,7 +162,7 @@ describe('thisWeek', () => {
     const fold = foldWeapons({ checkpoint: undefined, bossClears: clears, dailyClears: [], events: [setup], settings: SETTINGS });
     const r = computeThisWeek({ bossClears: clears, dailyClears: [], fold, trackedBosses: [], tasks: [], profile: PROFILE, settings: SETTINGS, now: NOW });
     const g = r.weapons.genesis;
-    expect(g.rows.map((row) => row.clear.bossCatalogId)).toEqual(['black-mage', 'lucid', 'will']);
+    expect(g.rows.map((row) => row.clear.bossCatalogId)).toEqual(['lucid', 'will', 'black-mage']);
     expect(g.rows.find((row) => row.clear.bossCatalogId === 'will')?.split).toBe(2);
     expect(g.rows.find((row) => row.clear.bossCatalogId === 'black-mage')?.monthly).toBe(true);
     expect(g.total).toBe((300 + 195 + 112.5) * UNIT);
@@ -169,7 +170,7 @@ describe('thisWeek', () => {
     expect(g.capLoss).toBe(0);
   });
 
-  it('勾選之後才校正:本週已打的 BOSS 照樣列出,但持有量只加校正後勾的', () => {
+  it('勾選之後才校正:只列出校正後勾的 BOSS,與持有量實際加上的量一致', () => {
     const clears = [
       clear({ bossCatalogId: 'lucid', difficulty: '困難', firstClearedAt: at(2026, 10, 1, 10).toISOString() }),
       clear({ bossCatalogId: 'will', difficulty: '困難', firstClearedAt: at(2026, 10, 2, 11).toISOString() }),
@@ -178,9 +179,66 @@ describe('thisWeek', () => {
     const fold = foldWeapons({ checkpoint: undefined, bossClears: clears, dailyClears: [], events: [adj], settings: SETTINGS });
     const r = computeThisWeek({ bossClears: clears, dailyClears: [], fold, trackedBosses: [], tasks: [], profile: PROFILE, settings: SETTINGS, now: NOW });
     const rows = r.weapons.genesis.rows;
-    expect(rows.map((row) => row.clear.bossCatalogId)).toEqual(['will', 'lucid']);
-    // 路西德在校正之前打,已包含在填的 2,200 裡;只有校正後的威爾會再加上去
-    expect(fold.state.genesis.pool).toBe(2200 * UNIT + rows[0].amount);
+    // 路西德在校正之前打,已包含在填的 2,200 裡,不列出;只有校正後的威爾會再加上去
+    expect(rows.map((row) => row.clear.bossCatalogId)).toEqual(['will']);
+    expect(fold.state.genesis.pool).toBe(2200 * UNIT + r.weapons.genesis.total);
+  });
+
+  it('校正時勾選加入的 BOSS 照樣列出;本週期所有已勾選的放在 cycleRows 給下次校正選', () => {
+    const lucid = clear({ bossCatalogId: 'lucid', difficulty: '困難', firstClearedAt: at(2026, 10, 1, 10).toISOString() });
+    const will = clear({ bossCatalogId: 'will', difficulty: '困難', firstClearedAt: at(2026, 10, 1, 11).toISOString() });
+    const adj = adjust(at(2026, 10, 2, 9), { weapon: 'genesis', stage: 3, pool: 2200, includeClearIds: [lucid.id] });
+    const fold = foldWeapons({ checkpoint: undefined, bossClears: [lucid, will], dailyClears: [], events: [adj], settings: SETTINGS });
+    const g = computeThisWeek({ bossClears: [lucid, will], dailyClears: [], fold, trackedBosses: [], tasks: [], profile: PROFILE, settings: SETTINGS, now: NOW }).weapons.genesis;
+    expect(g.rows.map((row) => row.clear.bossCatalogId)).toEqual(['lucid']);
+    expect(g.cycleRows.map((row) => row.clear.bossCatalogId)).toEqual(['lucid', 'will']);
+    expect(fold.state.genesis.pool).toBe(2200 * UNIT + g.total);
+  });
+
+  it('武器還沒設定時也列出本週已勾選的 BOSS', () => {
+    const lucid = clear({ bossCatalogId: 'lucid', difficulty: '困難', firstClearedAt: at(2026, 10, 1, 10).toISOString() });
+    const fold = foldWeapons({ checkpoint: undefined, bossClears: [lucid], dailyClears: [], events: [], settings: SETTINGS });
+    const r = computeThisWeek({ bossClears: [lucid], dailyClears: [], fold, trackedBosses: [], tasks: [], profile: PROFILE, settings: SETTINGS, now: NOW });
+    expect(r.weapons.genesis.cycleRows).toHaveLength(1);
+    expect(r.weapons.soul.cycleRows).toHaveLength(1);
+  });
+
+  it('靈魂:校正前本週已打過給靈魂的王,校正後再打同量的王不列出,與持有量一致', () => {
+    const lucid = clear({ bossCatalogId: 'lucid', difficulty: '困難', firstClearedAt: at(2026, 10, 1, 10).toISOString() });
+    const will = clear({ bossCatalogId: 'will', difficulty: '困難', firstClearedAt: at(2026, 10, 2, 11).toISOString() });
+    const adj = adjust(at(2026, 10, 2, 9), { weapon: 'soul', level: 34, gatePassed: false, pool: 0, soloCleared: [] });
+    const fold = foldWeapons({ checkpoint: undefined, bossClears: [lucid, will], dailyClears: [], events: [adj], settings: SETTINGS });
+    const s = computeThisWeek({ bossClears: [lucid, will], dailyClears: [], fold, trackedBosses: [], tasks: [], profile: PROFILE, settings: SETTINGS, now: NOW }).weapons.soul;
+    expect(fold.state.soul.pool).toBe(0);
+    expect(s.rows).toEqual([]);
+    expect(s.total).toBe(0);
+  });
+
+  it('靈魂:校正後打到更高的王,只列出比校正前本週最高多出來的量,與持有量一致', () => {
+    const lucid = clear({ bossCatalogId: 'lucid', difficulty: '困難', firstClearedAt: at(2026, 10, 1, 10).toISOString() });
+    const gloom = clear({ bossCatalogId: 'gloom', difficulty: '渾沌', firstClearedAt: at(2026, 10, 2, 11).toISOString() });
+    const adj = adjust(at(2026, 10, 2, 9), { weapon: 'soul', level: 34, gatePassed: false, pool: 0, soloCleared: [] });
+    const fold = foldWeapons({ checkpoint: undefined, bossClears: [lucid, gloom], dailyClears: [], events: [adj], settings: SETTINGS });
+    const s = computeThisWeek({ bossClears: [lucid, gloom], dailyClears: [], fold, trackedBosses: [], tasks: [], profile: PROFILE, settings: SETTINGS, now: NOW }).weapons.soul;
+    expect(s.rows.map((r) => r.clear.bossCatalogId)).toEqual(['gloom']);
+    // 戴斯克 90 − 校正前已計入的路西德 80 = 10
+    expect(s.total).toBe(clearAmounts(gloom).soul - clearAmounts(lucid).soul);
+    expect(fold.state.soul.pool).toBe(s.total);
+  });
+
+  it('靈魂:cycleRows 只給本週給最多的那一隻;校正時選擇加入後列出,量與持有量一致', () => {
+    const lucid = clear({ bossCatalogId: 'lucid', difficulty: '困難', firstClearedAt: at(2026, 10, 1, 10).toISOString() });
+    const gloom = clear({ bossCatalogId: 'gloom', difficulty: '渾沌', firstClearedAt: at(2026, 10, 1, 11).toISOString() });
+    const base = { dailyClears: [], trackedBosses: [], tasks: [], profile: PROFILE, settings: SETTINGS, now: NOW };
+    const before = foldWeapons({ checkpoint: undefined, bossClears: [lucid, gloom], dailyClears: [], events: [], settings: SETTINGS });
+    expect(computeThisWeek({ ...base, bossClears: [lucid, gloom], fold: before }).weapons.soul.cycleRows.map((r) => r.clear.bossCatalogId)).toEqual(['gloom']);
+
+    const adj = adjust(at(2026, 10, 2, 9), { weapon: 'soul', level: 40, gatePassed: false, pool: 0, soloCleared: [], includeClearIds: [gloom.id] });
+    const fold = foldWeapons({ checkpoint: undefined, bossClears: [lucid, gloom], dailyClears: [], events: [adj], settings: SETTINGS });
+    const s = computeThisWeek({ ...base, bossClears: [lucid, gloom], fold }).weapons.soul;
+    expect(s.rows.map((r) => r.clear.bossCatalogId)).toEqual(['gloom']);
+    expect(s.total).toBe(90 * UNIT);
+    expect(fold.state.soul.pool).toBe(s.total);
   });
 
   it('本週還沒打時回傳還能取得的量;清單沒追蹤來源時標記 untracked', () => {

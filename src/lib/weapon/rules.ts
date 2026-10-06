@@ -37,18 +37,32 @@ export function soulNextCost(level: number): number {
   return level >= 100 ? 0 : SOUL_LEVEL_COSTS[level + 1];
 }
 
+/** 從 from 級升到 to 級總共需要的碎片(遊戲內整數) */
+export function soulCostBetween(from: number, to: number): number {
+  return SOUL_LEVEL_COSTS.slice(from + 1, to + 1).reduce((s, x) => s + x, 0);
+}
+
 /**
- * 依持有的碎片自動升級,停在需要升階任務的等級或 Lv.100;回傳新物件
+ * 依持有的碎片升級,停在目標等級、需要升階任務的等級或碎片不夠的等級;回傳新物件
  * @param s 靈魂狀態
+ * @param toLevel 最多升到的等級,預設 Lv.100
  */
-export function soulLevelUp(s: SoulState): SoulState {
+export function soulLevelUp(s: SoulState, toLevel = 100): SoulState {
   let { level, pool, gatePassed } = s;
-  while (level < 100 && !soulAtGate({ level, gatePassed }) && pool >= soulNextCost(level) * UNIT) {
+  while (level < Math.min(100, toLevel) && !soulAtGate({ level, gatePassed }) && pool >= soulNextCost(level) * UNIT) {
     pool -= soulNextCost(level) * UNIT;
     level++;
     gatePassed = false;
   }
   return { ...s, level, pool, gatePassed, status: level >= 100 && s.status === 'active' ? 'done' : s.status };
+}
+
+/**
+ * 自動升級開啟時(舊資料沒有設定也算開啟)依碎片升級,關閉時原樣回傳
+ * @param s 靈魂狀態
+ */
+export function soulAutoLevel(s: SoulState): SoulState {
+  return s.autoLevel === false ? s : soulLevelUp(s);
 }
 
 /** 素材加進持有量並套用上限,回傳新持有量與被上限截掉的量 */

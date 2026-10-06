@@ -20,7 +20,7 @@ export interface BossClear {
   difficulty: BossDifficulty;
   partySize: number;
   isVip: boolean;
-  /** 寫入當下就固定,週期結束後不再跟著角色目前的設定改變 */
+  /** 週期進行中跟著角色目前的設定;週期結束後固定,不再改變 */
   genesisPass: boolean;
   stormTraining: boolean;
   /** 第一次勾選的時間,寫入後不再改 */
@@ -44,12 +44,17 @@ export interface DailyClear {
   updatedAt: string;
 }
 
-/** 初始設定 / 校正時使用者填的狀態(素材量為遊戲內的整數) */
+/**
+ * 初始設定 / 校正時使用者填的狀態(素材量為遊戲內的整數)。
+ * includeClearIds:校正前已勾選、使用者選擇「填的值還沒包含」的擊破紀錄,校正後會再加上它們的素材
+ * (靈魂一週只算一隻,只會帶本週給最多的那一筆)。
+ * 靈魂的 autoLevel:碎片足夠時是否自動升級;沒帶時沿用目前的設定
+ */
 export type AdjustPayload =
-  | { weapon: 'genesis'; stage: number; pool: number }
-  | { weapon: 'soul'; level: number; gatePassed: boolean; pool: number; soloCleared: string[] }
-  | { weapon: 'destiny'; stage: number; pool: number }
-  | { weapon: 'astra'; stage: number; trace: number; shard: number };
+  | { weapon: 'genesis'; stage: number; pool: number; includeClearIds?: string[] }
+  | { weapon: 'soul'; level: number; gatePassed: boolean; pool: number; soloCleared: string[]; includeClearIds?: string[]; autoLevel?: boolean }
+  | { weapon: 'destiny'; stage: number; pool: number; includeClearIds?: string[] }
+  | { weapon: 'astra'; stage: number; trace: number; shard: number; includeClearIds?: string[] };
 
 /** 升階事件附帶的資料:靈魂記錄單人擊破的是哪一隻 */
 export interface UpgradePayload {
@@ -57,13 +62,23 @@ export interface UpgradePayload {
   soulQuestKey?: string;
 }
 
+/** 靈魂自動升級開關事件附帶的資料:開啟時會立即用持有的碎片升級 */
+export interface SoulAutoLevelPayload {
+  enabled: boolean;
+}
+
+/** 靈魂手動升級事件附帶的資料:要升到的等級(碎片不夠或遇到升階關卡時停在能升到的等級) */
+export interface SoulLevelUpPayload {
+  toLevel: number;
+}
+
 /** 武器事件:升階 id = `${characterId}:${weapon}:up:${phase}:${fromStage}`,其他 = `${characterId}:${weapon}:${kind}:${uuid}` */
 export interface WeaponEvent {
   id: string;
   characterId: string;
   weapon: WeaponKind;
-  kind: 'adjust' | 'upgrade' | 'complete' | 'destinyPhase2';
-  payload?: AdjustPayload | UpgradePayload;
+  kind: 'adjust' | 'upgrade' | 'complete' | 'destinyPhase2' | 'soulAutoLevel' | 'soulLevelUp';
+  payload?: AdjustPayload | UpgradePayload | SoulAutoLevelPayload | SoulLevelUpPayload;
   at: string;
   updatedAt: string;
 }
@@ -97,6 +112,8 @@ export interface SoulState {
   pool: number;
   /** 曾經單人擊破的 BOSS,格式 `${bossCatalogId}|${difficulty}` */
   soloCleared: string[];
+  /** 碎片足夠時是否自動升級;沒有這個欄位(舊資料)視為開啟 */
+  autoLevel?: boolean;
 }
 
 export interface DestinyState {

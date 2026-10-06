@@ -1,3 +1,4 @@
+import { useCallback, type CSSProperties } from 'react';
 import { Clock, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -6,7 +7,7 @@ import type { WeaponProgress } from '@/hooks/useWeaponProgress';
 import { formatDate, formatEta, type FullEstimateRow } from '@/lib/weapon/estimate';
 import { soulStageOf } from '@/lib/weapon/rules';
 import { cn } from '@/lib/utils';
-import { bossName, fmt, fmtUnits } from './weaponUi';
+import { bossName, fmt, fmtUnits, weaponColor } from './weaponUi';
 
 /** 靈魂每一階的需求 */
 const soulStageNeed = (stage: number) => SOUL_LEVEL_COSTS.slice((stage - 1) * 10 + 1, stage * 10 + 1).reduce((a, b) => a + b, 0);
@@ -38,6 +39,11 @@ export function FullEstimateDialog({
   const src = estimate.soulSource;
   const topBoss = soul && src ? `${src.difficulty}${bossName(src.bossCatalogId)}` : null;
 
+  // 開啟時把目前階段捲到可視範圍中央,後期不用先捲過一段已完成的階段,下方也看得到之後各階的日期
+  // (用 nearest 會停在最底,之後的階段還是被擋住);內容沒超出高度時不會捲動。
+  // callback ref 固定不變,只在那一列掛上時執行一次
+  const scrollToCurrent = useCallback((el: HTMLElement | null) => el?.scrollIntoView({ block: 'center' }), []);
+
   const title = soul ? '靈魂武器滿等預估時間軸' : '命運武器完整預估時間軸';
   const sub = soul
     ? `目前 Lv.${state.soul.level}（${currentStage} 階）`
@@ -48,12 +54,11 @@ export function FullEstimateDialog({
     ? [
         '每一階的升階 BOSS 任務都能順利完成、不卡關',
         `每週固定取得目前清單中最多的 +${fmtUnits(estimate.gain.soul)}${topBoss ? `（${topBoss}）` : ''}`,
-        '之後打得贏給更多碎片的 BOSS，時間會大幅縮短',
       ]
     : [
         '每一階的決戰任務都能順利完成、不卡關',
         `每週固定取得目前清單中追蹤的 BOSS 合計約 +${fmtUnits(estimate.gain.destiny)}（組隊依人數平分）`,
-        '進入第二階段後持有上限提高到 15,000；之後打得贏給更多決心的 BOSS，時間會大幅縮短',
+        '進入第二階段後持有上限提高到 15,000',
       ];
 
   return (
@@ -75,7 +80,7 @@ export function FullEstimateDialog({
             </span>
             <b className="font-semibold text-secondary-foreground tabular-nums">{sumValue}</b>
           </div>
-          <ol className="flex flex-col">
+          <ol className="flex flex-col" style={{ '--bar': weaponColor(kind, state) } as CSSProperties}>
             {rows.map((row, i) => {
               const group =
                 !soul && (row.stage === 1 || row.stage === 4)
@@ -89,17 +94,21 @@ export function FullEstimateDialog({
                 <li key={row.stage} className="contents">
                   {group && <span className={cn('block px-2 pb-1 text-xs font-semibold text-muted-foreground', row.stage === 4 && 'pt-3')}>{group}</span>}
                   <span
+                    ref={isCur ? scrollToCurrent : undefined}
                     className={cn(
                       'grid grid-cols-[44px_minmax(0,1fr)_auto] items-center gap-2 rounded-lg px-2 py-[7px] text-sm',
                       row.done && 'text-muted-foreground',
-                      isCur && 'bg-[color-mix(in_oklch,var(--secondary)_35%,var(--popover))]',
+                      // 目前階段用武器色淡底,和上方金黃的最終結果區分開;
+                      // 用 oklab 混色:oklch 會沿色相環內插,紫色混暖白底時會繞經紅橘變成褐色
+                      // 淡底上的灰色小字對比不足 4.5:1,改用前景色帶一點武器色
+                      isCur && 'bg-[color-mix(in_oklab,var(--bar)_16%,var(--popover))] [&_small]:text-[color-mix(in_oklab,var(--foreground)_70%,var(--bar))]',
                     )}
                   >
-                    <span className={row.done ? 'font-medium' : 'font-semibold'}>{row.stage} 階</span>
+                    <span className={cn(row.done ? 'font-medium' : 'font-semibold', isCur && 'text-(--bar)')}>{row.stage} 階</span>
                     <span className="flex min-w-0 flex-col leading-tight">
                       <span className="truncate">{soul ? `Lv.${(row.stage - 1) * 10 + 1}～${row.stage * 10}` : bossLabel(row.stage)}</span>
                       <small className="text-xs whitespace-nowrap text-muted-foreground tabular-nums">
-                        {soul ? `${fmt(soulStageNeed(row.stage))} 碎片` : `${fmt(DESTINY.needs[row.stage - 1])} 決心`}
+                        {soul ? `${fmt(soulStageNeed(row.stage))} 碎片` : `${fmt(DESTINY.needs[row.stage - 1])} 敵對者的決心`}
                       </small>
                     </span>
                     <span className="flex flex-col items-end text-right leading-tight">

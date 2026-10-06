@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Check, Lock, Pencil } from 'lucide-react';
+import { ArrowUp, Check, Lock, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -7,7 +7,8 @@ import { DESTINY, GENESIS } from '@/data/weaponRates.data';
 import { useMediaQuery, WEAPON_WIDE_QUERY } from '@/hooks/useMediaQuery';
 import type { WeaponProgress } from '@/hooks/useWeaponProgress';
 import type { JumpList } from '@/lib/listJump';
-import { destinyCap, destinyPhaseOf, soulStageOf } from '@/lib/weapon/rules';
+import { adjustUnchanged } from '@/lib/weapon/fold';
+import { destinyCap, destinyPhaseOf, soulLevelUp, soulStageOf } from '@/lib/weapon/rules';
 import { STORM_TRAINING_SERVER } from '@/lib/weapon/syncClears';
 import { WEAPON_KINDS, type WeaponEvent, type WeaponKind } from '@/lib/weapon/types';
 import { cn } from '@/lib/utils';
@@ -20,6 +21,7 @@ import { BossQuestCard } from './BossQuestCard';
 import { EstimateTimeline } from './EstimateTimeline';
 import { FullEstimateDialog } from './FullEstimateDialog';
 import { HoldingStats } from './HoldingStats';
+import { SoulLevelUpDialog } from './SoulLevelUpDialog';
 import { SoulQuestCard } from './SoulQuestCard';
 import { StageProgressBar } from './StageProgressBar';
 import { ThisWeekCard } from './ThisWeekCard';
@@ -27,10 +29,10 @@ import { UpgradeConfirmDialog } from './UpgradeConfirmDialog';
 import { WeaponRatesDialog } from './WeaponRatesDialog';
 import { WeaponSetupDialog, type SetupResult } from './WeaponSetupDialog';
 import { WeaponStatusView } from './WeaponStatusView';
-import { fmt, headModel, timelineModel, WEAPON_META } from './weaponUi';
+import { fmt, headModel, timelineModel, WEAPON_META, weaponAtCap, weaponColor } from './weaponUi';
 
 /** 疊在武器管理視窗上方的小視窗 */
-type Overlay = { type: 'setup' | 'upgrade' | 'rates' | 'full'; kind: WeaponKind } | null;
+type Overlay = { type: 'setup' | 'upgrade' | 'rates' | 'full' | 'levelUp'; kind: WeaponKind } | null;
 
 /**
  * 武器管理視窗:四把武器各一個 Tab。桌面拓寬到 820px 分成兩欄,時間軸橫跨底部;手機單欄,標題與 Tab 固定、內容在視窗內捲動
@@ -68,7 +70,14 @@ export function WeaponDialog({
 
   const handleSave = (kind: WeaponKind, result: SetupResult) => {
     if (result.profile) setProfile(character.id, result.profile);
-    emit('adjust', kind, result.payload);
+    // 只改加成設定、進度沒變、也沒勾選要加入的 BOSS 時不產生調整事件,本週期已勾選的 BOSS 才不會被視為已包含在填的值裡
+    const p = result.payload;
+    const includes = p.includeClearIds?.length ?? 0;
+    if (includes > 0 || !adjustUnchanged(progress.state, p)) emit('adjust', kind, p);
+    // 靈魂只切換自動升級:同樣不產生調整事件,改用開關事件記錄(開啟時會立即升級)
+    else if (p.weapon === 'soul' && p.autoLevel !== undefined && p.autoLevel !== (progress.state.soul.autoLevel !== false)) {
+      emit('soulAutoLevel', 'soul', { enabled: p.autoLevel });
+    }
     setOverlay(null);
   };
   const handleUpgrade = (kind: WeaponKind, soulQuestKey?: string) => {
@@ -157,6 +166,17 @@ export function WeaponDialog({
         {overlay?.type === 'full' && (overlay.kind === 'soul' || overlay.kind === 'destiny') && (
           <FullEstimateDialog kind={overlay.kind} progress={progress} open onOpenChange={(o) => !o && setOverlay(null)} />
         )}
+        {overlay?.type === 'levelUp' && (
+          <SoulLevelUpDialog
+            soul={progress.state.soul}
+            open
+            onOpenChange={(o) => !o && setOverlay(null)}
+            onConfirm={(toLevel) => {
+              emit('soulLevelUp', 'soul', { toLevel });
+              setOverlay(null);
+            }}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -214,7 +234,7 @@ function ActivePanel({
           {WEAPON_META[kind].adjust}
         </Button>
       </div>
-      <StageProgressBar segments={head.segments} current={head.current} percent={head.percent} percentLabel={head.percentLabel} />
+      <StageProgressBar segments={head.segments} current={head.current} percent={head.percent} percentLabel={head.percentLabel} color={weaponColor(kind, state)} />
       {kind === 'genesis' && (
         <BoostStatusRow
           genesisPass={progress.profile.genesisPass}
@@ -231,6 +251,7 @@ function ActivePanel({
       data={tw}
       mobile={!wide}
       destinyCap={fmt(destinyCap(state.destiny.stage))}
+      atCap={weaponAtCap(kind, state)}
       onGoBossList={() => jump('weekly', 'boss')}
       onRates={() => setOverlay({ type: 'rates', kind })}
       className={wide && !soul ? 'flex-1' : undefined}
@@ -258,12 +279,27 @@ function ActivePanel({
       <BossQuestCard heading="升階條件" name="兩種素材都達到本階需求" ready={head.waiting} onUpgrade={upgrade} />
     ) : null;
   const daily = kind === 'astra' && <AstraDailyStrip daily={progress.thisWeek.daily} onGoTaskList={() => jump('daily', 'task')} />;
+  // 靈魂自動升級關閉時,碎片夠升級就提示並提供手動升級
+  const reach = soul && state.soul.autoLevel === false ? soulLevelUp(state.soul).level : 0;
+  const levelUp = reach > state.soul.level && (
+    <div className="flex items-center gap-3 rounded-[9.6px] bg-[color-mix(in_oklab,var(--weapon-soul)_12%,var(--popover))] px-3 py-2.5">
+      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <span className="text-sm font-semibold">碎片夠升到 Lv.{reach}</span>
+        <span className="text-xs leading-normal text-muted-foreground">自動升級已關閉。遊戲裡灌完碎片後，回來按升級記錄</span>
+      </span>
+      <Button type="button" size="sm" onClick={() => setOverlay({ type: 'levelUp', kind })} className="shrink-0 pointer-coarse:h-11">
+        <ArrowUp aria-hidden="true" />
+        升級
+      </Button>
+    </div>
+  );
   const timelinePart = (
     <EstimateTimeline
       // 換武器或資料變動後節點數量可能不同,重新掛載以清掉固定的選取
       key={`${kind}-${timeline.ticks.length}-${timeline.value}`}
       model={timeline}
       desktop={wide}
+      color={weaponColor(kind, state)}
       fullLabel={showFull ? (soul ? '查看滿等預估時間軸' : '查看完整預估時間軸') : undefined}
       onFull={() => setOverlay({ type: 'full', kind })}
     />
@@ -276,6 +312,7 @@ function ActivePanel({
           <div className="flex min-w-0 flex-col gap-3.5">
             {headPart}
             <HoldingStats stats={head.stats} />
+            {levelUp}
             {soul ? (
               card
             ) : (
@@ -303,6 +340,7 @@ function ActivePanel({
     <div className="flex flex-col gap-3.5">
       {headPart}
       <HoldingStats stats={head.stats} />
+      {levelUp}
       {/* 待升階時升階任務卡排在本週已取得之前,不用捲到最底才看到按鈕 */}
       {soul ? (
         <>
