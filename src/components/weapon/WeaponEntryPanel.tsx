@@ -1,5 +1,5 @@
 import { ChevronRight } from 'lucide-react';
-import type { WeaponProgress } from '@/hooks/useWeaponProgress';
+import type { WeaponStatusResult } from '@/hooks/useWeaponProgress';
 import { cn } from '@/lib/utils';
 import { describeWeaponRows, weaponListRows } from './weaponUi';
 import { WeaponProgressList } from './WeaponProgressList';
@@ -8,7 +8,7 @@ import { WeaponProgressList } from './WeaponProgressList';
  * 角色 Header 的武器進度入口:標題「武器進度」加四把武器的進度條,每條左邊是武器名稱、右邊是目前階段(和進度看板一致);
  * 進行中用各武器的顏色,待升階時階段加粗並加箭頭、完成打勾、未解鎖顯示鎖頭、未設定是一條淡虛線加「未設定」。
  * 容器夠寬時排成 2x2,窄時(例如桌面展開排版的左欄)改成單欄四列。點擊開啟武器管理視窗
- * @param progress useWeaponProgress 的結果
+ * @param progress useWeaponProgress 或 useWeaponStatus 的結果(只用到 state 與 status)
  * @param onOpen 點擊時呼叫
  * @param className 額外的 class
  */
@@ -17,7 +17,7 @@ export function WeaponEntryPanel({
   onOpen,
   className,
 }: {
-  progress: WeaponProgress;
+  progress: WeaponStatusResult;
   onOpen: () => void;
   className?: string;
 }) {
