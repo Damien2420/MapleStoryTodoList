@@ -51,8 +51,6 @@ export interface EstimateInput {
   profile: Pick<WeaponProfile, 'genesisPass' | 'stormTraining'>;
   settings: Settings;
   now: Date;
-  /** 本週紀錄中已計入的靈魂碎片最高量(1/60 單位);沒給時改看目前追蹤中已勾選的項目 */
-  soulDoneThisWeek?: number;
 }
 
 /** 四把武器的預估與完整預估 */
@@ -124,9 +122,9 @@ function weekGainFn(input: EstimateInput): { fn: WeekGainFn; gain: WeeklyGain } 
   );
   const daysLeft = Math.min(7, Math.max(0, Math.round(daysBetween(today.start, week0.end)))) - (todayDone ? 1 : 0);
   // 本週靈魂:只取最高一隻,已打的部分已經計入,本週最多只會再增加「清單最高 − 本週已打的最高」
-  // 同時看追蹤中已勾選的項目(含設定前就打的)與本週紀錄,取較高者
+  // 看追蹤中已勾選的項目(含設定前就打的);取消勾選或刪除追蹤項目時紀錄也會失效,本週紀錄不會比這裡多
   const soulThisWeek = Math.max(
-    input.soulDoneThisWeek ?? 0,
+    0,
     ...input.trackedBosses
       .filter((b) => b.checked && b.bossCatalogId && b.resetCycle !== 'daily')
       .map((b) => clearAmounts({ ...b, bossCatalogId: b.bossCatalogId!, ...input.profile }).soul),

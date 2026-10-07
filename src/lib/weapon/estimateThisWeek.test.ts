@@ -4,7 +4,6 @@ import { foldWeapons } from './fold';
 import { clearAmounts } from './rates';
 import { computeThisWeek } from './thisWeek';
 import { emptyWeaponState, UNIT, type CharacterWeaponState } from './types';
-import { SOUL_LEVEL_COSTS } from '@/data/weaponRates.data';
 import { adjust, at, boss, clear, daily, SETTINGS, task } from './testUtils';
 
 // 2026/10/2 是週五,本遊戲週從 10/1(週四)開始
@@ -116,18 +115,6 @@ describe('estimate 邊界', () => {
     });
     // 每月 +600:10/1 那週 600、11/1 那週共 1,200 ≥ 1,000,在第 5 週(舊寫法漏掉 10/1 那一次,要到第 9 週)
     expect(r.genesis.nodes[0].weeks).toBe(5);
-  });
-
-  it('追蹤項目被刪掉後,本週靈魂只加還能多拿的差額', () => {
-    const level = 12;
-    const state = (pool: number) => stateWith({ soul: { status: 'active', level, gatePassed: false, pool: pool * UNIT, soloCleared: [] } });
-    const cost = SOUL_LEVEL_COSTS[level + 1];
-    const tracked = [boss({ bossCatalogId: 'seren', difficulty: '普通' })];
-    // 差 160 就能升級:本週還沒打時本週就能升;本週已打過 160(之後追蹤項目被刪掉)時要等下週
-    const fresh = est({ state: state(cost - 160), trackedBosses: tracked });
-    const done = est({ state: state(cost - 160), trackedBosses: tracked, soulDoneThisWeek: 160 * UNIT });
-    expect(fresh.soul.nodes[0].weeks).toBe(0);
-    expect(done.soul.nodes[0].weeks).toBe(1);
   });
 
   it('每日重置晚於每週重置時,本週每日碎片最多算 7 天', () => {

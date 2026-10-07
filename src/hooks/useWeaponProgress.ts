@@ -104,8 +104,7 @@ export function useWeaponProgress(character: Character): WeaponProgress {
     const profile = profiles.find((p) => p.id === id) ?? NO_PROFILE;
     const fold = foldWeapons({ checkpoint: checkpoints.find((c) => c.id === id), ...own, settings });
     const thisWeek = computeThisWeek({ ...own, fold, trackedBosses, tasks: ownTasks, profile, settings, now: current });
-    const soulDoneThisWeek = Math.max(0, ...thisWeek.weapons.soul.rows.map((r) => r.amount));
-    const estimate = estimateWeapons({ state: fold.state, trackedBosses, tasks: ownTasks, profile, settings, now: current, soulDoneThisWeek });
+    const estimate = estimateWeapons({ state: fold.state, trackedBosses, tasks: ownTasks, profile, settings, now: current });
     return { state: fold.state, fold, thisWeek, estimate, profile, status: viewStatus(fold.state, character.level), now: current };
   }, [character.id, character.level, bossClears, dailyClears, events, checkpoints, profiles, bosses, tasks, settings, minuteKey]);
 }
