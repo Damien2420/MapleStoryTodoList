@@ -120,9 +120,12 @@ describe('deriveClears', () => {
   });
 
   it('改通行證不影響已結束週期的紀錄', () => {
-    const lastWeek = apply([], [], { ...base, now: at(2026, 9, 28, 12), bosses: [boss({ bossCatalogId: 'lucid', difficulty: '困難', checked: true, lastResetAt: at(2026, 9, 28, 9).toISOString() })] });
-    const r = deriveClears({ ...base, profile: { genesisPass: true, stormTraining: true }, bosses: [], bossClears: lastWeek.clears, dailyClears: [] });
+    // 上週勾選、還沒被重置的追蹤項目仍在清單上:週期已結束,開啟通行證也不會更新那一筆
+    const bosses = [boss({ bossCatalogId: 'lucid', difficulty: '困難', checked: true, lastResetAt: at(2026, 9, 28, 9).toISOString() })];
+    const lastWeek = apply([], [], { ...base, now: at(2026, 9, 28, 12), bosses });
+    const r = deriveClears({ ...base, profile: { genesisPass: true, stormTraining: true }, bosses, bossClears: lastWeek.clears, dailyClears: [] });
     expect(r.bossClears).toHaveLength(0);
+    expect(lastWeek.clears[0]).toMatchObject({ genesisPass: false, stormTraining: false });
   });
 
   it('取消勾選(或刪除)後重新勾選,加成改用目前的設定', () => {

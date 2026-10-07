@@ -52,7 +52,16 @@ describe('fold:創世', () => {
     expect(r.adjustAt.genesis).toBe(t0.toISOString());
   });
 
-  it('校正時勾選要加入的 BOSS:只加勾選的那幾隻,記錄在 adjustIncluded', () => {
+  it('未設定的武器不累積;取消勾選(active = false)不計入', () => {
+    const r = fold({ bossClears: [clear({ bossCatalogId: 'lucid', difficulty: '困難', firstClearedAt: at(2026, 9, 3).toISOString() })] });
+    expect(r.state.genesis).toMatchObject({ status: 'unset', pool: 0 });
+    const off = fold({ events: [genesisSetup()], bossClears: [clear({ bossCatalogId: 'lucid', difficulty: '困難', active: false, firstClearedAt: at(2026, 9, 3).toISOString() })] });
+    expect(off.state.genesis.pool).toBe(0);
+  });
+});
+
+describe('fold:校正時加入本週已勾選的擊破', () => {
+  it('只加勾選的那幾隻,記錄在 adjustIncluded', () => {
     const lucid = clear({ bossCatalogId: 'lucid', difficulty: '困難', firstClearedAt: at(2026, 9, 1, 8).toISOString() });
     const will = clear({ bossCatalogId: 'will', difficulty: '困難', firstClearedAt: at(2026, 9, 1, 9).toISOString() });
     const r = fold({ bossClears: [lucid, will], events: [adjust(t0, { weapon: 'genesis', stage: 1, pool: 100, includeClearIds: [lucid.id] })] });
@@ -75,7 +84,7 @@ describe('fold:創世', () => {
     expect(r.state.genesis).toMatchObject({ stage: 2, pool: (10 + 65) * UNIT });
   });
 
-  it('靈魂校正時選擇加入本週週王:加在填的值上;之後再打的只補超過本週最高的部分', () => {
+  it('靈魂:加在填的值上;之後再打的只補超過本週最高的部分', () => {
     // Lv.40 停在升階關卡,碎片不會被自動升級吃掉,方便比對持有量
     const lucid = clear({ bossCatalogId: 'lucid', difficulty: '困難', firstClearedAt: at(2026, 9, 1, 8).toISOString() });
     const e = adjust(t0, { weapon: 'soul', level: 40, gatePassed: false, pool: 100, soloCleared: [], includeClearIds: [lucid.id] });
@@ -91,13 +100,6 @@ describe('fold:創世', () => {
     const r = fold({ bossClears: [lucid], events: [adjust(t0, { weapon: 'genesis', stage: 1, pool: 2980, includeClearIds: [lucid.id] })] });
     expect(r.state.genesis.pool).toBe(3000 * UNIT);
     expect(r.capLoss.get(lucid.id)?.genesis).toBe(45 * UNIT);
-  });
-
-  it('未設定的武器不累積;取消勾選(active = false)不計入', () => {
-    const r = fold({ bossClears: [clear({ bossCatalogId: 'lucid', difficulty: '困難', firstClearedAt: at(2026, 9, 3).toISOString() })] });
-    expect(r.state.genesis).toMatchObject({ status: 'unset', pool: 0 });
-    const off = fold({ events: [genesisSetup()], bossClears: [clear({ bossCatalogId: 'lucid', difficulty: '困難', active: false, firstClearedAt: at(2026, 9, 3).toISOString() })] });
-    expect(off.state.genesis.pool).toBe(0);
   });
 });
 
@@ -239,6 +241,16 @@ describe('adjustUnchanged', () => {
     expect(adjustUnchanged(state, { weapon: 'genesis', stage: 8, pool: 0 })).toBe(false);
   });
 
+  it('命運比較階段與持有量;阿斯特拉兩種素材都要相同', () => {
+    const state = emptyWeaponState();
+    state.destiny = { status: 'active', stage: 2, pool: 800 * UNIT };
+    state.astra = { status: 'active', stage: 1, trace: 300 * UNIT, shard: 1200 * UNIT };
+    expect(adjustUnchanged(state, { weapon: 'destiny', stage: 2, pool: 800 })).toBe(true);
+    expect(adjustUnchanged(state, { weapon: 'destiny', stage: 2, pool: 801 })).toBe(false);
+    expect(adjustUnchanged(state, { weapon: 'astra', stage: 1, trace: 300, shard: 1200 })).toBe(true);
+    expect(adjustUnchanged(state, { weapon: 'astra', stage: 1, trace: 300, shard: 1201 })).toBe(false);
+  });
+
   it('靈魂比較等級、關卡、碎片與單人擊破清單(不看順序)', () => {
     const state = emptyWeaponState();
     state.soul = { status: 'active', level: 50, gatePassed: false, pool: 30 * UNIT, soloCleared: ['a', 'b'] };
@@ -280,11 +292,14 @@ describe('compact', () => {
     expect(after.soul.soloCleared).toContain('lucid|困難');
   });
 
-  it('watermark 對齊遊戲週,未結束的月週期不被壓縮', () => {
+  it('watermark 對齊遊戲週;結束還沒超過寬限期的月王週期不被壓縮', () => {
+    // 11/20 往前 28 天是 10/23:10 月的月王週期 11/1 才結束,還在寬限期內;9 月的已結束超過寬限期
     const wm = compactWatermark(now, SETTINGS);
     expect(wm.getDay()).toBe(4);
-    // 月王的週期(10 月)在 11/1 結束,早於寬限期(10/23)… 10 月的紀錄只有在 watermark 之前的才會被壓縮
-    expect(wm <= at(2026, 10, 1, 0)).toBe(true);
+    const sep = clear({ bossCatalogId: 'black-mage', difficulty: '困難', firstClearedAt: at(2026, 9, 5).toISOString(), cycleEnd: at(2026, 10, 1, 0).toISOString() });
+    const oct = clear({ bossCatalogId: 'black-mage', difficulty: '困難', firstClearedAt: at(2026, 10, 5).toISOString(), cycleEnd: at(2026, 11, 1, 0).toISOString() });
+    const result = compactCharacter({ characterId: 'c1', bossClears: [sep, oct], dailyClears: [], events: [] }, wm, SETTINGS, now.toISOString());
+    expect(result?.removeBossClearIds).toEqual([sep.id]);
   });
 
   it('還沒壓縮的校正事件加入的 BOSS 紀錄保留,壓縮後結果不變', () => {
