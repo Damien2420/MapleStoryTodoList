@@ -35,6 +35,7 @@ import { useStaleConfirm } from '@/hooks/useStaleConfirm';
 import { useCharacterStore } from '@/store/useCharacterStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useBossStore } from '@/store/useBossStore';
+import { useWeaponStore } from '@/store/useWeaponStore';
 import { useAccountStore } from '@/store/useAccountStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 
@@ -236,6 +237,7 @@ export function DataManagementPage() {
     useCharacterStore.setState({ characters: [], activeCharacterId: null });
     useTaskStore.setState({ tasks: [] });
     useBossStore.setState({ bosses: [] });
+    useWeaponStore.getState().clearAll();
     useAccountStore.setState({ accounts: [] });
     // 必須放在所有清空動作之後:上面每次清空都會經由 trackLocalChange 寫入 lastLocalChangeAt,要在最後一併重設
     useSettingsStore.setState({ lastBackupAt: undefined, lastLocalChangeAt: undefined });

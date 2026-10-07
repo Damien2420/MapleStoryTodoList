@@ -3,6 +3,9 @@ import { ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { BoardCycleRing } from '@/components/BoardCycleRing';
 import { RevenueLedger } from '@/components/RevenueLedger';
+import { WeaponProgressList } from '@/components/weapon/WeaponProgressList';
+import { describeWeaponRows, hasProgress, weaponListRows } from '@/components/weapon/weaponUi';
+import { useWeaponStatus } from '@/hooks/useWeaponProgress';
 import { describeBoardRowProgress, type BoardCharacterRow as BoardCharacterRowData } from '@/lib/characterBoard';
 import { pickRevenueItems } from '@/lib/revenueItems';
 import { ROUTES } from '@/lib/routes';
@@ -30,7 +33,7 @@ function CharacterAvatar({ character }: { character: Character }) {
 
 /**
  * 進度看板上的一隻角色:整列是一個連結,點擊進入該角色的角色頁。刪除角色不在這裡,只在管理角色模式(BoardSortableRows)。
- * 三個區塊不換行:身分、週期環加討伐收益、其他進度(目前只是預留版位)。容器寬度不足時整列改成直向堆疊的卡片;
+ * 三個區塊不換行:身分、週期環加討伐收益、武器進度。容器寬度不足時整列改成直向堆疊的卡片;
  * 斷點用 container query(祖先需有 @container),因為這一列的版面取決於它自己有多少空間,而不是視窗寬度。
  * 網址不帶角色 id,所以點擊時先把這隻角色設為目前角色,再由連結導覽到角色頁。
  * 管理角色模式(sorting)下整列不可點擊:改渲染成一般的 div,避免拖曳時誤觸導覽,也不會讓鍵盤焦點停在連結上;
@@ -52,6 +55,11 @@ export function BoardCharacterRow({
   const setActiveCharacter = useCharacterStore((s) => s.setActiveCharacter);
   const hasAction = sorting && action !== undefined;
   const progressId = useId();
+  // 看板只需要目前狀態,用輕量版,不算本週與預估時間軸
+  const weapons = useWeaponStatus(character);
+  const weaponRows = weaponListRows(weapons);
+  const weaponsEmpty = weaponRows.every((r) => !hasProgress(r.status));
+  const waitingCount = weaponRows.filter((r) => r.waiting).length;
 
   const content = (
     <>
@@ -87,13 +95,30 @@ export function BoardCharacterRow({
         />
       </div>
 
-      {/* TODO(下一階段):其他進度的內容還沒定案,這裡只保留版位與寬度,不接任何資料,也不預先設計資料結構;
-          堆疊版目前沒有內容可放,先隱藏,等內容定案再決定它在窄版的位置 */}
+      {/* 武器進度:固定四行、固定欄寬,上下角色的進度條對齊;堆疊版放在週期環下方,排成 2x2(太窄時回到單欄) */}
       <div
         aria-hidden="true"
-        className="flex min-w-[150px] flex-[0_2.5_300px] flex-col gap-1.5 self-center @max-[712px]:hidden"
+        className="flex min-w-[150px] flex-[0_2.5_300px] flex-col gap-1.5 self-center @max-[712px]:min-w-0 @max-[712px]:flex-none @max-[712px]:self-stretch @max-[712px]:border-t @max-[712px]:border-border @max-[712px]:pt-2.5"
       >
-        <span className="text-[10px] font-semibold tracking-wide text-muted-foreground">其他進度</span>
+        <span className="flex justify-between gap-2 text-[10px] font-semibold tracking-wide text-muted-foreground">
+          武器進度
+          {waitingCount > 0 && <span className="text-secondary-foreground">{waitingCount} 把待升階</span>}
+        </span>
+        {/* 四把都沒有進度時(小號常見)只顯示簡短說明,不列四行「未設定」;
+            用次要文字色、和標題左緣對齊,一頁有很多小號時不會比其他列的進度更搶眼 */}
+        {weaponsEmpty ? (
+          <span className="flex flex-col gap-0.5 text-[11px] leading-normal text-muted-foreground">
+            <span className="font-medium">還沒設定武器進度</span>
+            <span>進入角色頁設定</span>
+          </span>
+        ) : (
+          <WeaponProgressList
+            rows={weaponRows}
+            state={weapons.state}
+            className="grid-cols-[4.4em_minmax(0,1fr)_5.4em] text-[11px] @max-[712px]:grid-cols-[4.4em_minmax(0,1fr)_5.4em_calc(4.4em+10px)_minmax(0,1fr)_5.4em] @max-[380px]:grid-cols-[4.4em_minmax(0,1fr)_5.4em]"
+            pairClassName="@max-[712px]:pl-2.5 @max-[380px]:pl-0"
+          />
+        )}
       </div>
     </>
   );
@@ -130,7 +155,7 @@ export function BoardCharacterRow({
     >
       {content}
       <span id={progressId} className="sr-only">
-        {describeBoardRowProgress(cycles)}
+        {describeBoardRowProgress(cycles)};{weaponsEmpty ? '尚未設定武器進度' : `武器進度：${describeWeaponRows(weaponRows)}`}
       </span>
       <ChevronRight
         aria-hidden="true"

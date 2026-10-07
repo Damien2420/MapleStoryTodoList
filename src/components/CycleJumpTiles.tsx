@@ -15,11 +15,11 @@ const TILE_CYCLES: {
   color: string;
   urgencyKey?: keyof CycleUrgency;
 }[] = [
-  { cycle: 'daily', label: '每日', color: 'var(--cycle-daily-foreground)' },
-  { cycle: 'weekly', label: '每週', color: 'var(--cycle-weekly-foreground)', urgencyKey: 'weekly' },
-  { cycle: 'monthly', label: '每月', color: 'var(--cycle-monthly-foreground)', urgencyKey: 'monthly' },
-  { cycle: 'season', label: '賽季', color: 'var(--cycle-season-foreground)', urgencyKey: 'season' },
-  { cycle: 'vip', label: 'VIP', color: 'var(--cycle-vip-foreground)' },
+  { cycle: 'daily', label: '每日', color: 'var(--cycle-daily-accent)' },
+  { cycle: 'weekly', label: '每週', color: 'var(--cycle-weekly-accent)', urgencyKey: 'weekly' },
+  { cycle: 'monthly', label: '每月', color: 'var(--cycle-monthly-accent)', urgencyKey: 'monthly' },
+  { cycle: 'season', label: '賽季', color: 'var(--cycle-season-accent)', urgencyKey: 'season' },
+  { cycle: 'vip', label: 'VIP', color: 'var(--cycle-vip-accent)' },
 ];
 
 /**

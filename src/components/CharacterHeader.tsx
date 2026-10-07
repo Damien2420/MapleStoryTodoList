@@ -24,6 +24,9 @@ import {
 import { CharacterHeaderCollapsed } from '@/components/CharacterHeaderCollapsed';
 import { DashboardSummary } from '@/components/DashboardSummary';
 import { CharacterUpdateDialog } from '@/components/CharacterUpdateDialog';
+import { WeaponDialog } from '@/components/weapon/WeaponDialog';
+import { WeaponEntryPanel } from '@/components/weapon/WeaponEntryPanel';
+import { useWeaponProgress } from '@/hooks/useWeaponProgress';
 import { useCharacterCycles } from '@/hooks/useCharacterCycles';
 import { useDeleteCharacter } from '@/hooks/useDeleteCharacter';
 import { useHeaderExpanded } from '@/hooks/useHeaderExpanded';
@@ -61,6 +64,8 @@ export function CharacterHeader({
 
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
+  const [weaponDialogOpen, setWeaponDialogOpen] = useState(false);
+  const weaponProgress = useWeaponProgress(character);
   const updateLabel = character.source === 'api' ? '更新角色資料' : '編輯角色資料';
   const UpdateIcon = character.source === 'api' ? RefreshCWIcon : PencilIcon;
   // VIP 屬於帳號,角色頁只顯示所屬帳號的等級;未歸類的角色沒有 VIP
@@ -137,9 +142,14 @@ export function CharacterHeader({
     </>
   );
 
+  // 武器進度入口:兩種排版共用同一個實例的資料,點擊開啟武器管理視窗
+  const weaponEntry = <WeaponEntryPanel progress={weaponProgress} onOpen={() => setWeaponDialogOpen(true)} />;
+
   const expandedLayout = (
     <div data-morph-layer className="relative flex flex-col gap-4 p-4 lg:flex-row lg:items-center lg:gap-6">
-      <div className="flex min-w-0 items-center justify-between gap-3 lg:shrink-0 lg:justify-normal">
+      {/* 手機:身分列與入口上下排在週期卡上方;桌面:左欄為「身分列 + 入口」,固定 300px */}
+      <div className="flex min-w-0 flex-col gap-3 lg:w-[300px] lg:shrink-0">
+      <div className="flex min-w-0 items-center justify-between gap-3 lg:justify-normal">
         <div className="flex min-w-0 items-center gap-3 lg:gap-4">
           {character.imageUrl && (
             <img
@@ -196,6 +206,8 @@ export function CharacterHeader({
           </Button>
         </div>
       </div>
+      {weaponEntry}
+      </div>
 
       <DashboardSummary
         character={character}
@@ -224,6 +236,7 @@ export function CharacterHeader({
             summary={summary}
             urgency={urgency}
             onJump={onJump}
+            weaponEntry={weaponEntry}
             actions={
               <div className="flex shrink-0 items-center gap-0.5 lg:absolute lg:top-2 lg:right-2 lg:flex-col lg:gap-1">
                 {iconActions}
@@ -253,6 +266,16 @@ export function CharacterHeader({
       )}
 
       <CharacterUpdateDialog character={character} open={updateDialogOpen} onOpenChange={setUpdateDialogOpen} />
+
+      {/* key:切換角色時重新建立,預設 Tab 依新角色的進度決定 */}
+      <WeaponDialog
+        key={character.id}
+        character={character}
+        progress={weaponProgress}
+        open={weaponDialogOpen}
+        onOpenChange={setWeaponDialogOpen}
+        onJump={onJump}
+      />
 
       <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
         <AlertDialogContent>

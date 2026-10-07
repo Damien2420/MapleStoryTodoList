@@ -93,7 +93,7 @@ export function flattenBossSelections(selections: Map<string, Set<BossDifficulty
 }
 
 /** 計算某隻王+難度在 BOSS_CATALOG 中的排序權重;查無對應目錄項目回傳 Infinity */
-function bossCatalogRank(bossId: string, difficulty: BossDifficulty): number {
+export function bossCatalogRank(bossId: string, difficulty: BossDifficulty): number {
   const entryIndex = BOSS_CATALOG.findIndex((entry) => entry.id === bossId);
   if (entryIndex === -1) return Infinity;
   const difficultyIndex = BOSS_CATALOG[entryIndex].difficulties.findIndex((option) => option.difficulty === difficulty);
@@ -220,6 +220,7 @@ export function isBossExpired(boss: Pick<CharacterBossTrackList, 'bossCatalogId'
  *
  * 同一隻王在同一個重置週期內只能討伐一個難度,群組鍵用於在新增BOSS對話框中鎖住已追蹤的群組。
  * 沒有 bossCatalogId 的舊紀錄無法對應回目錄,略過不鎖;目錄項目已下架者同樣略過。
+ * VIP重置券的紀錄是另外一次討伐,不佔一般週期的名額,也略過不鎖(與 countTrackedWeeklyBosses 一致)。
  *
  * @param bosses 全部角色的 BOSS 追蹤紀錄(呼叫端不需預先過濾角色)
  * @param characterId 要計算的角色 id
@@ -228,7 +229,7 @@ export function isBossExpired(boss: Pick<CharacterBossTrackList, 'bossCatalogId'
 export function buildTrackedGroupKeys(bosses: CharacterBossTrackList[], characterId: string): Set<string> {
   const keys = new Set<string>();
   for (const boss of bosses) {
-    if (boss.characterId !== characterId || !boss.bossCatalogId) continue;
+    if (boss.characterId !== characterId || !boss.bossCatalogId || boss.category === 'vip') continue;
     const entry = findBossCatalogEntry(boss.bossCatalogId);
     if (!entry || isCatalogEntryExpired(entry)) continue;
     keys.add(`${boss.bossCatalogId}|${boss.resetCycle}`);
