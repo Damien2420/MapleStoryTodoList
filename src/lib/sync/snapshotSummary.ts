@@ -40,62 +40,90 @@ export function summarizeSnapshot(snapshot: DataSnapshot): SnapshotSummary {
   };
 }
 
-/** 某一類資料被取代時的變化筆數 */
-export interface KindImpact {
-  added: number;
-  removed: number;
-  changed: number;
+/**
+ * 以一份資料取代另一份時會發生什麼，供選項卡寫出「會加入「阿月」；「白砂」的進度會改成雲端的狀態」。
+ * 使用者記不得自己勾過幾格，所以只列角色名稱不列筆數；被加入或移除的角色，其任務與 BOSS 紀錄跟著角色一起算，不另外列出。
+ */
+export interface OverwriteImpact {
+  /** 取代後新增（或還原回來）的角色名稱 */
+  addedCharacterNames: string[];
+  /** 取代後被刪除的角色名稱 */
+  removedCharacterNames: string[];
+  /** 兩邊都有、但角色本身或其任務、BOSS 紀錄不同的角色名稱 */
+  changedCharacterNames: string[];
+  /** changedCharacterNames 之中，被取代的一方有較新修改的角色；取代後這些修改會被蓋掉 */
+  newerCharacterNames: string[];
+  /** 兩邊都有的帳號設定不同，或有帳號會被移除；新增帳號不算 */
+  accountsChanged: boolean;
 }
 
-/** 以一份資料取代另一份時會發生什麼，供卡片寫出「選這份：雲端會刪除 2 個角色、還原 1 個角色、變更 15 筆紀錄」 */
-export interface OverwriteImpact {
-  accounts: KindImpact;
-  characters: KindImpact;
-  tasks: KindImpact;
-  bosses: KindImpact;
-  /** 取代後新增（或還原回來）的角色名稱，可在卡片內展開 */
-  addedCharacterNames: string[];
-  /** 取代後被刪除的角色名稱，可在卡片內展開 */
-  removedCharacterNames: string[];
-}
+// 修改時間不算內容；lastResetAt 由各裝置自動重置時各自寫入，只差在它不代表使用者的進度不同
+const IGNORED_KEYS = new Set(['updatedAt', 'placementUpdatedAt', 'lastResetAt']);
 
 /** 去掉修改時間後的內容，用來判斷兩個版本是否真的不同 */
 function comparableContent(item: object): string {
   return JSON.stringify(
     Object.entries(item)
-      .filter(([key]) => key !== 'updatedAt' && key !== 'placementUpdatedAt')
+      .filter(([key]) => !IGNORED_KEYS.has(key))
       .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
   );
 }
 
-function kindImpact<T extends { id: string }>(current: T[], target: T[]): KindImpact {
-  const currentById = new Map(current.map((item) => [item.id, item]));
-  const targetIds = new Set(target.map((item) => item.id));
-  let added = 0;
-  let changed = 0;
-  for (const item of target) {
-    const before = currentById.get(item.id);
-    if (!before) added += 1;
-    else if (comparableContent(before) !== comparableContent(item)) changed += 1;
-  }
-  return { added, removed: current.filter((item) => !targetIds.has(item.id)).length, changed };
+/** 一筆資料最後被使用者修改的時間（毫秒） */
+function modifiedAt(item: { updatedAt: string; placementUpdatedAt?: string }): number {
+  return Math.max(toMillis(item.updatedAt), item.placementUpdatedAt ? toMillis(item.placementUpdatedAt) : 0);
+}
+
+type Comparable = { id: string; updatedAt: string; placementUpdatedAt?: string };
+
+/**
+ * 比較同一筆資料在兩邊的版本。
+ * @returns 'same' 內容相同；'newer' 不同且被取代的一方較新（或只有被取代的一方有）；'older' 其他不同的情況
+ */
+function compareItem(before: Comparable | undefined, after: Comparable | undefined): 'same' | 'newer' | 'older' {
+  if (!before) return after ? 'older' : 'same';
+  if (!after) return 'newer';
+  if (comparableContent(before) === comparableContent(after)) return 'same';
+  return modifiedAt(before) > modifiedAt(after) ? 'newer' : 'older';
 }
 
 /**
  * 描述「以 target 取代 current」的影響。只比較內容，修改時間不同不算變更。
  * @param current 會被取代的資料
  * @param target 取代後的資料
- * @returns 各類新增、刪除、變更筆數與角色名稱清單
+ * @returns 加入、移除、進度不同、較新的角色名稱，以及帳號設定是否不同
  */
 export function describeOverwrite(current: DataSnapshot, target: DataSnapshot): OverwriteImpact {
   const currentCharacterIds = new Set(current.characters.map((c) => c.id));
-  const targetCharacterIds = new Set(target.characters.map((c) => c.id));
+  const targetCharacters = new Map(target.characters.map((c) => [c.id, c]));
+
+  // 兩邊都有的角色，依角色收集角色本身、任務與 BOSS 紀錄的比較結果
+  const results = new Map<string, Set<'same' | 'newer' | 'older'>>();
+  const record = (characterId: string, result: 'same' | 'newer' | 'older') => {
+    results.get(characterId)?.add(result);
+  };
+  for (const character of current.characters) {
+    if (targetCharacters.has(character.id)) results.set(character.id, new Set([compareItem(character, targetCharacters.get(character.id))]));
+  }
+  for (const [before, after] of [
+    [current.tasks, target.tasks],
+    [current.bosses, target.bosses],
+  ] as const) {
+    const afterById = new Map<string, Comparable & { characterId: string }>(after.map((item) => [item.id, item]));
+    for (const item of before) record(item.characterId, compareItem(item, afterById.get(item.id)));
+    const beforeIds = new Set(before.map((item) => item.id));
+    for (const item of after) if (!beforeIds.has(item.id)) record(item.characterId, 'older');
+  }
+
+  const sharedCharacters = current.characters.filter((c) => results.has(c.id));
+  const targetAccounts = new Map(target.accounts.map((a) => [a.id, a]));
   return {
-    accounts: kindImpact(current.accounts, target.accounts),
-    characters: kindImpact(current.characters, target.characters),
-    tasks: kindImpact(current.tasks, target.tasks),
-    bosses: kindImpact(current.bosses, target.bosses),
     addedCharacterNames: target.characters.filter((c) => !currentCharacterIds.has(c.id)).map((c) => c.name),
-    removedCharacterNames: current.characters.filter((c) => !targetCharacterIds.has(c.id)).map((c) => c.name),
+    removedCharacterNames: current.characters.filter((c) => !targetCharacters.has(c.id)).map((c) => c.name),
+    changedCharacterNames: sharedCharacters
+      .filter((c) => results.get(c.id)!.has('newer') || results.get(c.id)!.has('older'))
+      .map((c) => c.name),
+    newerCharacterNames: sharedCharacters.filter((c) => results.get(c.id)!.has('newer')).map((c) => c.name),
+    accountsChanged: current.accounts.some((a) => compareItem(a, targetAccounts.get(a.id)) !== 'same'),
   };
 }

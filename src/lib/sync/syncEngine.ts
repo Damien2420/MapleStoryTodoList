@@ -11,7 +11,8 @@ import {
   type CloudDocument,
 } from '@/lib/sync/cloudDocument';
 import type { LocalRepo } from '@/lib/sync/localRepo';
-import { TOMBSTONE_RETENTION_DAYS, mergeSnapshots, pruneSnapshot, type DataSnapshot, type MergeResult } from '@/lib/sync/snapshot';
+import { TOMBSTONE_RETENTION_DAYS, mergeSnapshots, pruneSnapshot, type DataSnapshot } from '@/lib/sync/snapshot';
+import { describeOverwrite, type OverwriteImpact } from '@/lib/sync/snapshotSummary';
 import { isPending, isStale, type SyncStateStore } from '@/lib/sync/syncState';
 
 /** 跨分頁同步鎖：同一時間只有一個分頁跟雲端同步 */
@@ -42,8 +43,8 @@ export interface SyncEngineDeps {
  * - resetDetected：雲端已被「刪除所有紀錄」重置；formatTooNew：雲端格式比程式新
  */
 export type SyncOutcome =
-  | { kind: 'synced'; applied?: MergeResult }
-  | { kind: 'retryLater'; reason: 'offline' | 'conflict'; applied?: MergeResult }
+  | { kind: 'synced'; applied?: AppliedChanges }
+  | { kind: 'retryLater'; reason: 'offline' | 'conflict'; applied?: AppliedChanges }
   | { kind: 'reconnectRequired' }
   | { kind: 'signedOut' }
   | { kind: 'needsFirstLogin' }
@@ -56,30 +57,32 @@ export interface SyncEngine {
   syncOnce(): Promise<SyncOutcome>;
 }
 
-/** 合併結果裡有沒有使用者看得到的變更（新增、更新、刪除），決定要不要顯示「已同步其他裝置的變更」 */
-export function hasVisibleChanges(result: MergeResult | undefined): boolean {
-  if (!result) return false;
+/**
+ * 這輪合併進本機的雲端變更，以角色為單位（使用者看不懂任務、BOSS 的筆數）。
+ * 跟著新角色進來、或跟著被刪角色消失的任務與 BOSS 不另外列出。
+ */
+export type AppliedChanges = Omit<OverwriteImpact, 'newerCharacterNames'>;
+
+/** 有沒有使用者看得到的變更，決定要不要顯示「已從雲端同步」 */
+export function hasVisibleChanges(changes: AppliedChanges | undefined): boolean {
+  if (!changes) return false;
   return (
-    result.addedAccounts +
-      result.addedCharacters +
-      result.addedTasks +
-      result.addedBosses +
-      result.updated +
-      result.removedByTombstone >
-    0
+    changes.addedCharacterNames.length + changes.removedCharacterNames.length + changes.changedCharacterNames.length > 0 ||
+    changes.accountsChanged
   );
 }
 
-function addResults(a: MergeResult | undefined, b: MergeResult): MergeResult {
+const union = (a: string[], b: string[]) => [...new Set([...a, ...b])];
+
+/** 合併同一輪多次套用的變更；先加入後又有更新的角色只算加入 */
+function addChanges(a: AppliedChanges | undefined, b: AppliedChanges): AppliedChanges {
   if (!a) return b;
+  const added = union(a.addedCharacterNames, b.addedCharacterNames);
   return {
-    addedAccounts: a.addedAccounts + b.addedAccounts,
-    addedCharacters: a.addedCharacters + b.addedCharacters,
-    addedTasks: a.addedTasks + b.addedTasks,
-    addedBosses: a.addedBosses + b.addedBosses,
-    updated: a.updated + b.updated,
-    removedByTombstone: a.removedByTombstone + b.removedByTombstone,
-    skippedByLocalTombstone: a.skippedByLocalTombstone + b.skippedByLocalTombstone,
+    addedCharacterNames: added,
+    removedCharacterNames: union(a.removedCharacterNames, b.removedCharacterNames),
+    changedCharacterNames: union(a.changedCharacterNames, b.changedCharacterNames).filter((name) => !added.includes(name)),
+    accountsChanged: a.accountsChanged || b.accountsChanged,
   };
 }
 
@@ -109,11 +112,14 @@ function toOutcome(error: unknown): SyncOutcome {
 export function createSyncEngine(deps: SyncEngineDeps): SyncEngine {
   const today = () => format(deps.now(), 'yyyy-MM-dd');
 
-  function applyRemote(remote: DataSnapshot): MergeResult {
+  function applyRemote(remote: DataSnapshot): AppliedChanges {
     // 讀取當下本機資料 → 合併 → 寫回，三步之間不能有 await，否則使用者在等待期間的修改會被蓋掉
-    const { merged, result } = mergeSnapshots(deps.local.read(), remote);
+    const before = deps.local.read();
+    const { merged } = mergeSnapshots(before, remote);
     deps.local.write(merged);
-    return result;
+    // 比較合併前後的本機資料，得到這次實際套用了哪些角色的變更
+    const { addedCharacterNames, removedCharacterNames, changedCharacterNames, accountsChanged } = describeOverwrite(before, merged);
+    return { addedCharacterNames, removedCharacterNames, changedCharacterNames, accountsChanged };
   }
 
   function packLocal(resetToken: string, dailySnapshotDate: string | undefined): string {
@@ -177,7 +183,7 @@ export function createSyncEngine(deps: SyncEngineDeps): SyncEngine {
     extras: CloudFileMeta[],
     resetToken: string,
     dailySnapshotDate: string | undefined,
-    appliedBefore: MergeResult | undefined,
+    appliedBefore: AppliedChanges | undefined,
   ): Promise<SyncOutcome> {
     let applied = appliedBefore;
     let base = head.headRevisionId;
@@ -215,7 +221,7 @@ export function createSyncEngine(deps: SyncEngineDeps): SyncEngine {
           await restoreIntermediate(head.id, content);
           return { kind: 'resetDetected' };
         }
-        applied = addResults(applied, applyRemote(doc.snapshot));
+        applied = addChanges(applied, applyRemote(doc.snapshot));
       }
 
       if (attempt >= MAX_UPLOAD_ATTEMPTS) return { kind: 'retryLater', reason: 'conflict', applied };
@@ -230,7 +236,7 @@ export function createSyncEngine(deps: SyncEngineDeps): SyncEngine {
     if (files.length === 0) return createCloudFile();
     const [head, ...extras] = files;
 
-    let applied: MergeResult | undefined;
+    let applied: AppliedChanges | undefined;
     let cloudContent: string | undefined;
     let resetToken = start.resetToken;
     let dailySnapshotDate = start.dailySnapshotDate;
@@ -252,7 +258,7 @@ export function createSyncEngine(deps: SyncEngineDeps): SyncEngine {
       for (const extra of extras) {
         // 同名主檔（兩台裝置同時建立、或舊版殘留）：內容一律合併進來，上傳成功後刪除
         const extraDoc = parseCloudDocument(await deps.cloud.download(extra.id));
-        applied = addResults(applied, applyRemote(extraDoc.snapshot));
+        applied = addChanges(applied, applyRemote(extraDoc.snapshot));
       }
     }
 

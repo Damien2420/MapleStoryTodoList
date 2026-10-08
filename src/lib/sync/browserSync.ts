@@ -4,8 +4,7 @@ import { createDriveCloudStore } from '@/lib/sync/cloud/driveCloudStore';
 import { trackDataChanges } from '@/lib/sync/changeTracker';
 import { storeRepo } from '@/lib/sync/localRepo';
 import { createLocalStorageRestorePointStore } from '@/lib/sync/restorePoints';
-import type { MergeResult } from '@/lib/sync/snapshot';
-import { createSyncEngine, type SyncEngineDeps } from '@/lib/sync/syncEngine';
+import { createSyncEngine, type AppliedChanges, type SyncEngineDeps } from '@/lib/sync/syncEngine';
 import { createSyncScheduler, type SyncScheduler, type SyncStatus, type SyncTriggers } from '@/lib/sync/syncScheduler';
 import { createLocalStorageSyncState, isPending } from '@/lib/sync/syncState';
 import { withWebLock } from '@/lib/webLocks';
@@ -70,7 +69,7 @@ function browserTriggers(): SyncTriggers {
  * @param handlers 狀態變化與套用其他裝置變更時的回呼
  * @returns 排程器，可呼叫 syncNow
  */
-export function startSync(handlers: { onStatus: (status: SyncStatus) => void; onApplied: (result: MergeResult) => void }): SyncScheduler {
+export function startSync(handlers: { onStatus: (status: SyncStatus) => void; onApplied: (changes: AppliedChanges) => void }): SyncScheduler {
   scheduler?.stop();
   scheduler = createSyncScheduler({
     engine: syncEngine,

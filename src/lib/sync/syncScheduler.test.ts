@@ -1,18 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { MergeResult } from '@/lib/sync/snapshot';
-import type { SyncEngine, SyncOutcome } from '@/lib/sync/syncEngine';
+import type { AppliedChanges, SyncEngine, SyncOutcome } from '@/lib/sync/syncEngine';
 import { createSyncScheduler, type SyncStatus, type SyncTriggers } from '@/lib/sync/syncScheduler';
 
-const NO_CHANGES: MergeResult = {
-  addedAccounts: 0,
-  addedCharacters: 0,
-  addedTasks: 0,
-  addedBosses: 0,
-  updated: 0,
-  removedByTombstone: 0,
-  skippedByLocalTombstone: 0,
-};
-const CHANGES: MergeResult = { ...NO_CHANGES, updated: 2, removedByTombstone: 1 };
+const NO_CHANGES: AppliedChanges = { addedCharacterNames: [], removedCharacterNames: [], changedCharacterNames: [], accountsChanged: false };
+const CHANGES: AppliedChanges = { ...NO_CHANGES, changedCharacterNames: ['白砂'] };
 
 type TriggerName = 'visible' | 'hidden' | 'focus' | 'online';
 
@@ -42,7 +33,7 @@ function setup(outcomes: SyncOutcome[] = []) {
     onOnline: listen('online'),
   };
   const statuses: SyncStatus[] = [];
-  const applied: MergeResult[] = [];
+  const applied: AppliedChanges[] = [];
   const scheduler = createSyncScheduler({
     engine: { syncOnce } satisfies SyncEngine,
     isPending: () => pending,

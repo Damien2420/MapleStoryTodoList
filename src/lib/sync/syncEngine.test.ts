@@ -15,6 +15,7 @@ import {
   emptySnapshot,
   ids,
   seedCloud,
+  task,
 } from '@/lib/sync/syncTestKit';
 
 /** 記錄之後每一個雲端操作的名稱 */
@@ -77,14 +78,34 @@ describe('拉取與推送', () => {
     expect(ops).toEqual(['findFiles']);
   });
 
-  it('雲端 version 變了時下載並合併進本機，回報套用的筆數；沒有待推送就不上傳', async () => {
+  it('雲端 version 變了時下載並合併進本機，回報加入的角色；沒有待推送就不上傳', async () => {
     const cloud = new FakeCloudStore();
     await seedCloud(cloud, { snapshot: emptySnapshot({ characters: [character('remote')] }), resetToken: 'R1' });
     const device = createDevice(cloud, { state: { resetToken: 'R1' } });
     const ops = recordOps(cloud);
-    expect(await device.engine.syncOnce()).toMatchObject({ kind: 'synced', applied: { addedCharacters: 1 } });
+    expect(await device.engine.syncOnce()).toMatchObject({ kind: 'synced', applied: { addedCharacterNames: ['remote'] } });
     expect(ids(device.repo.read().characters)).toEqual(['remote']);
     expect(ops).toEqual(['findFiles', 'download']);
+  });
+
+  it('回報套用的變更以角色為單位：新角色帶進來的任務不另外算，既有角色的任務不同時列為進度更新', async () => {
+    const cloud = new FakeCloudStore();
+    const later = new Date(T0.getTime() + DAY_MS).toISOString();
+    await seedCloud(cloud, {
+      snapshot: emptySnapshot({
+        characters: [character('mine'), character('remote')],
+        tasks: [{ ...task('t1', 'mine', later), checked: true }, task('t2', 'remote'), task('t3', 'remote')],
+      }),
+      resetToken: 'R1',
+    });
+    const device = createDevice(cloud, {
+      state: { resetToken: 'R1' },
+      data: emptySnapshot({ characters: [character('mine')], tasks: [task('t1', 'mine')] }),
+    });
+    expect(await device.engine.syncOnce()).toMatchObject({
+      kind: 'synced',
+      applied: { addedCharacterNames: ['remote'], removedCharacterNames: [], changedCharacterNames: ['mine'], accountsChanged: false },
+    });
   });
 
   it('有待推送時上傳本機資料（帶同一個 resetToken），完成後不再是待推送', async () => {
@@ -161,7 +182,7 @@ describe('重置、格式與舊版檔案', () => {
     const cloud = new FakeCloudStore();
     await seedCloud(cloud, { snapshot: emptySnapshot({ characters: [character('legacy')] }) });
     const device = createDevice(cloud);
-    expect(await device.engine.syncOnce()).toMatchObject({ kind: 'synced', applied: { addedCharacters: 1 } });
+    expect(await device.engine.syncOnce()).toMatchObject({ kind: 'synced', applied: { addedCharacterNames: ['legacy'] } });
     expect(cloudDocument(cloud).resetToken).toBe('token-1');
     expect(device.state.read().resetToken).toBe('token-1');
   });

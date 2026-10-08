@@ -26,22 +26,50 @@ describe('summarizeSnapshot', () => {
 });
 
 describe('describeOverwrite', () => {
-  it('列出以 target 取代 current 後各類新增、刪除、內容變更的筆數與角色名稱；只差在修改時間不算變更', () => {
+  const NEW = '2026-12-01T00:00:00.000Z';
+
+  it('列出加入、移除與進度不同的角色；只差在修改時間或重置時間不算不同', () => {
     const current = emptySnapshot({
-      characters: [character('same'), character('changed'), character('removed')],
-      tasks: [task('t1', 'same')],
+      characters: [character('same'), character('profile'), character('progress'), character('removed')],
+      tasks: [task('t1', 'same'), task('t2', 'progress'), task('gone', 'removed')],
     });
     const target = emptySnapshot({
-      characters: [character('same', '2026-12-01T00:00:00.000Z'), character('changed', OLD, { level: 99 }), character('added')],
-      tasks: [task('t1', 'same'), task('t2', 'same')],
+      characters: [character('same', NEW), character('profile', OLD, { level: 99 }), character('progress'), character('added')],
+      tasks: [
+        { ...task('t1', 'same', NEW), lastResetAt: NEW },
+        { ...task('t2', 'progress', NEW), checked: true },
+        task('t3', 'added'),
+        task('t4', 'added'),
+      ],
     });
     expect(describeOverwrite(current, target)).toEqual({
-      accounts: { added: 0, removed: 0, changed: 0 },
-      characters: { added: 1, removed: 1, changed: 1 },
-      tasks: { added: 1, removed: 0, changed: 0 },
-      bosses: { added: 0, removed: 0, changed: 0 },
       addedCharacterNames: ['added'],
       removedCharacterNames: ['removed'],
+      changedCharacterNames: ['profile', 'progress'],
+      newerCharacterNames: [],
+      accountsChanged: false,
     });
+  });
+
+  it('被取代的一方有較新的修改，或有對方沒有的任務時，列為較新', () => {
+    const current = emptySnapshot({
+      characters: [character('c1'), character('c2')],
+      tasks: [{ ...task('t1', 'c1', NEW), checked: true }, task('only-here', 'c2')],
+    });
+    const target = emptySnapshot({
+      characters: [character('c1'), character('c2')],
+      tasks: [task('t1', 'c1')],
+    });
+    const impact = describeOverwrite(current, target);
+    expect(impact.changedCharacterNames).toEqual(['c1', 'c2']);
+    expect(impact.newerCharacterNames).toEqual(['c1', 'c2']);
+  });
+
+  it('帳號設定不同時標記；新增帳號不算', () => {
+    const account = (id: string, name = id) => ({ id, name, order: 0, updatedAt: OLD });
+    const current = emptySnapshot({ accounts: [account('a1')] });
+    expect(describeOverwrite(current, emptySnapshot({ accounts: [account('a1'), account('a2')] })).accountsChanged).toBe(false);
+    expect(describeOverwrite(current, emptySnapshot({ accounts: [account('a1', '改名')] })).accountsChanged).toBe(true);
+    expect(describeOverwrite(current, emptySnapshot()).accountsChanged).toBe(true);
   });
 });

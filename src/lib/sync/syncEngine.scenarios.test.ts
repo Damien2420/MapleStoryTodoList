@@ -61,7 +61,7 @@ describe('多裝置情境', () => {
         await b.engine.syncOnce();
       }
     };
-    expect(await a.engine.syncOnce()).toMatchObject({ kind: 'synced', applied: { addedCharacters: 1 } });
+    expect(await a.engine.syncOnce()).toMatchObject({ kind: 'synced', applied: { addedCharacterNames: ['from-b'] } });
     expect(ids(cloudDocument(cloud).snapshot.characters)).toEqual(['from-a', 'from-b']);
     expect(a.sleeps).toEqual([500]);
 
@@ -131,7 +131,7 @@ describe('多裝置情境', () => {
     expect(isPending(a.state.read())).toBe(true);
   });
 
-  it('S7 刪除會傳到其他裝置，並回報同步移除的筆數', async () => {
+  it('S7 刪除會傳到其他裝置，並回報同步移除的角色', async () => {
     const cloud = new FakeCloudStore();
     const a = createDevice(cloud, { tokenPrefix: 'a', data: emptySnapshot({ characters: [character('c1')] }) });
     await a.engine.syncOnce();
@@ -139,7 +139,7 @@ describe('多裝置情境', () => {
     await b.engine.syncOnce();
     a.edit((s) => ({ ...s, characters: [], characterTombstones: [{ id: 'c1', deletedAt: T0.toISOString() }] }));
     await a.engine.syncOnce();
-    expect(await b.engine.syncOnce()).toMatchObject({ kind: 'synced', applied: { removedByTombstone: 1 } });
+    expect(await b.engine.syncOnce()).toMatchObject({ kind: 'synced', applied: { removedCharacterNames: ['c1'] } });
     expect(b.repo.read().characters).toEqual([]);
   });
 

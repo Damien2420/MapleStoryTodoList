@@ -1,5 +1,4 @@
-import type { MergeResult } from '@/lib/sync/snapshot';
-import { hasVisibleChanges, type SyncEngine, type SyncOutcome } from '@/lib/sync/syncEngine';
+import { hasVisibleChanges, type AppliedChanges, type SyncEngine, type SyncOutcome } from '@/lib/sync/syncEngine';
 
 /** 停止修改滿這個時間才推送，連續修改只推送一次 */
 const PUSH_DEBOUNCE_MS = 3000;
@@ -34,7 +33,7 @@ export interface SyncSchedulerDeps {
   triggers: SyncTriggers;
   onStatus: (status: SyncStatus) => void;
   /** 套用了其他裝置的變更時呼叫，用來顯示提示 */
-  onApplied: (result: MergeResult) => void;
+  onApplied: (changes: AppliedChanges) => void;
 }
 
 /** 決定什麼時候同步的排程器 */
