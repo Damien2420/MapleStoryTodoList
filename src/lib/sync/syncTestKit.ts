@@ -7,7 +7,9 @@ import { LATEST_FILE, parseCloudDocument, type CloudDocument } from '@/lib/sync/
 import type { LocalRepo } from '@/lib/sync/localRepo';
 import type { DataSnapshot } from '@/lib/sync/snapshot';
 import { createMemorySyncState, type SyncState, type SyncStateStore } from '@/lib/sync/syncState';
-import { createSyncEngine, type SyncEngine } from '@/lib/sync/syncEngine';
+import { createSyncEngine, type SyncEngine, type SyncEngineDeps } from '@/lib/sync/syncEngine';
+import type { SyncActionDeps } from '@/lib/sync/actionDeps';
+import { createMemoryRestorePointStore, type LocalRestorePointStore } from '@/lib/sync/restorePoints';
 
 /** 測試的基準時間（台灣時間 2026-10-08 12:00） */
 export const T0 = new Date('2026-10-08T04:00:00.000Z');
@@ -115,6 +117,8 @@ export interface Device {
   repo: LocalRepo;
   state: SyncStateStore;
   engine: SyncEngine;
+  /** 建立引擎時使用的依賴，供動作函式組出 SyncActionDeps */
+  deps: SyncEngineDeps;
   /** 引擎呼叫 sleep 的毫秒數紀錄 */
   sleeps: number[];
   /** 模擬使用者修改資料：寫回本機並把修改計數器 +1 */
@@ -141,7 +145,7 @@ export function createDevice(cloud: CloudStore, options: DeviceOptions = {}): De
   const state = createMemorySyncState({ boundSub: sub, lastSyncedAt: clock.now().toISOString(), ...options.state });
   const sleeps: number[] = [];
   let tokenCount = 0;
-  const engine = createSyncEngine({
+  const deps: SyncEngineDeps = {
     cloud,
     local: repo,
     state,
@@ -152,15 +156,41 @@ export function createDevice(cloud: CloudStore, options: DeviceOptions = {}): De
     sleep: async (ms) => {
       sleeps.push(ms);
     },
-  });
+  };
+  const engine = createSyncEngine(deps);
   return {
     repo,
     state,
     engine,
+    deps,
     sleeps,
     edit(change) {
       repo.write(change(repo.read()));
       state.update((current) => ({ changeCounter: current.changeCounter + 1 }));
     },
+  };
+}
+
+/** 動作函式的測試依賴：沿用裝置的引擎與狀態，另外提供記憶體版本機還原點、可預測的 id 與記錄登出次數 */
+export function createActionDeps(device: Device): {
+  deps: SyncActionDeps;
+  localRestorePoint: LocalRestorePointStore;
+  signOutCalls(): number;
+} {
+  let signOuts = 0;
+  let idCount = 0;
+  const localRestorePoint = createMemoryRestorePointStore();
+  return {
+    deps: {
+      ...device.deps,
+      engine: device.engine,
+      localRestorePoint,
+      newId: () => `new-${++idCount}`,
+      signOut: async () => {
+        signOuts += 1;
+      },
+    },
+    localRestorePoint,
+    signOutCalls: () => signOuts,
   };
 }

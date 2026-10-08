@@ -1,3 +1,7 @@
+import { TOMBSTONE_RETENTION_DAYS } from '@/lib/sync/snapshot';
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 /** 同步狀態的 localStorage key；不屬於任何資料 store，也不進備份內容 */
 export const SYNC_STATE_KEY = 'maplestory-todolist-sync';
 
@@ -85,4 +89,16 @@ export function createLocalStorageSyncState(storage: Storage = localStorage, key
       storage.removeItem(key);
     },
   };
+}
+
+/**
+ * 超過墓碑保留天數沒有成功同步：這段期間的刪除紀錄可能已被清掉，不能再自動合併，改走首次登入對話框。
+ * @param state 同步狀態
+ * @param now 現在時間
+ */
+export function isStale(state: SyncState, now: Date): boolean {
+  return (
+    state.lastSyncedAt !== undefined &&
+    now.getTime() - new Date(state.lastSyncedAt).getTime() > TOMBSTONE_RETENTION_DAYS * DAY_MS
+  );
 }

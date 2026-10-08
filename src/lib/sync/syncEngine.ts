@@ -12,7 +12,7 @@ import {
 } from '@/lib/sync/cloudDocument';
 import type { LocalRepo } from '@/lib/sync/localRepo';
 import { TOMBSTONE_RETENTION_DAYS, mergeSnapshots, pruneSnapshot, type DataSnapshot, type MergeResult } from '@/lib/sync/snapshot';
-import { isPending, type SyncStateStore } from '@/lib/sync/syncState';
+import { isPending, isStale, type SyncStateStore } from '@/lib/sync/syncState';
 
 /** 跨分頁同步鎖：同一時間只有一個分頁跟雲端同步 */
 export const SYNC_LOCK = 'mstd-sync';
@@ -20,7 +20,6 @@ export const SYNC_LOCK = 'mstd-sync';
 const MAX_UPLOAD_ATTEMPTS = 3;
 /** 重新上傳前的等待時間基數，每次加倍（500ms、1000ms） */
 const CONFLICT_BACKOFF_MS = 500;
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** 同步引擎的外部依賴，全部以介面注入，測試時用假實作模擬多台裝置 */
 export interface SyncEngineDeps {
@@ -278,12 +277,7 @@ export function createSyncEngine(deps: SyncEngineDeps): SyncEngine {
         const user = await deps.auth.getUser();
         const state = deps.state.read();
         if (state.boundSub !== user.sub) return { kind: 'needsFirstLogin' };
-        if (
-          state.lastSyncedAt !== undefined &&
-          deps.now().getTime() - new Date(state.lastSyncedAt).getTime() > TOMBSTONE_RETENTION_DAYS * DAY_MS
-        ) {
-          return { kind: 'stale' };
-        }
+        if (isStale(state, deps.now())) return { kind: 'stale' };
         return await runCycle(false);
       } catch (error) {
         return toOutcome(error);

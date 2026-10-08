@@ -1,9 +1,11 @@
 import { authClient } from '@/lib/auth/browserAuthClient';
+import type { SyncActionDeps } from '@/lib/sync/actionDeps';
 import { createDriveCloudStore } from '@/lib/sync/cloud/driveCloudStore';
 import { trackDataChanges } from '@/lib/sync/changeTracker';
 import { storeRepo } from '@/lib/sync/localRepo';
+import { createLocalStorageRestorePointStore } from '@/lib/sync/restorePoints';
 import type { MergeResult } from '@/lib/sync/snapshot';
-import { createSyncEngine } from '@/lib/sync/syncEngine';
+import { createSyncEngine, type SyncEngineDeps } from '@/lib/sync/syncEngine';
 import { createSyncScheduler, type SyncScheduler, type SyncStatus, type SyncTriggers } from '@/lib/sync/syncScheduler';
 import { createLocalStorageSyncState, isPending } from '@/lib/sync/syncState';
 import { withWebLock } from '@/lib/webLocks';
@@ -11,8 +13,7 @@ import { withWebLock } from '@/lib/webLocks';
 /** 這台裝置的同步狀態（localStorage，同一台裝置的分頁共用） */
 export const syncState = createLocalStorageSyncState();
 
-/** 正式環境的同步引擎 */
-export const syncEngine = createSyncEngine({
+const engineDeps: SyncEngineDeps = {
   cloud: createDriveCloudStore(authClient),
   local: storeRepo,
   state: syncState,
@@ -21,7 +22,22 @@ export const syncEngine = createSyncEngine({
   now: () => new Date(),
   newResetToken: () => crypto.randomUUID(),
   sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-});
+};
+
+/** 正式環境的同步引擎 */
+export const syncEngine = createSyncEngine(engineDeps);
+
+/** 未登入時的本機還原點 */
+export const localRestorePoint = createLocalStorageRestorePointStore();
+
+/** 登入、還原、刪除動作使用的依賴 */
+export const syncActionDeps: SyncActionDeps = {
+  ...engineDeps,
+  engine: syncEngine,
+  localRestorePoint,
+  newId: () => crypto.randomUUID(),
+  signOut: () => authClient.signOut(),
+};
 
 let scheduler: SyncScheduler | undefined;
 
