@@ -25,6 +25,9 @@ export interface MergeResult {
   skippedByLocalTombstone: number;
 }
 
+/** 墓碑保留天數：超過這個天數的刪除紀錄視為已經傳播夠久，清掉以避免清單無限增長；超過這個天數沒同步的裝置也不能自動合併 */
+export const TOMBSTONE_RETENTION_DAYS = 90;
+
 /**
  * 把備份檔內容轉成快照，去掉 version 與 createdAt。
  * @param payload 已經升級到目前版本的備份內容

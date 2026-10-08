@@ -1,5 +1,6 @@
 import { createAuthClient, type AuthChannel, type AuthMessage } from '@/lib/auth/authClient';
 import { requestAuthCode } from '@/lib/auth/gisCodeClient';
+import { withWebLock } from '@/lib/webLocks';
 
 const CHANNEL_NAME = 'mstd-auth';
 
@@ -15,22 +16,11 @@ function createBroadcastChannel(): AuthChannel {
   };
 }
 
-/**
- * 用 Web Locks 實作跨分頁互斥；瀏覽器不支援時直接執行（最壞情況是多換一次 token）。
- * 鎖的 callback 回傳 task 完成的 Promise，鎖會一直持有到 task 結束；結果另外用外層 Promise 傳回，避開 locks.request 的泛型推導。
- */
-function withLock<T>(name: string, task: () => Promise<T>): Promise<T> {
-  if (!('locks' in navigator)) return task();
-  return new Promise<T>((resolve, reject) => {
-    navigator.locks.request(name, () => task().then(resolve, reject)).catch(reject);
-  });
-}
-
 /** 正式環境使用的授權用戶端（整個 App 共用一個實例） */
 export const authClient = createAuthClient({
   fetch: (input, init) => window.fetch(input, init),
   requestCode: requestAuthCode,
-  withLock,
+  withLock: withWebLock,
   channel: createBroadcastChannel(),
   now: () => Date.now(),
 });
