@@ -137,4 +137,8 @@ describe('describeSyncError', () => {
     expect(describeSyncError(new CloudError('network', 'x'))).toBe('無法連線到 Google 雲端硬碟，請稍後再試');
     expect(describeSyncError(new Error('boom'))).toBe('發生未預期的錯誤，請稍後再試');
   });
+
+  it('瀏覽器儲存空間不足時提示先下載備份檔案', () => {
+    expect(describeSyncError(new DOMException('full', 'QuotaExceededError'))).toBe('瀏覽器儲存空間不足，無法建立還原點，請先下載備份檔案');
+  });
 });

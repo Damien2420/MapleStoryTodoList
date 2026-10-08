@@ -5,6 +5,9 @@ import { LATEST_FILE, serializeCloudDocument } from '@/lib/sync/cloudDocument';
 import type { DataSnapshot } from '@/lib/sync/snapshot';
 import { isPending } from '@/lib/sync/syncState';
 import { T0, character, cloudDocument, createDevice, emptySnapshot, ids, seedCloud } from '@/lib/sync/syncTestKit';
+import { restoreSnapshot } from '@/lib/sync/restore';
+import { adjust, at } from '@/lib/weapon/testUtils';
+import type { WeaponEvent } from '@/lib/weapon/types';
 
 const addCharacter = (id: string) => (s: DataSnapshot) => ({ ...s, characters: [...s.characters, character(id)] });
 
@@ -195,5 +198,58 @@ describe('多裝置情境', () => {
     };
     expect(await a.engine.syncOnce()).toEqual({ kind: 'formatTooNew' });
     expect(cloud.contentOf(LATEST_FILE)).toBe(newer);
+  });
+});
+
+describe('武器進度同步', () => {
+  const addEvent = (event: WeaponEvent) => (s: DataSnapshot): DataSnapshot => ({
+    ...s,
+    weapons: { ...s.weapons, events: [...s.weapons.events, event] },
+  });
+  const genesis = (day: number, stage: number) => adjust(at(2026, 10, day), { weapon: 'genesis', stage, pool: 0 });
+
+  it('兩台裝置各自設定與升階後同步，結果一致', async () => {
+    const cloud = new FakeCloudStore();
+    const a = createDevice(cloud, { tokenPrefix: 'a', data: emptySnapshot({ characters: [character('c1')] }) });
+    await a.engine.syncOnce();
+    const b = createDevice(cloud, { tokenPrefix: 'b' });
+    await b.engine.syncOnce();
+    a.edit(addEvent(genesis(1, 1)));
+    b.edit(addEvent(genesis(2, 2)));
+    await a.engine.syncOnce();
+    await b.engine.syncOnce();
+    await a.engine.syncOnce();
+    expect(ids(a.repo.read().weapons.events).sort()).toEqual(ids(b.repo.read().weapons.events).sort());
+    expect(a.repo.read().weapons.events).toHaveLength(2);
+  });
+
+  it('A 還原到較舊的資料後，B 同步時舊事件不會復活', async () => {
+    const cloud = new FakeCloudStore();
+    const base = emptySnapshot({ characters: [character('c1')] });
+    const a = createDevice(cloud, { tokenPrefix: 'a', data: addEvent(genesis(1, 1))(base) });
+    await a.engine.syncOnce();
+    const b = createDevice(cloud, { tokenPrefix: 'b' });
+    await b.engine.syncOnce();
+    b.edit(addEvent(genesis(2, 2)));
+    await b.engine.syncOnce();
+    await a.engine.syncOnce();
+    let n = 0;
+    a.edit((current) => restoreSnapshot(current, addEvent(genesis(1, 1))(base), T0, () => `new-${++n}`));
+    await a.engine.syncOnce();
+    await b.engine.syncOnce();
+    expect(b.repo.read().weapons.events.map((e) => e.payload)).toEqual([{ weapon: 'genesis', stage: 1, pool: 0 }]);
+  });
+
+  it('刪除角色後，另一台的武器資料一併消失', async () => {
+    const cloud = new FakeCloudStore();
+    const a = createDevice(cloud, { tokenPrefix: 'a', data: addEvent(genesis(1, 1))(emptySnapshot({ characters: [character('c1')] })) });
+    await a.engine.syncOnce();
+    const b = createDevice(cloud, { tokenPrefix: 'b' });
+    await b.engine.syncOnce();
+    expect(b.repo.read().weapons.events).toHaveLength(1);
+    a.edit((s) => ({ ...s, characters: [], characterTombstones: [{ id: 'c1', deletedAt: T0.toISOString() }] }));
+    await a.engine.syncOnce();
+    await b.engine.syncOnce();
+    expect(b.repo.read().weapons.events).toEqual([]);
   });
 });

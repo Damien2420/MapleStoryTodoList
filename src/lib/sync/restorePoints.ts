@@ -24,9 +24,10 @@ export interface LocalRestorePointStore {
  * 把資料序列化成一般備份格式（與「下載備份檔案」相同，可以直接匯入），createdAt 為存檔時間。
  * @param snapshot 要保存的資料
  * @param now 存檔時間
+ * @param space JSON 縮排；存在 localStorage 時傳 0 減少容量
  */
-export function serializeBackup(snapshot: DataSnapshot, now: Date): string {
-  return JSON.stringify({ ...buildBackupPayload(snapshot), createdAt: now.toISOString() }, null, 2);
+export function serializeBackup(snapshot: DataSnapshot, now: Date, space = 2): string {
+  return JSON.stringify({ ...buildBackupPayload(snapshot), createdAt: now.toISOString() }, null, space);
 }
 
 /**
@@ -56,7 +57,7 @@ export function createLocalStorageRestorePointStore(
   key: string = LOCAL_RESTORE_POINT_KEY,
 ): LocalRestorePointStore {
   return {
-    save: (snapshot, now) => storage.setItem(key, serializeBackup(snapshot, now)),
+    save: (snapshot, now) => storage.setItem(key, serializeBackup(snapshot, now, 0)),
     read: () => {
       const content = storage.getItem(key);
       return content === null ? undefined : parseSavedSnapshot(content);

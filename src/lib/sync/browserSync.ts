@@ -8,6 +8,8 @@ import { createSyncEngine, type AppliedChanges, type SyncEngineDeps } from '@/li
 import { createSyncScheduler, type SyncScheduler, type SyncStatus, type SyncTriggers } from '@/lib/sync/syncScheduler';
 import { createLocalStorageSyncState, isPending } from '@/lib/sync/syncState';
 import { withWebLock } from '@/lib/webLocks';
+import { useSettingsStore } from '@/store/useSettingsStore';
+import { useWeaponStore } from '@/store/useWeaponStore';
 
 /** 這台裝置的同步狀態（localStorage，同一台裝置的分頁共用） */
 export const syncState = createLocalStorageSyncState();
@@ -21,6 +23,7 @@ const engineDeps: SyncEngineDeps = {
   now: () => new Date(),
   newResetToken: () => crypto.randomUUID(),
   sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  compact: (now) => useWeaponStore.getState().compact(now, useSettingsStore.getState().settings),
 };
 
 /** 正式環境的同步引擎 */

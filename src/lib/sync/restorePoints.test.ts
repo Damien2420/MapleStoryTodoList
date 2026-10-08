@@ -50,6 +50,11 @@ describe('本機還原點', () => {
     store.clear();
     expect(store.read()).toBeUndefined();
   });
+
+  it('localStorage 版不縮排，減少占用的容量', () => {
+    createLocalStorageRestorePointStore().save(DATA, T0);
+    expect(localStorage.getItem(LOCAL_RESTORE_POINT_KEY)).not.toContain('\n');
+  });
 });
 
 describe('雲端還原點與每日快照', () => {

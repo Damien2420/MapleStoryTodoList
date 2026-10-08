@@ -8,9 +8,14 @@ import { serializeBackup } from '@/lib/sync/restorePoints';
 import type { DataSnapshot } from '@/lib/sync/snapshot';
 import { createControllerHarness, TEST_USER, type ControllerHarness, type HarnessOptions } from '@/lib/sync/syncControllerTestKit';
 import { T0, character, cloudDocument, createActionDeps, createDevice, emptySnapshot, ids, seedCloud } from '@/lib/sync/syncTestKit';
+import { adjust, at } from '@/lib/weapon/testUtils';
 
 const withCharacters = (...names: string[]): DataSnapshot => emptySnapshot({ characters: names.map((n) => character(n)) });
 const addCharacter = (id: string) => (s: DataSnapshot) => ({ ...s, characters: [...s.characters, character(id)] });
+const withWeapon = (s: DataSnapshot): DataSnapshot => ({
+  ...s,
+  weapons: { ...s.weapons, events: [adjust(at(2026, 10, 1), { weapon: 'genesis', stage: 1, pool: 0 })] },
+});
 const UNBOUND = { boundSub: undefined };
 const FILE = { kind: 'file' as const, savedAt: T0.toISOString() };
 
@@ -156,7 +161,6 @@ describe('重置偵測', () => {
     await h.controller.resetDevice();
     expect(view(h).dialog).toBeUndefined();
     expect(h.device.repo.read()).toEqual(emptySnapshot());
-    expect(h.clearWeaponProgress).toHaveBeenCalledTimes(1);
     await vi.waitFor(() => expect(view(h).status).toEqual({ kind: 'synced' }));
   });
 
@@ -249,7 +253,6 @@ describe('刪除', () => {
     expect(ids(cloudDocument(h.cloud).snapshot.characters)).toEqual(['unsynced']);
     expect(view(h)).toMatchObject({ auth: { kind: 'signedOut' }, status: undefined });
     expect(h.device.repo.read()).toEqual(emptySnapshot());
-    expect(h.clearWeaponProgress).toHaveBeenCalledTimes(1);
   });
 
   it('推送失敗時不登出也不清空，顯示錯誤並恢復自動同步', async () => {
@@ -264,19 +267,18 @@ describe('刪除', () => {
   });
 
   it('未登入刪除本機紀錄：只清空資料（保留墓碑）並清空武器進度', async () => {
-    const h = harness({ signedIn: false, data: withCharacters('c1') });
+    const h = harness({ signedIn: false, data: withWeapon(withCharacters('c1')) });
     await h.controller.boot();
     expect(await h.controller.deleteLocal()).toBe(true);
     expect(h.device.repo.read().characters).toEqual([]);
-    expect(h.clearWeaponProgress).toHaveBeenCalledTimes(1);
+    expect(h.device.repo.read().weapons.events).toEqual([]);
   });
 
   it('刪除所有紀錄：雲端與本機清空，維持登入並繼續同步', async () => {
-    const h = await syncedHarness({ data: withCharacters('c1') });
+    const h = await syncedHarness({ data: withWeapon(withCharacters('c1')) });
     expect(await h.controller.deleteAll()).toBe(true);
     expect(cloudDocument(h.cloud).snapshot).toEqual(emptySnapshot());
     expect(h.device.repo.read()).toEqual(emptySnapshot());
-    expect(h.clearWeaponProgress).toHaveBeenCalledTimes(1);
     await vi.waitFor(() => expect(view(h)).toMatchObject({ auth: { kind: 'signedIn' }, status: { kind: 'synced' } }));
   });
 
@@ -284,6 +286,5 @@ describe('刪除', () => {
     const h = await syncedHarness({ data: withCharacters('c1') });
     const [first, second] = await Promise.all([h.controller.deleteAll(), h.controller.deleteAll()]);
     expect([first, second].sort()).toEqual([false, true]);
-    expect(h.clearWeaponProgress).toHaveBeenCalledTimes(1);
   });
 });

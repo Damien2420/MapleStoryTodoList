@@ -10,6 +10,7 @@ import { createMemorySyncState, type SyncState, type SyncStateStore } from '@/li
 import { createSyncEngine, type SyncEngine, type SyncEngineDeps } from '@/lib/sync/syncEngine';
 import type { SyncActionDeps } from '@/lib/sync/actionDeps';
 import { createMemoryRestorePointStore, type LocalRestorePointStore } from '@/lib/sync/restorePoints';
+import { emptyWeaponSnapshot } from '@/lib/weapon/types';
 
 /** 測試的基準時間（台灣時間 2026-10-08 12:00） */
 export const T0 = new Date('2026-10-08T04:00:00.000Z');
@@ -41,6 +42,7 @@ export function emptySnapshot(overrides: Partial<DataSnapshot> = {}): DataSnapsh
     taskTombstones: [],
     bosses: [],
     bossTombstones: [],
+    weapons: emptyWeaponSnapshot(),
     ...overrides,
   };
 }
@@ -82,6 +84,7 @@ export function createMemoryRepo(initial: DataSnapshot = emptySnapshot()): Local
     read: () => current,
     write: (snapshot) => {
       current = snapshot;
+      return false;
     },
   };
 }
@@ -136,6 +139,8 @@ export interface DeviceOptions {
   tokenPrefix?: string;
   /** 取代預設的取得帳號函式，用來模擬授權錯誤 */
   getUser?: () => Promise<AuthUser>;
+  /** 模擬武器紀錄壓縮；不傳時引擎不壓縮 */
+  compact?: (now: Date) => boolean;
 }
 
 export function createDevice(cloud: CloudStore, options: DeviceOptions = {}): Device {
@@ -156,6 +161,7 @@ export function createDevice(cloud: CloudStore, options: DeviceOptions = {}): De
     sleep: async (ms) => {
       sleeps.push(ms);
     },
+    compact: options.compact,
   };
   const engine = createSyncEngine(deps);
   return {

@@ -37,7 +37,6 @@ export interface ControllerHarness {
   };
   localRestorePoint: LocalRestorePointStore;
   notify: { applied: Mock; error: Mock<(message: string) => void>; success: Mock<(message: string) => void> };
-  clearWeaponProgress: Mock<() => void>;
   /** 停止排程器（afterEach 呼叫，避免計時器跨測試觸發） */
   dispose(): void;
 }
@@ -70,7 +69,6 @@ export function createControllerHarness(options: HarnessOptions = {}): Controlle
     scheduler = undefined;
   };
   const notify = { applied: vi.fn(), error: vi.fn<(message: string) => void>(), success: vi.fn<(message: string) => void>() };
-  const clearWeaponProgress = vi.fn<() => void>();
   const controller = createSyncController({
     auth,
     actions: { ...action.deps, signOut: () => auth.signOut() },
@@ -86,8 +84,7 @@ export function createControllerHarness(options: HarnessOptions = {}): Controlle
       return scheduler;
     },
     stopSync,
-    clearWeaponProgress,
     notify,
   });
-  return { cloud, device, controller, auth, localRestorePoint: action.localRestorePoint, notify, clearWeaponProgress, dispose: stopSync };
+  return { cloud, device, controller, auth, localRestorePoint: action.localRestorePoint, notify, dispose: stopSync };
 }

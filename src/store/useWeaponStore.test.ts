@@ -159,6 +159,10 @@ describe('useWeaponStore 壓縮', () => {
     unsub2();
     expect(again).toEqual([]);
   });
+
+  it('沒有可壓縮的資料時回傳 false', () => {
+    expect(useWeaponStore.getState().compact(at(2026, 10, 2), SETTINGS)).toBe(false);
+  });
 });
 
 describe('useWeaponStore 載入損毀的資料', () => {
@@ -188,5 +192,17 @@ describe('useWeaponStore 載入損毀的資料', () => {
     expect(cp.state.genesis).toMatchObject({ status: 'active', stage: 1, pool: 0 });
     const rec = clear({ bossCatalogId: 'lotus', difficulty: '困難', firstClearedAt: at(2026, 10, 1).toISOString() });
     expect(() => foldWeapons({ checkpoint: cp, bossClears: [rec], dailyClears: [], events: [], settings: SETTINGS })).not.toThrow();
+  });
+
+  it('載入舊版（version 1）資料時保留內容並補上空的墓碑；墓碑會持久化', async () => {
+    const good = adjust(at(2026, 10, 1), { weapon: 'genesis', stage: 1, pool: 0 });
+    const s = await load({ events: [good] });
+    expect(s.events).toEqual([good]);
+    expect(s.deletedIds).toEqual([]);
+
+    useWeaponStore.setState({ deletedIds: [{ id: 'event:x', deletedAt: '2026-10-01T00:00:00.000Z' }] });
+    const saved = JSON.parse(localStorage.getItem(WEAPON_STORAGE_KEY)!) as { state: { deletedIds: unknown }; version: number };
+    expect(saved.version).toBe(2);
+    expect(saved.state.deletedIds).toEqual([{ id: 'event:x', deletedAt: '2026-10-01T00:00:00.000Z' }]);
   });
 });

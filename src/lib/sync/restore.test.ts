@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { restoreSnapshot } from '@/lib/sync/restore';
 import { mergeSnapshots } from '@/lib/sync/snapshot';
 import { T0, character, emptySnapshot, ids, task } from '@/lib/sync/syncTestKit';
+import { adjust, at, clear } from '@/lib/weapon/testUtils';
+import { emptyWeaponSnapshot, emptyWeaponState, RULES_VERSION, weaponTombstoneId } from '@/lib/weapon/types';
 
 const NOW = new Date('2026-10-09T00:00:00.000Z');
 const STAMP = NOW.toISOString();
@@ -80,5 +82,52 @@ describe('restoreSnapshot', () => {
     restoreSnapshot(current, target, NOW, idCounter());
     expect(current).toEqual(currentCopy);
     expect(target).toEqual(targetCopy);
+  });
+
+  it('武器：還原的資料改成還原時間；目前有、還原後沒有的寫上墓碑；還原後存在的不留墓碑', () => {
+    const e1 = adjust(at(2026, 10, 1), { weapon: 'genesis', stage: 1, pool: 0 });
+    const e2 = adjust(at(2026, 10, 2), { weapon: 'genesis', stage: 2, pool: 0 });
+    const profile = { id: 'c1', genesisPass: true, stormTraining: false, updatedAt: OLD };
+    const current = emptySnapshot({
+      characters: [character('c1')],
+      weapons: { ...emptyWeaponSnapshot(), events: [e1, e2], profiles: [profile] },
+    });
+    const target = emptySnapshot({
+      characters: [character('c1')],
+      weapons: { ...emptyWeaponSnapshot(), events: [e1], tombstones: [{ id: weaponTombstoneId('event', e1.id), deletedAt: OLD }] },
+    });
+    const result = restoreSnapshot(current, target, NOW, idCounter());
+    expect(result.weapons.events).toEqual([{ ...e1, updatedAt: STAMP }]);
+    expect(result.weapons.profiles).toEqual([]);
+    expect(result.weapons.tombstones).toEqual(
+      expect.arrayContaining([
+        { id: weaponTombstoneId('event', e2.id), deletedAt: STAMP },
+        { id: weaponTombstoneId('profile', 'c1'), deletedAt: STAMP },
+      ]),
+    );
+    expect(result.weapons.tombstones.map((t) => t.id)).not.toContain(weaponTombstoneId('event', e1.id));
+  });
+
+  it('武器：角色換新 id 時，characterId、紀錄 id 前綴、設定與存檔點 id、includeClearIds 一併換成新 id', () => {
+    const boss = clear({ bossCatalogId: 'lotus', difficulty: '困難', firstClearedAt: at(2026, 10, 1).toISOString() });
+    const event = adjust(at(2026, 10, 2), { weapon: 'genesis', stage: 1, pool: 0, includeClearIds: [boss.id] });
+    const target = emptySnapshot({
+      characters: [character('c1')],
+      weapons: {
+        ...emptyWeaponSnapshot(),
+        profiles: [{ id: 'c1', genesisPass: false, stormTraining: false, updatedAt: OLD }],
+        checkpoints: [{ id: 'c1', watermark: OLD, updatedAt: OLD, rulesVersion: RULES_VERSION, state: emptyWeaponState() }],
+        bossClears: [boss],
+        events: [event],
+      },
+    });
+    const current = emptySnapshot({ characterTombstones: [{ id: 'c1', deletedAt: OLD }] });
+    const { weapons } = restoreSnapshot(current, target, NOW, idCounter());
+    const newBossId = boss.id.replace(/^c1:/, 'new-1:');
+    expect(weapons.profiles[0].id).toBe('new-1');
+    expect(weapons.checkpoints[0].id).toBe('new-1');
+    expect(weapons.bossClears[0]).toMatchObject({ id: newBossId, characterId: 'new-1' });
+    expect(weapons.events[0]).toMatchObject({ id: event.id.replace(/^c1:/, 'new-1:'), characterId: 'new-1' });
+    expect(weapons.events[0].payload).toMatchObject({ includeClearIds: [newBossId] });
   });
 });

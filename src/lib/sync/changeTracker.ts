@@ -3,6 +3,7 @@ import { useAccountStore } from '@/store/useAccountStore';
 import { useBossStore } from '@/store/useBossStore';
 import { useCharacterStore } from '@/store/useCharacterStore';
 import { useTaskStore } from '@/store/useTaskStore';
+import { useWeaponStore } from '@/store/useWeaponStore';
 import { isApplyingSyncWrite } from '@/lib/sync/localRepo';
 
 type PersistedStore<T> = UseBoundStore<StoreApi<T>> & {
@@ -19,7 +20,7 @@ function watch<T, S>(store: PersistedStore<T>, selector: (state: T) => S, onChan
 }
 
 /**
- * 追蹤使用者對四類資料的修改。只比對資料陣列本身的參照，選取中的角色、墓碑清單等不算。
+ * 追蹤使用者對帳號、角色、任務、BOSS 與武器資料的修改。只比對資料陣列本身的參照，選取中的角色、墓碑清單等不算。
  * @param onChange 每次偵測到修改時呼叫（同一個操作改到多個 store 時會呼叫多次）
  * @returns 停止追蹤的函式
  */
@@ -29,6 +30,11 @@ export function trackDataChanges(onChange: () => void): () => void {
     watch(useTaskStore, (s) => s.tasks, onChange),
     watch(useBossStore, (s) => s.bosses, onChange),
     watch(useAccountStore, (s) => s.accounts, onChange),
+    watch(useWeaponStore, (s) => s.profiles, onChange),
+    watch(useWeaponStore, (s) => s.bossClears, onChange),
+    watch(useWeaponStore, (s) => s.dailyClears, onChange),
+    watch(useWeaponStore, (s) => s.events, onChange),
+    watch(useWeaponStore, (s) => s.checkpoints, onChange),
   ];
   return () => {
     for (const stopWatching of stops) stopWatching();

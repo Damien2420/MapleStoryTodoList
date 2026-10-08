@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildBackupPayload, CURRENT_VERSION, migrateToLatest, parseBackupPayload } from '@/lib/backupPayload';
 import { LEGACY_TIMESTAMP } from '@/lib/timestamp';
+import { emptyWeaponSnapshot } from '@/lib/weapon/types';
 
 describe('buildBackupPayload', () => {
   it('組出的 payload 帶有目前版本號與三份墓碑清單', () => {
@@ -13,6 +14,7 @@ describe('buildBackupPayload', () => {
       bossTombstones: [],
       accounts: [],
       accountTombstones: [],
+      weapons: emptyWeaponSnapshot(),
     });
     expect(payload.version).toBe(CURRENT_VERSION);
     expect(payload.characterTombstones).toEqual([{ id: 'c1', deletedAt: '2026-01-01T00:00:00.000Z' }]);

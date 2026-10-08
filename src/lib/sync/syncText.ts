@@ -1,5 +1,6 @@
 import { format } from 'date-fns';
 import { AuthError } from '@/lib/auth/authClient';
+import { isQuotaError } from '@/lib/quotaError';
 import { CloudError } from '@/lib/sync/cloud/cloudStore';
 import type { OverwriteImpact } from '@/lib/sync/snapshotSummary';
 import type { RestoreSourceInfo, RestoreSourceKind } from '@/lib/sync/syncController';
@@ -183,6 +184,7 @@ export function describeSyncError(error: unknown): string | undefined {
     }
   }
   if (error instanceof CloudError) return '無法連線到 Google 雲端硬碟，請稍後再試';
+  if (isQuotaError(error)) return '瀏覽器儲存空間不足，無法建立還原點，請先下載備份檔案';
   console.error('[sync] unexpected error', error);
   return '發生未預期的錯誤，請稍後再試';
 }

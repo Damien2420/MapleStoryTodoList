@@ -13,6 +13,7 @@ import { useBossStore } from '@/store/useBossStore';
 import { useWeaponStore } from '@/store/useWeaponStore';
 import { REDIRECT_NAV_STATE } from '@/hooks/useRouteChangeEffects';
 import { ROUTES } from '@/lib/routes';
+import { syncState } from '@/lib/sync/browserSync';
 import { SpeedInsights } from '@vercel/speed-insights/react';
 import { Analytics } from '@vercel/analytics/react';
 
@@ -27,9 +28,10 @@ export function App() {
   const compactWeapons = useWeaponStore((s) => s.compact);
 
   useEffect(() => {
-    // 武器紀錄超過寬限期的部分折入存檔點;store 還沒從 localStorage 讀完時不壓縮
+    // 武器紀錄超過寬限期的部分折入存檔點;store 還沒從 localStorage 讀完時不壓縮。
+    // 綁定過帳號時改由同步引擎在合併雲端內容之後壓縮(已登出或授權失效時不壓縮,下次同步成功再補)
     const runWeaponCompact = () => {
-      if (useWeaponStore.persist.hasHydrated()) compactWeapons(new Date(), settings);
+      if (useWeaponStore.persist.hasHydrated() && !syncState.read().boundSub) compactWeapons(new Date(), settings);
     };
     runTaskResetCheck(settings);
     runBossResetCheck(settings);

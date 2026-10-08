@@ -32,6 +32,11 @@ export interface SyncEngineDeps {
   now: () => Date;
   newResetToken: () => string;
   sleep: (ms: number) => Promise<void>;
+  /**
+   * 壓縮武器紀錄（已登入時由引擎在鎖內、合併雲端內容之後執行，確保壓縮前本機已包含所有裝置的紀錄）。
+   * @returns 有壓縮時回傳 true，這一輪會上傳
+   */
+  compact?: (now: Date) => boolean;
 }
 
 /**
@@ -116,7 +121,8 @@ export function createSyncEngine(deps: SyncEngineDeps): SyncEngine {
     // 讀取當下本機資料 → 合併 → 寫回，三步之間不能有 await，否則使用者在等待期間的修改會被蓋掉
     const before = deps.local.read();
     const { merged } = mergeSnapshots(before, remote);
-    deps.local.write(merged);
+    // 寫回後本機衍生出新的武器紀錄（或每日碎片變高）時，這一輪要一併推送
+    if (deps.local.write(merged)) deps.state.update((current) => ({ changeCounter: current.changeCounter + 1 }));
     // 比較合併前後的本機資料，得到這次實際套用了哪些角色的變更
     const { addedCharacterNames, removedCharacterNames, changedCharacterNames, accountsChanged } = describeOverwrite(before, merged);
     return { addedCharacterNames, removedCharacterNames, changedCharacterNames, accountsChanged };
@@ -125,7 +131,8 @@ export function createSyncEngine(deps: SyncEngineDeps): SyncEngine {
   function packLocal(resetToken: string, dailySnapshotDate: string | undefined): string {
     const pruned = pruneSnapshot(deps.local.read(), TOMBSTONE_RETENTION_DAYS, deps.now());
     deps.local.write(pruned);
-    return serializeCloudDocument({ snapshot: pruned, resetToken, dailySnapshotDate });
+    // 寫回時會重新衍生武器紀錄，序列化寫回之後的資料，讓衍生結果也包含在這次上傳裡
+    return serializeCloudDocument({ snapshot: deps.local.read(), resetToken, dailySnapshotDate });
   }
 
   function markSynced(meta: CloudFileMeta, resetToken: string, dailySnapshotDate: string | undefined, syncedCounter?: number): void {
@@ -262,6 +269,8 @@ export function createSyncEngine(deps: SyncEngineDeps): SyncEngine {
       }
     }
 
+    // 本機已包含雲端內容（版本沒變，或剛合併完），此時壓縮不會遺漏其他裝置的紀錄
+    if (deps.compact?.(deps.now())) needsUpload = true;
     const token = resetToken ?? deps.newResetToken();
     if (!needsUpload && !isPending(deps.state.read())) {
       markSynced(head, token, dailySnapshotDate);

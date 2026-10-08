@@ -3,9 +3,10 @@ import type { BuildBackupPayloadInput, DriveBackupPayload } from '@/lib/backupPa
 import { pruneTombstones, recordTombstone, type Tombstone } from '@/lib/tombstone';
 import { mergeRecords, resolveByUpdatedAt, resolveCharacter } from '@/lib/recordMerge';
 import { renumberByPresetOrder } from '@/lib/presetTasks';
+import { mergeWeaponSnapshots } from '@/lib/weapon/weaponMerge';
 
 /**
- * 帳號、角色、任務、BOSS 與各自墓碑的完整快照，是同步與合併的基本單位。
+ * 帳號、角色、任務、BOSS、武器進度與各自墓碑的完整快照，是同步與合併的基本單位。
  * 不含任何 UI 狀態（例如目前選中的角色），也不含備份格式的 version、createdAt。
  * 欄位與 buildBackupPayload 的輸入相同，直接沿用該型別避免兩份定義各自漂移。
  */
@@ -43,6 +44,7 @@ export function snapshotFromPayload(payload: DriveBackupPayload): DataSnapshot {
     taskTombstones: payload.taskTombstones,
     bosses: payload.bosses,
     bossTombstones: payload.bossTombstones,
+    weapons: payload.weapons,
   };
 }
 
@@ -100,6 +102,7 @@ export function mergeSnapshots(local: DataSnapshot, remote: DataSnapshot): { mer
     taskTombstones: orphanTasks.tombstones,
     bosses: orphanBosses.items,
     bossTombstones: orphanBosses.tombstones,
+    weapons: mergeWeaponSnapshots(local.weapons, remote.weapons, deletedCharacterIds),
   };
 
   const results = [characterResult, taskResult, bossResult, accountResult];
@@ -117,7 +120,7 @@ export function mergeSnapshots(local: DataSnapshot, remote: DataSnapshot): { mer
 }
 
 /**
- * 清掉快照裡四種墓碑中超過保留天數的紀錄，資料陣列沿用原本的參照。
+ * 清掉快照裡各種墓碑（含武器墓碑）中超過保留天數的紀錄，資料陣列沿用原本的參照。
  * @param snapshot 要清理的快照
  * @param retentionDays 墓碑保留天數
  * @param now 現在時間，預設為當下；測試用
@@ -130,6 +133,7 @@ export function pruneSnapshot(snapshot: DataSnapshot, retentionDays: number, now
     characterTombstones: pruneTombstones(snapshot.characterTombstones, retentionDays, now),
     taskTombstones: pruneTombstones(snapshot.taskTombstones, retentionDays, now),
     bossTombstones: pruneTombstones(snapshot.bossTombstones, retentionDays, now),
+    weapons: { ...snapshot.weapons, tombstones: pruneTombstones(snapshot.weapons.tombstones, retentionDays, now) },
   };
 }
 

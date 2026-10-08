@@ -16,6 +16,7 @@ import {
   ids,
   seedCloud,
 } from '@/lib/sync/syncTestKit';
+import { adjust, at } from '@/lib/weapon/testUtils';
 
 const withCharacters = (...names: string[]): DataSnapshot => emptySnapshot({ characters: names.map((n) => character(n)) });
 const UNBOUND = { boundSub: undefined };
@@ -104,6 +105,21 @@ describe('inspectSignIn', () => {
 });
 
 describe('對話框的選擇', () => {
+  it('改用雲端資料：本機的武器進度換成雲端的版本（雲端沒有時清空）', async () => {
+    const cloud = new FakeCloudStore();
+    await seedCloud(cloud, { snapshot: withCharacters('remote'), resetToken: 'R1' });
+    const local = withCharacters('mine');
+    const device = createDevice(cloud, {
+      state: UNBOUND,
+      data: { ...local, weapons: { ...local.weapons, events: [adjust(at(2026, 10, 1), { weapon: 'genesis', stage: 1, pool: 0 })] } },
+    });
+    const h = createActionDeps(device);
+    const plan = await inspectSignIn(h.deps);
+    if (plan.kind !== 'chooseFirstLogin') throw new Error('unexpected plan');
+    await adoptCloudData(h.deps, plan.cloud);
+    expect(device.repo.read().weapons.events).toEqual([]);
+  });
+
   it('改用雲端資料：本機資料先存成雲端還原點，本機換成雲端資料，之後同步不需要上傳', async () => {
     const cloud = new FakeCloudStore();
     await seedCloud(cloud, { snapshot: withCharacters('remote'), resetToken: 'R1' });

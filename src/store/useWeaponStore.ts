@@ -2,8 +2,11 @@ import { create } from 'zustand';
 import { createJSONStorage, persist, type StateStorage } from 'zustand/middleware';
 import { toast } from 'sonner';
 import { syncAcrossTabs } from '@/lib/crossTabSync';
+import { isQuotaError } from '@/lib/quotaError';
+import type { Tombstone } from '@/lib/tombstone';
 import { compactCharacter, compactWatermark } from '@/lib/weapon/compact';
-import { emptyWeaponState, type BossClear, type CharacterWeaponState, type DailyClear, type WeaponCheckpoint, type WeaponEvent, type WeaponProfile } from '@/lib/weapon/types';
+import { sanitizeWeaponSnapshot } from '@/lib/weapon/sanitize';
+import type { BossClear, DailyClear, WeaponCheckpoint, WeaponEvent, WeaponProfile } from '@/lib/weapon/types';
 import type { Settings } from '@/types';
 
 /** 武器 store 的 localStorage key */
@@ -20,14 +23,16 @@ interface WeaponState {
   events: WeaponEvent[];
   /** 每角色一筆存檔點 */
   checkpoints: WeaponCheckpoint[];
+  /** 武器墓碑：只由還原產生，id = weaponTombstoneId(kind, 紀錄 id)；同步合併時傳到其他裝置 */
+  deletedIds: Tombstone[];
   /** 修改角色的加成設定(沒有設定時建立) */
   setProfile: (characterId: string, patch: Partial<Pick<WeaponProfile, 'genesisPass' | 'stormTraining'>>) => void;
   /** 新增事件;id 相同時取代(升階 id 固定,重複升階只會留一筆) */
   addEvent: (event: WeaponEvent) => void;
   /** 寫入 deriveClears 的結果,以 id upsert */
   upsertClears: (bossClears: BossClear[], dailyClears: DailyClear[]) => void;
-  /** 把超過寬限期的紀錄折入存檔點;沒有可壓縮的資料時不寫入 */
-  compact: (now: Date, settings: Settings) => void;
+  /** 把超過寬限期的紀錄折入存檔點;回傳是否有壓縮(沒有可壓縮的資料時不寫入) */
+  compact: (now: Date, settings: Settings) => boolean;
   /** 刪除角色時一併清除該角色的武器資料 */
   removeCharacter: (characterId: string) => void;
   /** 刪除全部紀錄 */
@@ -44,33 +49,6 @@ function upsertById<T extends { id: string }>(list: T[], incoming: T[]): T[] {
 }
 
 let quotaWarned = false;
-
-/** 容量不足的錯誤:標準名稱、舊版 Firefox 的名稱與錯誤碼(22、1014)都算 */
-function isQuotaError(error: unknown): boolean {
-  if (!(error instanceof DOMException)) return false;
-  return error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED' || error.code === 22 || error.code === 1014;
-}
-
-/** 只留下有 id 與 characterId 的物件;不是陣列或內容損毀時回傳空陣列 */
-function cleanList<T extends { id: string }>(value: unknown, key: 'characterId' | 'self'): T[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter(
-    (x): x is T => !!x && typeof x === 'object' && typeof (x as T).id === 'string' && (key === 'self' || typeof (x as { characterId?: unknown }).characterId === 'string'),
-  );
-}
-
-/** 把存檔點的武器狀態補齊缺漏欄位,避免 fold 讀到 undefined 而崩潰 */
-function completeState(state: unknown): CharacterWeaponState {
-  const base = emptyWeaponState();
-  if (!state || typeof state !== 'object') return base;
-  const given = state as Partial<Record<keyof CharacterWeaponState, unknown>>;
-  const out = { ...base };
-  for (const kind of Object.keys(base) as (keyof CharacterWeaponState)[]) {
-    const v = given[kind];
-    if (v && typeof v === 'object') (out as Record<string, unknown>)[kind] = { ...base[kind], ...v };
-  }
-  return out;
-}
 
 /**
  * 包一層 localStorage:寫入超過容量(QuotaExceededError)時跳出提示,不讓錯誤丟到 React 事件處理器;
@@ -102,6 +80,7 @@ export const useWeaponStore = create<WeaponState>()(
       dailyClears: [],
       events: [],
       checkpoints: [],
+      deletedIds: [],
       setProfile: (characterId, patch) => {
         set((state) => {
           const now = new Date().toISOString();
@@ -147,7 +126,7 @@ export const useWeaponStore = create<WeaponState>()(
           result.removeDailyClearIds.forEach((id) => removeDaily.add(id));
           result.removeEventIds.forEach((id) => removeEvents.add(id));
         }
-        if (checkpoints.length === 0) return;
+        if (checkpoints.length === 0) return false;
         // 新存檔點與刪除舊紀錄在同一次 set 完成,不會出現「紀錄刪了、存檔點還沒寫」的中間狀態
         set((s) => ({
           checkpoints: upsertById(s.checkpoints, checkpoints),
@@ -155,6 +134,7 @@ export const useWeaponStore = create<WeaponState>()(
           dailyClears: s.dailyClears.filter((d) => !removeDaily.has(d.id)),
           events: s.events.filter((e) => !removeEvents.has(e.id)),
         }));
+        return true;
       },
       removeCharacter: (characterId) =>
         set((s) => ({
@@ -164,24 +144,21 @@ export const useWeaponStore = create<WeaponState>()(
           events: s.events.filter((e) => e.characterId !== characterId),
           checkpoints: s.checkpoints.filter((c) => c.id !== characterId),
         })),
-      clearAll: () => set({ profiles: [], bossClears: [], dailyClears: [], events: [], checkpoints: [] }),
+      clearAll: () => set({ profiles: [], bossClears: [], dailyClears: [], events: [], checkpoints: [], deletedIds: [] }),
     }),
     {
       name: WEAPON_STORAGE_KEY,
       storage: createJSONStorage(() => safeLocalStorage),
-      // schema 版本:武器資料不進備份檔,改動持久化結構時 version +1 並補 migrate 即可(不需同步 backupPayload.ts)
-      version: 1,
+      // schema 版本:改動持久化結構時 version +1 並補 migrate;武器資料也在備份與同步的快照裡,欄位變動時一併檢查 backupPayload.ts 與 sanitize.ts
+      version: 2,
+      // v1 → v2 只新增 deletedIds,由 merge 補上空陣列;其他欄位不變
+      migrate: (persisted) => persisted as WeaponState,
       // localStorage 的內容可能被手動改過或損毀:載入時驗證形狀,壞掉的欄位退回預設值,不讓整個頁面崩潰
       merge: (persisted, current) => {
         const p = (persisted && typeof persisted === 'object' ? persisted : {}) as Record<string, unknown>;
-        return {
-          ...current,
-          profiles: cleanList<WeaponProfile>(p.profiles, 'self'),
-          bossClears: cleanList<BossClear>(p.bossClears, 'characterId'),
-          dailyClears: cleanList<DailyClear>(p.dailyClears, 'characterId'),
-          events: cleanList<WeaponEvent>(p.events, 'characterId'),
-          checkpoints: cleanList<WeaponCheckpoint>(p.checkpoints, 'self').map((c) => ({ ...c, state: completeState(c.state) })),
-        };
+        // store 的墓碑欄位叫 deletedIds(與其他 store 一致),快照裡叫 tombstones
+        const { tombstones, ...data } = sanitizeWeaponSnapshot({ ...p, tombstones: p.deletedIds });
+        return { ...current, ...data, deletedIds: tombstones };
       },
       partialize: (s) => ({
         profiles: s.profiles,
@@ -189,6 +166,7 @@ export const useWeaponStore = create<WeaponState>()(
         dailyClears: s.dailyClears,
         events: s.events,
         checkpoints: s.checkpoints,
+        deletedIds: s.deletedIds,
       }),
     },
   ),

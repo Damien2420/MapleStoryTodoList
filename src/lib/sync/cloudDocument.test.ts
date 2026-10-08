@@ -3,6 +3,8 @@ import { FakeCloudStore } from '@/lib/sync/cloud/fakeCloudStore';
 import { upsertFile } from '@/lib/sync/cloudFiles';
 import { FormatTooNewError, parseCloudDocument, serializeCloudDocument } from '@/lib/sync/cloudDocument';
 import type { DataSnapshot } from '@/lib/sync/snapshot';
+import { emptyWeaponSnapshot } from '@/lib/weapon/types';
+import { adjust, at } from '@/lib/weapon/testUtils';
 
 function snapshot(overrides: Partial<DataSnapshot> = {}): DataSnapshot {
   return {
@@ -14,6 +16,7 @@ function snapshot(overrides: Partial<DataSnapshot> = {}): DataSnapshot {
     taskTombstones: [],
     bosses: [],
     bossTombstones: [],
+    weapons: emptyWeaponSnapshot(),
     ...overrides,
   };
 }
@@ -53,6 +56,20 @@ describe('parseCloudDocument / serializeCloudDocument', () => {
   it('格式比程式新時丟出 FormatTooNewError', () => {
     const newer = JSON.stringify({ version: 7, createdAt: '2026-01-01T00:00:00.000Z', ...snapshot() });
     expect(() => parseCloudDocument(newer)).toThrow(FormatTooNewError);
+  });
+
+  it('v6 檔案沒有 weapons 時視為空的武器進度；有 weapons 時保留並清理損毀的項目', () => {
+    const legacy = JSON.stringify({ version: 6, createdAt: '2026-01-01T00:00:00.000Z', ...snapshot(), weapons: undefined });
+    expect(parseCloudDocument(legacy).snapshot.weapons).toEqual(emptyWeaponSnapshot());
+
+    const event = adjust(at(2026, 10, 1), { weapon: 'genesis', stage: 1, pool: 0 });
+    const withWeapons = JSON.stringify({
+      version: 6,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      ...snapshot(),
+      weapons: { events: [event, { id: 'broken' }], profiles: 'x' },
+    });
+    expect(parseCloudDocument(withWeapons).snapshot.weapons).toEqual({ ...emptyWeaponSnapshot(), events: [event] });
   });
 });
 

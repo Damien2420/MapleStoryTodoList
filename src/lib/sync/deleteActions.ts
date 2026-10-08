@@ -40,6 +40,7 @@ export function clearLocalDataSignedOut(deps: Pick<SyncActionDeps, 'local'>): vo
     characterTombstones: current.characterTombstones,
     taskTombstones: current.taskTombstones,
     bossTombstones: current.bossTombstones,
+    weapons: { ...createEmptySnapshot().weapons, tombstones: current.weapons.tombstones },
   });
 }
 

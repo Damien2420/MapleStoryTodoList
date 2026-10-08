@@ -6,6 +6,7 @@ import { useTaskStore } from '@/store/useTaskStore';
 import { useBossStore } from '@/store/useBossStore';
 import { useAccountStore } from '@/store/useAccountStore';
 import type { Account, Character, CharacterTask } from '@/types';
+import { emptyWeaponSnapshot } from '@/lib/weapon/types';
 
 const OLD = '2026-01-01T00:00:00.000Z';
 const NEW = '2026-02-01T00:00:00.000Z';
@@ -56,6 +57,7 @@ function emptyPayload(overrides: Partial<DriveBackupPayload> = {}): DriveBackupP
     bossTombstones: [],
     accounts: [],
     accountTombstones: [],
+    weapons: emptyWeaponSnapshot(),
     ...overrides,
   };
 }

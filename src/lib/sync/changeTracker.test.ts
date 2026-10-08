@@ -3,6 +3,7 @@ import { useAccountStore } from '@/store/useAccountStore';
 import { useBossStore } from '@/store/useBossStore';
 import { useCharacterStore } from '@/store/useCharacterStore';
 import { useTaskStore } from '@/store/useTaskStore';
+import { useWeaponStore } from '@/store/useWeaponStore';
 import { trackDataChanges } from '@/lib/sync/changeTracker';
 import { storeRepo } from '@/lib/sync/localRepo';
 import { character, emptySnapshot, task, T0 } from '@/lib/sync/syncTestKit';
@@ -14,6 +15,7 @@ beforeEach(() => {
   useTaskStore.setState({ tasks: [], deletedIds: [] });
   useBossStore.setState({ bosses: [], deletedIds: [] });
   useAccountStore.setState({ accounts: [], deletedIds: [] });
+  useWeaponStore.getState().clearAll();
 });
 
 afterEach(() => {
@@ -53,5 +55,13 @@ describe('trackDataChanges', () => {
     trackDataChanges(onChange)();
     useCharacterStore.setState({ characters: [character('c1')] });
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('武器的設定、紀錄、事件、存檔點變動時通知；只改武器墓碑時不通知', () => {
+    const onChange = vi.fn();
+    stop = trackDataChanges(onChange);
+    useWeaponStore.getState().setProfile('c1', { genesisPass: true });
+    useWeaponStore.setState({ deletedIds: [{ id: 'event:x', deletedAt: T0.toISOString() }] });
+    expect(onChange).toHaveBeenCalledTimes(1);
   });
 });

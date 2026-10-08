@@ -1,5 +1,7 @@
+import { stableStringify } from '@/lib/recordMerge';
 import { toMillis } from '@/lib/timestamp';
 import type { DataSnapshot } from '@/lib/sync/snapshot';
+import type { WeaponCheckpoint, WeaponSnapshot } from '@/lib/weapon/types';
 
 /** 版本卡片上的資料概況 */
 export interface SnapshotSummary {
@@ -23,10 +25,18 @@ export function summarizeSnapshot(snapshot: DataSnapshot): SnapshotSummary {
     ...snapshot.tasks.map((t) => t.updatedAt),
     ...snapshot.bosses.map((b) => b.updatedAt),
     ...[
+      ...snapshot.weapons.profiles,
+      ...snapshot.weapons.bossClears,
+      ...snapshot.weapons.dailyClears,
+      ...snapshot.weapons.events,
+      ...snapshot.weapons.checkpoints,
+    ].map((item) => item.updatedAt),
+    ...[
       ...snapshot.accountTombstones,
       ...snapshot.characterTombstones,
       ...snapshot.taskTombstones,
       ...snapshot.bossTombstones,
+      ...snapshot.weapons.tombstones,
     ].map((t) => t.deletedAt),
   ]
     .map((value) => toMillis(value))
@@ -89,6 +99,7 @@ function compareItem(before: Comparable | undefined, after: Comparable | undefin
 
 /**
  * 描述「以 target 取代 current」的影響。只比較內容，修改時間不同不算變更。
+ * 武器資料也算進角色的進度；比較前先用兩邊較新的 watermark 過濾，另一台壓縮掉的舊紀錄不算差異。
  * @param current 會被取代的資料
  * @param target 取代後的資料
  * @returns 加入、移除、進度不同、較新的角色名稱，以及帳號設定是否不同
@@ -114,6 +125,37 @@ export function describeOverwrite(current: DataSnapshot, target: DataSnapshot): 
     const beforeIds = new Set(before.map((item) => item.id));
     for (const item of after) if (!beforeIds.has(item.id)) record(item.characterId, 'older');
   }
+
+  // 武器：依角色找出兩邊較新的 watermark，早於它的紀錄已經（或即將）折入存檔點，不算差異
+  const watermarkOf = (weapons: WeaponSnapshot) => new Map(weapons.checkpoints.map((c) => [c.id, c.watermark]));
+  const currentWatermarks = watermarkOf(current.weapons);
+  const targetWatermarks = watermarkOf(target.weapons);
+  const cutoff = (characterId: string) => {
+    const a = currentWatermarks.get(characterId) ?? '';
+    const b = targetWatermarks.get(characterId) ?? '';
+    return a > b ? a : b;
+  };
+  const live = <T extends { characterId: string }>(items: T[], time: (item: T) => string) =>
+    items.filter((item) => time(item) >= cutoff(item.characterId));
+  for (const [before, after] of [
+    [live(current.weapons.bossClears, (c) => c.firstClearedAt), live(target.weapons.bossClears, (c) => c.firstClearedAt)],
+    [live(current.weapons.dailyClears, (d) => d.firstClearedAt), live(target.weapons.dailyClears, (d) => d.firstClearedAt)],
+    [live(current.weapons.events, (e) => e.at), live(target.weapons.events, (e) => e.at)],
+  ] as const) {
+    const afterById = new Map<string, Comparable & { characterId: string }>(after.map((item) => [item.id, item]));
+    for (const item of before) record(item.characterId, compareItem(item, afterById.get(item.id)));
+    const beforeIds = new Set(before.map((item) => item.id));
+    for (const item of after) if (!beforeIds.has(item.id)) record(item.characterId, 'older');
+  }
+  // 設定與存檔點的 id 就是角色 id；存檔點只在狀態不同時算不同（watermark 不同代表壓縮進度不同，不是進度不同）
+  const compareCheckpoint = (before?: WeaponCheckpoint, after?: WeaponCheckpoint) =>
+    before && after && stableStringify(before.state) === stableStringify(after.state) ? 'same' : compareItem(before, after);
+  const targetProfiles = new Map(target.weapons.profiles.map((p) => [p.id, p]));
+  const targetCheckpoints = new Map(target.weapons.checkpoints.map((c) => [c.id, c]));
+  for (const p of current.weapons.profiles) record(p.id, compareItem(p, targetProfiles.get(p.id)));
+  for (const p of target.weapons.profiles) if (!current.weapons.profiles.some((x) => x.id === p.id)) record(p.id, 'older');
+  for (const c of current.weapons.checkpoints) record(c.id, compareCheckpoint(c, targetCheckpoints.get(c.id)));
+  for (const c of target.weapons.checkpoints) if (!current.weapons.checkpoints.some((x) => x.id === c.id)) record(c.id, 'older');
 
   const sharedCharacters = current.characters.filter((c) => results.has(c.id));
   const targetAccounts = new Map(target.accounts.map((a) => [a.id, a]));

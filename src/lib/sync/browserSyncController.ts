@@ -4,7 +4,6 @@ import { setBeforeMajorDelete } from '@/lib/sync/beforeDelete';
 import { startSync, stopSync, syncActionDeps } from '@/lib/sync/browserSync';
 import { createSyncController } from '@/lib/sync/syncController';
 import { describeAppliedChanges } from '@/lib/sync/syncText';
-import { useWeaponStore } from '@/store/useWeaponStore';
 
 /** 正式環境的同步控制器 */
 export const syncController = createSyncController({
@@ -12,7 +11,6 @@ export const syncController = createSyncController({
   actions: syncActionDeps,
   startSync,
   stopSync,
-  clearWeaponProgress: () => useWeaponStore.getState().clearAll(),
   notify: {
     applied: (result) => toast.success(describeAppliedChanges(result)),
     error: (message) => toast.error(message),

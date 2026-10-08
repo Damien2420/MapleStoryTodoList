@@ -64,8 +64,6 @@ export interface SyncControllerDeps {
   /** 啟動自動同步（已在執行時先停掉舊的） */
   startSync(handlers: { onStatus: (status: SyncStatus) => void; onApplied: (changes: AppliedChanges) => void }): SyncScheduler;
   stopSync(): void;
-  /** 武器進度不屬於同步資料，刪除與重置時要一起清空 */
-  clearWeaponProgress(): void;
   notify: {
     applied(changes: AppliedChanges): void;
     error(message: string): void;
@@ -334,7 +332,6 @@ export function createSyncController(deps: SyncControllerDeps): SyncController {
       await withBusy(async () => {
         if (store.getState().dialog?.kind !== 'reset') return false;
         await resetThisDevice(deps.actions);
-        deps.clearWeaponProgress();
         set({ dialog: undefined });
         await scheduler?.syncNow();
       });
@@ -374,7 +371,6 @@ export function createSyncController(deps: SyncControllerDeps): SyncController {
       return withBusy(async () => {
         if (store.getState().auth.kind !== 'signedIn') {
           clearLocalDataSignedOut(deps.actions);
-          deps.clearWeaponProgress();
           return;
         }
         stop();
@@ -388,7 +384,6 @@ export function createSyncController(deps: SyncControllerDeps): SyncController {
           );
           return false;
         }
-        deps.clearWeaponProgress();
         set({ auth: { kind: 'signedOut' }, status: undefined, lastSyncedAt: undefined });
       });
     },
@@ -397,7 +392,6 @@ export function createSyncController(deps: SyncControllerDeps): SyncController {
       return withBusy(async () => {
         if (store.getState().auth.kind !== 'signedIn') return false;
         await deleteAllRecords(deps.actions);
-        deps.clearWeaponProgress();
         await scheduler?.syncNow();
       });
     },

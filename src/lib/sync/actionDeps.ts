@@ -4,6 +4,7 @@ import type { LocalRestorePointStore } from '@/lib/sync/restorePoints';
 import type { DataSnapshot } from '@/lib/sync/snapshot';
 import type { SyncEngine, SyncEngineDeps } from '@/lib/sync/syncEngine';
 import type { SyncStateStore } from '@/lib/sync/syncState';
+import { emptyWeaponSnapshot } from '@/lib/weapon/types';
 
 /** 登入、還原、刪除動作的外部依賴：同步引擎的依賴，再加上引擎本身、本機還原點、id 產生器與登出 */
 export interface SyncActionDeps extends SyncEngineDeps {
@@ -36,6 +37,7 @@ export function createEmptySnapshot(): DataSnapshot {
     taskTombstones: [],
     bosses: [],
     bossTombstones: [],
+    weapons: emptyWeaponSnapshot(),
   };
 }
 

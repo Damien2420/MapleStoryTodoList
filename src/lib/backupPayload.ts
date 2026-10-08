@@ -1,9 +1,8 @@
 import type { Account, BossDifficulty, Character, CharacterBossTrackList, CharacterSource, CharacterTask, ResetCycle, VipTicketLevel } from '@/types';
 import type { Server } from '@/lib/servers';
-import { useCharacterStore } from '@/store/useCharacterStore';
-import { useTaskStore } from '@/store/useTaskStore';
-import { useBossStore } from '@/store/useBossStore';
-import { useAccountStore } from '@/store/useAccountStore';
+import { storeRepo } from '@/lib/sync/localRepo';
+import { sanitizeWeaponSnapshot } from '@/lib/weapon/sanitize';
+import { emptyWeaponSnapshot, type WeaponSnapshot } from '@/lib/weapon/types';
 import {
   migrateBossAddPartySize,
   migrateBossAddUpdatedAt,
@@ -30,6 +29,8 @@ export interface DriveBackupPayload {
   bossTombstones: Tombstone[];
   accounts: Account[];
   accountTombstones: Tombstone[];
+  /** 武器進度。正式環境尚未發布 v6,直接擴充不升版;舊檔沒有這個欄位時視為空的(見 migrateToLatest) */
+  weapons: WeaponSnapshot;
 }
 
 /**
@@ -183,6 +184,7 @@ const MIGRATIONS: Record<
       bosses: payload.bosses.map(migrateBossAddUpdatedAt),
       accounts: [],
       accountTombstones: [],
+      weapons: emptyWeaponSnapshot(),
     };
   },
 };
@@ -200,7 +202,9 @@ export function migrateToLatest(payload: { version: number }): DriveBackupPayloa
     }
     current = migrate(current);
   }
-  return current as DriveBackupPayload;
+  // v6 檔案不會進入上面的迴圈:缺少 weapons(develop Preview 產生的檔案)或內容損毀時,在這裡統一補上並清理
+  const latest = current as DriveBackupPayload;
+  return { ...latest, weapons: sanitizeWeaponSnapshot((latest as { weapons?: unknown }).weapons) };
 }
 
 export interface BuildBackupPayloadInput {
@@ -212,6 +216,7 @@ export interface BuildBackupPayloadInput {
   bossTombstones: Tombstone[];
   accounts: Account[];
   accountTombstones: Tombstone[];
+  weapons: WeaponSnapshot;
 }
 
 export function buildBackupPayload(input: BuildBackupPayloadInput): DriveBackupPayload {
@@ -227,24 +232,7 @@ export function parseBackupPayload(content: string): DriveBackupPayload {
   return migrateToLatest(JSON.parse(content) as { version: number });
 }
 
-/** 讀取目前三個 store 的資料組成備份 JSON 字串,Google Drive 備份與本機檔案下載共用同一份內容 */
+/** 讀取目前本機的完整資料(含武器進度)組成備份 JSON 字串,本機檔案下載使用 */
 export function buildCurrentBackupPayloadJson(): string {
-  const { characters, deletedIds: characterTombstones } = useCharacterStore.getState();
-  const { tasks, deletedIds: taskTombstones } = useTaskStore.getState();
-  const { bosses, deletedIds: bossTombstones } = useBossStore.getState();
-  const { accounts, deletedIds: accountTombstones } = useAccountStore.getState();
-  return JSON.stringify(
-    buildBackupPayload({
-      characters,
-      characterTombstones,
-      tasks,
-      taskTombstones,
-      bosses,
-      bossTombstones,
-      accounts,
-      accountTombstones,
-    }),
-    null,
-    2,
-  );
+  return JSON.stringify(buildBackupPayload(storeRepo.read()), null, 2);
 }

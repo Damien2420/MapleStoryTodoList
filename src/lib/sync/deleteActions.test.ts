@@ -12,6 +12,7 @@ import {
 import type { DataSnapshot } from '@/lib/sync/snapshot';
 import { isPending } from '@/lib/sync/syncState';
 import { T0, character, cloudDocument, createActionDeps, createDevice, emptySnapshot, ids } from '@/lib/sync/syncTestKit';
+import { adjust } from '@/lib/weapon/testUtils';
 
 const addCharacter = (id: string) => (s: DataSnapshot) => ({ ...s, characters: [...s.characters, character(id)] });
 
@@ -57,6 +58,16 @@ describe('clearLocalDataSignedOut（未登入）', () => {
     clearLocalDataSignedOut(createActionDeps(device).deps);
     expect(device.repo.read()).toEqual(emptySnapshot({ characterTombstones: [tombstone] }));
     expect(device.state.read().resetToken).toBe('R1');
+  });
+
+  it('清空武器資料但保留武器墓碑', () => {
+    const tombstone = { id: 'event:e1', deletedAt: T0.toISOString() };
+    const weapons = emptySnapshot().weapons;
+    const device = createDevice(new FakeCloudStore(), {
+      data: emptySnapshot({ weapons: { ...weapons, events: [adjust(T0, { weapon: 'genesis', stage: 1, pool: 0 })], tombstones: [tombstone] } }),
+    });
+    clearLocalDataSignedOut(createActionDeps(device).deps);
+    expect(device.repo.read().weapons).toEqual({ ...weapons, tombstones: [tombstone] });
   });
 });
 

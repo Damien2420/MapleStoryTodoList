@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as googleDrive from '@/lib/googleDrive';
 import { applyRestoredPayload, backupNow, clearDriveBackups, fetchLatestBackup } from '@/lib/googleDriveBackup';
 import type { DriveBackupPayload } from '@/lib/backupPayload';
+import { emptyWeaponSnapshot } from '@/lib/weapon/types';
 import { useCharacterStore } from '@/store/useCharacterStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useBossStore } from '@/store/useBossStore';
@@ -144,6 +145,7 @@ function emptyPayload(overrides: Partial<DriveBackupPayload> = {}): DriveBackupP
     bossTombstones: [],
     accounts: [],
     accountTombstones: [],
+    weapons: emptyWeaponSnapshot(),
     ...overrides,
   };
 }

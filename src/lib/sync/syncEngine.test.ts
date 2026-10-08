@@ -88,6 +88,50 @@ describe('拉取與推送', () => {
     expect(ops).toEqual(['findFiles', 'download']);
   });
 
+  it('寫回後本機衍生出需要推送的變更時，這一輪合併後一併上傳', async () => {
+    const cloud = new FakeCloudStore();
+    await seedCloud(cloud, { snapshot: emptySnapshot({ characters: [character('remote')] }), resetToken: 'R1' });
+    const device = createDevice(cloud, { state: { resetToken: 'R1' } });
+    const write = device.repo.write.bind(device.repo);
+    let first = true;
+    device.repo.write = (snapshot) => {
+      write(snapshot);
+      const needsPush = first;
+      first = false;
+      return needsPush;
+    };
+    const ops = recordOps(cloud);
+    expect(await device.engine.syncOnce()).toMatchObject({ kind: 'synced' });
+    expect(ops).toContain('update');
+    expect(isPending(device.state.read())).toBe(false);
+  });
+
+  it('合併雲端內容之後才壓縮；有壓縮時這一輪會上傳', async () => {
+    const cloud = new FakeCloudStore();
+    await seedCloud(cloud, { snapshot: emptySnapshot({ characters: [character('remote')] }), resetToken: 'R1' });
+    const seen: string[][] = [];
+    const device = createDevice(cloud, {
+      state: { resetToken: 'R1' },
+      compact: () => {
+        seen.push(ids(device.repo.read().characters));
+        return true;
+      },
+    });
+    const ops = recordOps(cloud);
+    expect(await device.engine.syncOnce()).toMatchObject({ kind: 'synced' });
+    expect(seen).toEqual([['remote']]);
+    expect(ops).toContain('update');
+  });
+
+  it('沒有壓縮也沒有待推送時不上傳', async () => {
+    const cloud = new FakeCloudStore();
+    await seedCloud(cloud, { snapshot: emptySnapshot({ characters: [character('remote')] }), resetToken: 'R1' });
+    const device = createDevice(cloud, { state: { resetToken: 'R1' }, compact: () => false });
+    const ops = recordOps(cloud);
+    await device.engine.syncOnce();
+    expect(ops).not.toContain('update');
+  });
+
   it('回報套用的變更以角色為單位：新角色帶進來的任務不另外算，既有角色的任務不同時列為進度更新', async () => {
     const cloud = new FakeCloudStore();
     const later = new Date(T0.getTime() + DAY_MS).toISOString();

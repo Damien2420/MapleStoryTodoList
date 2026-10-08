@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { Account, Character, CharacterBossTrackList, CharacterTask } from '@/types';
 import type { DriveBackupPayload } from '@/lib/backupPayload';
 import { mergeSnapshots, pruneSnapshot, snapshotFromPayload, type DataSnapshot } from '@/lib/sync/snapshot';
+import { emptyWeaponSnapshot } from '@/lib/weapon/types';
+import { adjust, at } from '@/lib/weapon/testUtils';
 
 const OLD = '2026-01-01T00:00:00.000Z';
 const NEW = '2026-02-01T00:00:00.000Z';
@@ -66,6 +68,7 @@ function snapshot(overrides: Partial<DataSnapshot> = {}): DataSnapshot {
     taskTombstones: [],
     bosses: [],
     bossTombstones: [],
+    weapons: emptyWeaponSnapshot(),
     ...overrides,
   };
 }
@@ -160,6 +163,18 @@ describe('mergeSnapshots', () => {
     mergeSnapshots(local, remote);
     expect(local).toEqual(localCopy);
     expect(remote).toEqual(remoteCopy);
+  });
+
+  it('合併武器進度；被刪除角色的武器資料一併移除；兩邊都沒有武器變化時沿用本機的武器物件', () => {
+    const e1 = adjust(at(2026, 10, 1), { weapon: 'genesis', stage: 1, pool: 0 });
+    const local = snapshot({ characters: [makeCharacter('c1')] });
+    const remote = snapshot({ characters: [makeCharacter('c1')], weapons: { ...emptyWeaponSnapshot(), events: [e1] } });
+    expect(mergeSnapshots(local, remote).merged.weapons.events).toEqual([e1]);
+
+    const deleted = snapshot({ characterTombstones: [{ id: 'c1', deletedAt: NEW }] });
+    expect(mergeSnapshots(remote, deleted).merged.weapons.events).toEqual([]);
+
+    expect(mergeSnapshots(local, snapshot()).merged.weapons).toBe(local.weapons);
   });
 });
 
