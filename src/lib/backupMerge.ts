@@ -4,7 +4,7 @@ import { useTaskStore } from '@/store/useTaskStore';
 import { useBossStore } from '@/store/useBossStore';
 import { useAccountStore } from '@/store/useAccountStore';
 import { pruneTombstones } from '@/lib/tombstone';
-import { mergeSnapshots, snapshotFromPayload, type MergeResult } from '@/lib/sync/snapshot';
+import { mergeSnapshots, snapshotFromPayload, TOMBSTONE_RETENTION_DAYS, type MergeResult } from '@/lib/sync/snapshot';
 import { storeRepo } from '@/lib/sync/localRepo';
 
 export type { MergeResult } from '@/lib/sync/snapshot';
@@ -22,8 +22,7 @@ export function mergeBackupPayload(payload: DriveBackupPayload): MergeResult {
   return result;
 }
 
-/** 墓碑保留天數:超過這個天數的刪除紀錄視為已經傳播夠久,清掉以避免清單無限增長 */
-export const TOMBSTONE_RETENTION_DAYS = 90;
+export { TOMBSTONE_RETENTION_DAYS };
 
 /** 清除三個 store 裡超過保留天數的墓碑,在每次成功備份後呼叫 */
 export function pruneAllTombstones(retentionDays: number = TOMBSTONE_RETENTION_DAYS): void {

@@ -5,6 +5,16 @@ import { useAccountStore } from '@/store/useAccountStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import type { DataSnapshot } from '@/lib/sync/snapshot';
 
+let applyingSyncWrite = false;
+
+/**
+ * storeRepo.write 執行期間為 true。變動追蹤據此排除同步引擎寫回的合併結果（含寫回後的重置檢查），
+ * 只把使用者自己的操作算成「有修改待同步」。
+ */
+export function isApplyingSyncWrite(): boolean {
+  return applyingSyncWrite;
+}
+
 /**
  * 本機資料的存取介面：同步與合併只透過它讀寫本機資料，不直接碰 store。
  * 正式環境使用 storeRepo；同步引擎的測試可以換成記憶體版本，模擬多台裝置各自的本機資料。
@@ -32,20 +42,25 @@ export const storeRepo: LocalRepo = {
   },
 
   write(snapshot) {
-    useCharacterStore.setState((state) => ({
-      characters: snapshot.characters,
-      deletedIds: snapshot.characterTombstones,
-      activeCharacterId:
-        state.activeCharacterId !== null && snapshot.characters.some((c) => c.id === state.activeCharacterId)
-          ? state.activeCharacterId
-          : (snapshot.characters[0]?.id ?? null),
-    }));
-    useTaskStore.setState({ tasks: snapshot.tasks, deletedIds: snapshot.taskTombstones });
-    useBossStore.setState({ bosses: snapshot.bosses, deletedIds: snapshot.bossTombstones });
-    useAccountStore.setState({ accounts: snapshot.accounts, deletedIds: snapshot.accountTombstones });
+    applyingSyncWrite = true;
+    try {
+      useCharacterStore.setState((state) => ({
+        characters: snapshot.characters,
+        deletedIds: snapshot.characterTombstones,
+        activeCharacterId:
+          state.activeCharacterId !== null && snapshot.characters.some((c) => c.id === state.activeCharacterId)
+            ? state.activeCharacterId
+            : (snapshot.characters[0]?.id ?? null),
+      }));
+      useTaskStore.setState({ tasks: snapshot.tasks, deletedIds: snapshot.taskTombstones });
+      useBossStore.setState({ bosses: snapshot.bosses, deletedIds: snapshot.bossTombstones });
+      useAccountStore.setState({ accounts: snapshot.accounts, deletedIds: snapshot.accountTombstones });
 
-    const { settings } = useSettingsStore.getState();
-    useTaskStore.getState().runResetCheck(settings);
-    useBossStore.getState().runResetCheck(settings);
+      const { settings } = useSettingsStore.getState();
+      useTaskStore.getState().runResetCheck(settings);
+      useBossStore.getState().runResetCheck(settings);
+    } finally {
+      applyingSyncWrite = false;
+    }
   },
 };
