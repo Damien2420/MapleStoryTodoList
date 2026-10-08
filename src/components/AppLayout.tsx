@@ -4,6 +4,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { Header } from '@/components/Header';
 import { AnnouncementBar } from '@/components/AnnouncementBar';
 import { Footer } from '@/components/Footer';
+import { SyncDialogs } from '@/components/sync/SyncDialogs';
 import { useDocumentTitle } from '@/hooks/useDocumentTitle';
 import { useRouteChangeEffects } from '@/hooks/useRouteChangeEffects';
 
@@ -26,6 +27,7 @@ export function AppLayout() {
         </ErrorBoundary>
       </main>
       <Footer />
+      <SyncDialogs />
     </div>
   );
 }

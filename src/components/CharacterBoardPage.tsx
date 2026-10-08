@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { AddCharacterDialog } from '@/components/AddCharacterDialog';
 import { ManageAccountsDialog } from '@/components/ManageAccountsDialog';
 import { BoardAccountSection } from '@/components/BoardAccountSection';
+import { SyncNotice } from '@/components/sync/SyncNotice';
 import { buildCharacterBoard, resolveAccountCollapsed } from '@/lib/characterBoard';
 import { useAccountStore } from '@/store/useAccountStore';
 import { useBoardStore } from '@/store/useBoardStore';
@@ -37,6 +38,8 @@ export function CharacterBoardPage() {
           <ManageAccountsDialog />
         </div>
       </div>
+
+      <SyncNotice />
 
       <div className="flex flex-col gap-7">
         {groups.map((group) => {

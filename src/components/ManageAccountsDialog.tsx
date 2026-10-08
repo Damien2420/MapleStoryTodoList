@@ -29,6 +29,7 @@ import {
 import { moveCharacterInContainers } from '@/lib/accountLayout';
 import { UNASSIGNED_GROUP_ID, UNASSIGNED_GROUP_NAME } from '@/lib/characterBoard';
 import { createDndAnnouncements } from '@/lib/dndAnnouncements';
+import { beforeMajorDelete } from '@/lib/sync/beforeDelete';
 import { cn } from '@/lib/utils';
 import { useAccountStore } from '@/store/useAccountStore';
 import { useCharacterStore } from '@/store/useCharacterStore';
@@ -283,7 +284,11 @@ export function ManageAccountsDialog() {
   }
 
   function handleConfirmDelete() {
-    if (deleteTarget) removeAccount(deleteTarget.id);
+    if (deleteTarget) {
+      // 必須在刪除之前同步呼叫，還原點才會讀到刪除前的資料
+      beforeMajorDelete();
+      removeAccount(deleteTarget.id);
+    }
     setDeleteTarget(null);
   }
 

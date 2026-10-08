@@ -4,10 +4,11 @@ import {
   motion,
   type Transition,
   useAnimation,
+  useReducedMotion,
   type Variants,
 } from "motion/react";
 import type { HTMLAttributes } from "react";
-import { forwardRef, useCallback, useImperativeHandle, useRef } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from "react";
 import { cn } from "@/lib/utils";
 
 export interface CloudSyncIconHandle {
@@ -17,6 +18,8 @@ export interface CloudSyncIconHandle {
 
 interface CloudSyncIconProps extends HTMLAttributes<HTMLDivElement> {
   size?: number;
+  /** 持續重複播放箭頭旋轉（同步進行中用）；使用者偏好減少動態時不播放 */
+  loop?: boolean;
 }
 
 const SYNC_VARIANTS: Variants = {
@@ -31,10 +34,26 @@ const SYNC_TRANSITION: Transition = {
   ease: "easeInOut",
 };
 
+const LOOP_TRANSITION: Transition = {
+  ...SYNC_TRANSITION,
+  repeat: Infinity,
+};
+
 const CloudSyncIcon = forwardRef<CloudSyncIconHandle, CloudSyncIconProps>(
-  ({ onMouseEnter, onMouseLeave, className, size = 28, ...props }, ref) => {
+  ({ onMouseEnter, onMouseLeave, className, size = 28, loop = false, ...props }, ref) => {
     const controls = useAnimation();
     const isControlledRef = useRef(false);
+    const reduceMotion = useReducedMotion();
+    const looping = loop && !reduceMotion;
+
+    // loop 模式：重複播放同一個旋轉動畫，關閉時回到原位
+    useEffect(() => {
+      if (!looping) return;
+      void controls.start("animate");
+      return () => {
+        void controls.start("normal");
+      };
+    }, [controls, looping]);
 
     useImperativeHandle(ref, () => {
       isControlledRef.current = true;
@@ -88,7 +107,7 @@ const CloudSyncIcon = forwardRef<CloudSyncIconHandle, CloudSyncIconProps>(
           <motion.g
             animate={controls}
             initial="normal"
-            transition={SYNC_TRANSITION}
+            transition={looping ? LOOP_TRANSITION : SYNC_TRANSITION}
             variants={SYNC_VARIANTS}
           >
             <path d="m17 18-1.535 1.605a5 5 0 0 1-8-1.5" />
