@@ -110,13 +110,52 @@ describe('createSyncScheduler', () => {
     expect(t.syncOnce).toHaveBeenCalledTimes(1);
   });
 
-  it('切回分頁或視窗取得焦點時拉取', async () => {
+  it('切回分頁或視窗取得焦點時拉取；距上次成功同步不到 10 秒時略過', async () => {
     const t = setup();
     t.scheduler.start();
     await flush();
     t.fire('visible');
     await flush();
+    expect(t.syncOnce).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(10_000);
+    t.fire('visible');
+    await flush();
+    expect(t.syncOnce).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(10_000);
     t.fire('focus');
+    await flush();
+    expect(t.syncOnce).toHaveBeenCalledTimes(3);
+  });
+
+  it('切回時同時發生的 visible 與 focus 只同步一次', async () => {
+    const t = setup();
+    t.scheduler.start();
+    await flush();
+    await vi.advanceTimersByTimeAsync(10_000);
+    t.fire('visible');
+    t.fire('focus');
+    await flush();
+    expect(t.syncOnce).toHaveBeenCalledTimes(2);
+  });
+
+  it('等待重試時切回分頁立即同步，不受 10 秒限制', async () => {
+    const t = setup([{ kind: 'retryLater', reason: 'offline' }]);
+    t.scheduler.start();
+    await flush();
+    expect(t.lastStatus()).toEqual({ kind: 'offline' });
+    t.fire('visible');
+    await flush();
+    expect(t.syncOnce).toHaveBeenCalledTimes(2);
+    expect(t.lastStatus()).toEqual({ kind: 'synced' });
+  });
+
+  it('syncNow 與網路恢復不受 10 秒限制', async () => {
+    const t = setup();
+    t.scheduler.start();
+    await flush();
+    await t.scheduler.syncNow();
+    t.fire('online');
     await flush();
     expect(t.syncOnce).toHaveBeenCalledTimes(3);
   });
@@ -128,6 +167,7 @@ describe('createSyncScheduler', () => {
     ]);
     t.scheduler.start();
     await flush();
+    await vi.advanceTimersByTimeAsync(10_000);
     t.fire('focus');
     await flush();
     expect(t.applied).toEqual([CHANGES]);
@@ -197,7 +237,7 @@ describe('createSyncScheduler', () => {
     expect(t.lastStatus()).toEqual({ kind: 'blocked', reason: 'resetDetected' });
   });
 
-  it('同步進行中又被觸發多次時，結束後只再同步一次', async () => {
+  it('同步進行中又被觸發多次時，結束後只再同步一次；切回分頁與取得焦點不補跑', async () => {
     const t = setup();
     let release: () => void = () => {};
     t.syncOnce.mockImplementationOnce(
@@ -210,10 +250,23 @@ describe('createSyncScheduler', () => {
     await flush();
     t.fire('focus');
     t.fire('visible');
-    t.fire('focus');
     release();
     await flush();
-    expect(t.syncOnce).toHaveBeenCalledTimes(2);
+    expect(t.syncOnce).toHaveBeenCalledTimes(1);
+
+    t.syncOnce.mockImplementationOnce(
+      () =>
+        new Promise<SyncOutcome>((resolve) => {
+          release = () => resolve({ kind: 'synced' });
+        }),
+    );
+    void t.scheduler.syncNow();
+    await flush();
+    t.fire('online');
+    void t.scheduler.syncNow();
+    release();
+    await flush();
+    expect(t.syncOnce).toHaveBeenCalledTimes(3);
   });
 
   it('引擎丟出未預期的錯誤時記錄下來，視為離線並排定重試', async () => {

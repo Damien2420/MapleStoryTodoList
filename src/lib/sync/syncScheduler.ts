@@ -5,6 +5,11 @@ const PUSH_DEBOUNCE_MS = 3000;
 /** 重試間隔：5 秒起，每次加倍，上限 5 分鐘 */
 const RETRY_BASE_MS = 5000;
 const RETRY_MAX_MS = 5 * 60 * 1000;
+/**
+ * 切回分頁或視窗取得焦點時，距上次成功同步不到這個時間就不拉取：
+ * 其他裝置修改後要等 3 秒防抖加上傳才會出現在雲端，10 秒內反覆切換不太可能錯過新的變更
+ */
+const PULL_MIN_INTERVAL_MS = 10_000;
 
 /** 需要使用者處理才能繼續同步的情況 */
 export type BlockedReason = 'signedOut' | 'needsFirstLogin' | 'stale' | 'resetDetected' | 'formatTooNew';
@@ -53,6 +58,8 @@ export interface SyncScheduler {
  * 拉取：開始時、切回分頁、視窗取得焦點、網路恢復；推送：修改後 3 秒、分頁隱藏時立即；
  * 失敗時依原因決定重試（離線、被搶先）或停下（需要重新連線、需要使用者決定）。
  * 同一個分頁內同時只跑一輪，進行中再被觸發只會在結束後補跑一次；跨分頁由引擎的鎖保證。
+ * 切回分頁與取得焦點例外：進行中直接略過不補跑（兩個事件通常同時發生），
+ * 距上次成功同步不到 PULL_MIN_INTERVAL_MS 也略過；等待重試時照常立即同步。
  * @param deps 外部依賴
  * @returns SyncScheduler 實例
  */
@@ -64,6 +71,8 @@ export function createSyncScheduler(deps: SyncSchedulerDeps): SyncScheduler {
   let pushTimer: ReturnType<typeof setTimeout> | undefined;
   let retryTimer: ReturnType<typeof setTimeout> | undefined;
   let retryCount = 0;
+  /** 上次成功同步（synced）的時間；其他結果會清掉，讓下次切回時立即同步 */
+  let lastSyncedAt: number | undefined;
   let unsubscribers: Array<() => void> = [];
 
   function clearTimers(): void {
@@ -87,6 +96,7 @@ export function createSyncScheduler(deps: SyncSchedulerDeps): SyncScheduler {
   function handle(outcome: SyncOutcome): void {
     const applied = 'applied' in outcome ? outcome.applied : undefined;
     if (applied && hasVisibleChanges(applied)) deps.onApplied(applied);
+    lastSyncedAt = outcome.kind === 'synced' ? Date.now() : undefined;
 
     switch (outcome.kind) {
       case 'synced':
@@ -137,6 +147,14 @@ export function createSyncScheduler(deps: SyncSchedulerDeps): SyncScheduler {
     }
   }
 
+  /** 切回分頁、取得焦點時的拉取：進行中或剛同步過就略過，等待重試時照常立即同步 */
+  function pull(): void {
+    if (running) return;
+    const recentlySynced = lastSyncedAt !== undefined && Date.now() - lastSyncedAt < PULL_MIN_INTERVAL_MS;
+    if (recentlySynced && retryTimer === undefined) return;
+    void run();
+  }
+
   const whenActive = (action: () => void) => () => {
     if (active && !blocked) action();
   };
@@ -147,9 +165,10 @@ export function createSyncScheduler(deps: SyncSchedulerDeps): SyncScheduler {
       active = true;
       blocked = false;
       retryCount = 0;
+      lastSyncedAt = undefined;
       unsubscribers = [
-        deps.triggers.onVisible(whenActive(() => void run())),
-        deps.triggers.onFocus(whenActive(() => void run())),
+        deps.triggers.onVisible(whenActive(pull)),
+        deps.triggers.onFocus(whenActive(pull)),
         deps.triggers.onOnline(
           whenActive(() => {
             retryCount = 0;
