@@ -3,6 +3,7 @@ import type { BuildBackupPayloadInput, DriveBackupPayload } from '@/lib/backupPa
 import { pruneTombstones, recordTombstone, type Tombstone } from '@/lib/tombstone';
 import { mergeRecords, resolveByUpdatedAt, resolveCharacter } from '@/lib/recordMerge';
 import { renumberByPresetOrder } from '@/lib/presetTasks';
+import { toMillis } from '@/lib/timestamp';
 import { mergeWeaponSnapshots } from '@/lib/weapon/weaponMerge';
 
 /**
@@ -117,6 +118,45 @@ export function mergeSnapshots(local: DataSnapshot, remote: DataSnapshot): { mer
     skippedByLocalTombstone: sum((r) => r.skippedByLocalTombstoneCount),
   };
   return { merged, result };
+}
+
+/**
+ * 本機是否有雲端沒有的內容（合併寫回後檢查，有就要推送）。
+ * 用來補救「上傳後驗證中斷」等情況：其他裝置的寫入被覆蓋後，那台裝置的修改已經不是待推送，
+ * 只能在下次下載合併時發現雲端少了它。
+ * 只看三件事：雲端沒有的 id、本機修改時間嚴格較新、雲端沒有的墓碑；時間相同但內容不同不算，
+ * 否則兩台裝置的重置設定不同（重置檢查只改 checked、不改 updatedAt）時會互推不停。
+ * 武器的擊破與每日紀錄只看 id：它們由勾選框衍生，生效狀態會依各裝置設定改變 updatedAt。
+ * @param local 本機目前的快照（合併寫回之後）
+ * @param remote 這次下載的雲端快照
+ * @returns 需要推送時回傳 true
+ */
+export function hasUnpushedContent(local: DataSnapshot, remote: DataSnapshot): boolean {
+  const newer = <T extends { id: string }>(mine: T[], theirs: T[], modifiedAt: (item: T) => number): boolean => {
+    const remoteById = new Map(theirs.map((item) => [item.id, item]));
+    return mine.some((item) => {
+      const other = remoteById.get(item.id);
+      return !other || modifiedAt(item) > modifiedAt(other);
+    });
+  };
+  const missing = <T extends { id: string }>(mine: T[], theirs: T[]): boolean => newer(mine, theirs, () => 0);
+  const byUpdatedAt = (item: { updatedAt: string }) => toMillis(item.updatedAt);
+  return (
+    newer(local.accounts, remote.accounts, byUpdatedAt) ||
+    newer(local.characters, remote.characters, (c) => Math.max(toMillis(c.updatedAt), toMillis(c.placementUpdatedAt))) ||
+    newer(local.tasks, remote.tasks, byUpdatedAt) ||
+    newer(local.bosses, remote.bosses, byUpdatedAt) ||
+    newer(local.weapons.profiles, remote.weapons.profiles, byUpdatedAt) ||
+    newer(local.weapons.events, remote.weapons.events, byUpdatedAt) ||
+    newer(local.weapons.checkpoints, remote.weapons.checkpoints, byUpdatedAt) ||
+    missing(local.weapons.bossClears, remote.weapons.bossClears) ||
+    missing(local.weapons.dailyClears, remote.weapons.dailyClears) ||
+    missing(local.accountTombstones, remote.accountTombstones) ||
+    missing(local.characterTombstones, remote.characterTombstones) ||
+    missing(local.taskTombstones, remote.taskTombstones) ||
+    missing(local.bossTombstones, remote.bossTombstones) ||
+    missing(local.weapons.tombstones, remote.weapons.tombstones)
+  );
 }
 
 /**

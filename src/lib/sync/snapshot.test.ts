@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { Account, Character, CharacterBossTrackList, CharacterTask } from '@/types';
 import type { DriveBackupPayload } from '@/lib/backupPayload';
-import { mergeSnapshots, pruneSnapshot, snapshotFromPayload, type DataSnapshot } from '@/lib/sync/snapshot';
+import { hasUnpushedContent, mergeSnapshots, pruneSnapshot, snapshotFromPayload, type DataSnapshot } from '@/lib/sync/snapshot';
 import { emptyWeaponSnapshot } from '@/lib/weapon/types';
-import { adjust, at } from '@/lib/weapon/testUtils';
+import { adjust, at, clear } from '@/lib/weapon/testUtils';
 
 const OLD = '2026-01-01T00:00:00.000Z';
 const NEW = '2026-02-01T00:00:00.000Z';
@@ -175,6 +175,34 @@ describe('mergeSnapshots', () => {
     expect(mergeSnapshots(remote, deleted).merged.weapons.events).toEqual([]);
 
     expect(mergeSnapshots(local, snapshot()).merged.weapons).toBe(local.weapons);
+  });
+});
+
+describe('hasUnpushedContent', () => {
+  it('雲端沒有的資料、本機較新的資料、雲端沒有的墓碑都算', () => {
+    const remote = snapshot({ characters: [makeCharacter('c1')] });
+    expect(hasUnpushedContent(remote, remote)).toBe(false);
+    expect(hasUnpushedContent(snapshot({ characters: [makeCharacter('c1'), makeCharacter('c2')] }), remote)).toBe(true);
+    expect(hasUnpushedContent(snapshot({ characters: [makeCharacter('c1', { updatedAt: NEW })] }), remote)).toBe(true);
+    expect(hasUnpushedContent(snapshot({ characters: [makeCharacter('c1', { placementUpdatedAt: NEW })] }), remote)).toBe(true);
+    expect(hasUnpushedContent(snapshot({ characters: [makeCharacter('c1')], taskTombstones: [{ id: 't9', deletedAt: NEW }] }), remote)).toBe(true);
+  });
+
+  it('時間相同但內容不同、或雲端較新的資料不算', () => {
+    const remote = snapshot({ characters: [makeCharacter('c1', { updatedAt: NEW })], tasks: [makeTask('t1', 'c1')] });
+    const local = snapshot({ characters: [makeCharacter('c1', { name: '改名' })], tasks: [makeTask('t1', 'c1', { checked: true })] });
+    expect(hasUnpushedContent(local, remote)).toBe(false);
+  });
+
+  it('武器事件比較修改時間；擊破紀錄由勾選框衍生，只看 id', () => {
+    const later = '2026-12-01T00:00:00.000Z';
+    const e1 = adjust(at(2026, 10, 1), { weapon: 'genesis', stage: 1, pool: 0 });
+    const c1 = clear({ bossCatalogId: 'lotus', difficulty: '困難', firstClearedAt: at(2026, 10, 1).toISOString() });
+    const remote = snapshot({ weapons: { ...emptyWeaponSnapshot(), events: [e1], bossClears: [c1] } });
+    const local = (patch: Partial<DataSnapshot['weapons']>) => snapshot({ weapons: { ...remote.weapons, ...patch } });
+    expect(hasUnpushedContent(local({ events: [{ ...e1, updatedAt: later }] }), remote)).toBe(true);
+    expect(hasUnpushedContent(local({ bossClears: [{ ...c1, active: false, updatedAt: later }] }), remote)).toBe(false);
+    expect(hasUnpushedContent(local({ bossClears: [c1, { ...c1, id: 'c1:will:n:x' }] }), remote)).toBe(true);
   });
 });
 

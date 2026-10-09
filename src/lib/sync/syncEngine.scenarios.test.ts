@@ -4,8 +4,10 @@ import { FakeCloudStore } from '@/lib/sync/cloud/fakeCloudStore';
 import { LATEST_FILE, serializeCloudDocument } from '@/lib/sync/cloudDocument';
 import type { DataSnapshot } from '@/lib/sync/snapshot';
 import { isPending } from '@/lib/sync/syncState';
-import { T0, character, cloudDocument, createDevice, emptySnapshot, ids, seedCloud } from '@/lib/sync/syncTestKit';
+import { T0, character, cloudDocument, createActionDeps, createDevice, emptySnapshot, ids, seedCloud, task } from '@/lib/sync/syncTestKit';
 import { restoreSnapshot } from '@/lib/sync/restore';
+import { CloudError } from '@/lib/sync/cloud/cloudStore';
+import { deleteAllRecords } from '@/lib/sync/deleteActions';
 import { adjust, at } from '@/lib/weapon/testUtils';
 import type { WeaponEvent } from '@/lib/weapon/types';
 
@@ -168,15 +170,17 @@ describe('多裝置情境', () => {
     expect(b.state.read().resetToken).toBe('b-1');
   });
 
-  it('S9 雲端有多個同名主檔時，合併其他檔案的內容後刪除，只留最早建立的那個', async () => {
+  it('S9 雲端有多個同名主檔時，合併同一個 resetToken（或沒有 resetToken 的舊檔）的內容後刪除，只留最早建立的那個；resetToken 不同的不合併', async () => {
     const cloud = new FakeCloudStore();
     await seedCloud(cloud, { snapshot: emptySnapshot({ characters: [character('in-first')] }), resetToken: 'R1' });
-    await seedCloud(cloud, { snapshot: emptySnapshot({ characters: [character('in-second')] }), resetToken: 'R-other' });
+    await seedCloud(cloud, { snapshot: emptySnapshot({ characters: [character('in-second')] }), resetToken: 'R1' });
+    await seedCloud(cloud, { snapshot: emptySnapshot({ characters: [character('legacy')] }) });
+    await seedCloud(cloud, { snapshot: emptySnapshot({ characters: [character('before-reset')] }), resetToken: 'R-other' });
     const device = createDevice(cloud, { state: { resetToken: 'R1' } });
     expect(await device.engine.syncOnce()).toMatchObject({ kind: 'synced' });
     expect(cloud.countFiles(LATEST_FILE)).toBe(1);
     const doc = cloudDocument(cloud);
-    expect(ids(doc.snapshot.characters)).toEqual(['in-first', 'in-second']);
+    expect(ids(doc.snapshot.characters)).toEqual(['in-first', 'in-second', 'legacy']);
     expect(doc.resetToken).toBe('R1');
   });
 
@@ -198,6 +202,86 @@ describe('多裝置情境', () => {
     };
     expect(await a.engine.syncOnce()).toEqual({ kind: 'formatTooNew' });
     expect(cloud.contentOf(LATEST_FILE)).toBe(newer);
+  });
+});
+
+describe('上傳後驗證中斷與多餘主檔', () => {
+  it('B 上傳後驗證失敗（覆蓋了 A 剛推送的版本）：A 下次同步發現雲端少了自己的修改，重新推送', async () => {
+    const cloud = new FakeCloudStore();
+    const { a, b, file } = await twoSyncedDevices(cloud);
+    b.edit(addCharacter('from-b'));
+    a.edit(addCharacter('from-a'));
+    let interleaved = false;
+    cloud.beforeOp = async (op, args) => {
+      if (op === 'update' && args[0] === file.id && !interleaved) {
+        interleaved = true;
+        cloud.beforeOp = undefined;
+        expect(await a.engine.syncOnce()).toMatchObject({ kind: 'synced' });
+        cloud.failNext('listRevisions', new CloudError('rateLimited', '429'));
+      }
+    };
+    expect(await b.engine.syncOnce()).toMatchObject({ kind: 'retryLater' });
+    expect(ids(cloudDocument(cloud).snapshot.characters)).not.toContain('from-a');
+
+    await a.engine.syncOnce();
+    await b.engine.syncOnce();
+    expect(ids(cloudDocument(cloud).snapshot.characters).sort()).toEqual(['from-a', 'from-b']);
+    expect(ids(b.repo.read().characters).sort()).toEqual(['from-a', 'from-b']);
+  });
+
+  it('沒有新內容時，下載合併後不會因為時間相同、內容不同的資料而上傳', async () => {
+    const cloud = new FakeCloudStore();
+    const { a, b } = await twoSyncedDevices(cloud);
+    a.edit(addCharacter('c1'));
+    await a.engine.syncOnce();
+    // B 本機同一筆資料內容不同但時間相同（例如重置檢查只改了 checked）
+    b.edit((s) => ({ ...s, characters: [{ ...character('c1'), name: '本機改名但時間相同' }] }));
+    b.state.update((current) => ({ syncedCounter: current.changeCounter }));
+    const ops: string[] = [];
+    cloud.beforeOp = (op) => {
+      ops.push(op);
+    };
+    await b.engine.syncOnce();
+    expect(ops).not.toContain('update');
+  });
+
+  it('同名主檔的 resetToken 與主檔不同時不合併，刪除所有紀錄後舊資料不會復活', async () => {
+    const cloud = new FakeCloudStore();
+    const a = createDevice(cloud, { tokenPrefix: 'a', data: emptySnapshot({ characters: [character('old')] }) });
+    await a.engine.syncOnce();
+    await cloud.create(LATEST_FILE, serializeCloudDocument({ snapshot: emptySnapshot({ characters: [character('old2')] }), resetToken: 'a-1' }));
+    await deleteAllRecords(createActionDeps(a).deps);
+    expect(await cloud.findFiles(LATEST_FILE)).toHaveLength(1);
+
+    await cloud.create(LATEST_FILE, serializeCloudDocument({ snapshot: emptySnapshot({ characters: [character('stale')] }), resetToken: 'a-1' }));
+    expect(await a.engine.syncOnce()).toMatchObject({ kind: 'synced' });
+    expect(a.repo.read().characters).toEqual([]);
+    expect(cloudDocument(cloud).snapshot.characters).toEqual([]);
+    expect(await cloud.findFiles(LATEST_FILE)).toHaveLength(1);
+  });
+});
+
+describe('刪除後還原（toast 的還原按鈕）', () => {
+  it('刪除已經同步到其他裝置後才按還原：以新 id 加回、保留舊墓碑，兩台最後都留著這筆', async () => {
+    const cloud = new FakeCloudStore();
+    const t1 = task('t1', 'c1');
+    const a = createDevice(cloud, { tokenPrefix: 'a', data: emptySnapshot({ characters: [character('c1')], tasks: [t1] }) });
+    await a.engine.syncOnce();
+    const b = createDevice(cloud, { tokenPrefix: 'b' });
+    await b.engine.syncOnce();
+
+    a.edit((s) => ({ ...s, tasks: [], taskTombstones: [{ id: 't1', deletedAt: T0.toISOString() }] }));
+    await a.engine.syncOnce();
+    await b.engine.syncOnce();
+    // 與 useTaskStore.restoreTask 相同：新 id、較新的修改時間，舊 id 的墓碑保留
+    a.edit((s) => ({ ...s, tasks: [{ ...t1, id: 't1-restored', updatedAt: new Date(T0.getTime() + 1000).toISOString() }] }));
+    await a.engine.syncOnce();
+    await b.engine.syncOnce();
+    b.edit(addCharacter('other'));
+    await b.engine.syncOnce();
+    await a.engine.syncOnce();
+    expect(ids(a.repo.read().tasks)).toEqual(['t1-restored']);
+    expect(ids(b.repo.read().tasks)).toEqual(['t1-restored']);
   });
 });
 

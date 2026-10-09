@@ -1,4 +1,5 @@
 import { createEmptySnapshot, readLatestCloud, type SyncActionDeps } from '@/lib/sync/actionDeps';
+import { CloudError } from '@/lib/sync/cloud/cloudStore';
 import { LATEST_FILE, serializeCloudDocument } from '@/lib/sync/cloudDocument';
 import { saveCloudRestorePoint, serializeBackup } from '@/lib/sync/restorePoints';
 import { SYNC_LOCK, type SyncOutcome } from '@/lib/sync/syncEngine';
@@ -45,13 +46,13 @@ export function clearLocalDataSignedOut(deps: Pick<SyncActionDeps, 'local'>): vo
 }
 
 /**
- * 「刪除所有紀錄」（全部重置）：目前雲端資料先存成還原點，雲端換成空資料並產生新的 resetToken，
+ * 「刪除所有紀錄」（全部重置）：目前雲端資料先存成還原點，雲端換成空資料並產生新的 resetToken（同名的多餘主檔一併刪除），
  * 清空本機並記下新的 resetToken，維持登入。其他裝置下次同步時會跳出重置對話框。
  * @param deps 動作依賴
  */
 export async function deleteAllRecords(deps: SyncActionDeps): Promise<void> {
   await deps.withLock(SYNC_LOCK, async () => {
-    const [head] = await deps.cloud.findFiles(LATEST_FILE);
+    const [head, ...extras] = await deps.cloud.findFiles(LATEST_FILE);
     if (head) await saveCloudRestorePoint(deps.cloud, await deps.cloud.download(head.id));
     const resetToken = deps.newResetToken();
     const content = serializeCloudDocument({
@@ -60,6 +61,14 @@ export async function deleteAllRecords(deps: SyncActionDeps): Promise<void> {
       dailySnapshotDate: deps.state.read().dailySnapshotDate,
     });
     const meta = head ? await deps.cloud.update(head.id, content) : await deps.cloud.create(LATEST_FILE, content);
+    // 同名的多餘主檔是重置前的舊資料，一併刪除，避免之後被合併回來
+    for (const extra of extras) {
+      try {
+        await deps.cloud.delete(extra.id);
+      } catch (error) {
+        if (!(error instanceof CloudError && error.kind === 'notFound')) throw error;
+      }
+    }
     deps.local.write(createEmptySnapshot());
     deps.state.update((current) => ({
       resetToken,

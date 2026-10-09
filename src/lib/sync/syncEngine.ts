@@ -11,7 +11,7 @@ import {
   type CloudDocument,
 } from '@/lib/sync/cloudDocument';
 import type { LocalRepo } from '@/lib/sync/localRepo';
-import { TOMBSTONE_RETENTION_DAYS, mergeSnapshots, pruneSnapshot, type DataSnapshot } from '@/lib/sync/snapshot';
+import { TOMBSTONE_RETENTION_DAYS, hasUnpushedContent, mergeSnapshots, pruneSnapshot, type DataSnapshot } from '@/lib/sync/snapshot';
 import { describeOverwrite, type OverwriteImpact } from '@/lib/sync/snapshotSummary';
 import { isPending, isStale, type SyncStateStore } from '@/lib/sync/syncState';
 
@@ -262,9 +262,13 @@ export function createSyncEngine(deps: SyncEngineDeps): SyncEngine {
         dailySnapshotDate = doc.dailySnapshotDate;
       }
       applied = applyRemote(doc.snapshot);
+      // 本機有雲端沒有的內容（例如上次上傳後驗證中斷，其他裝置的寫入被覆蓋）時一併推送
+      if (hasUnpushedContent(deps.local.read(), doc.snapshot)) needsUpload = true;
       for (const extra of extras) {
-        // 同名主檔（兩台裝置同時建立、或舊版殘留）：內容一律合併進來，上傳成功後刪除
+        // 同名主檔（兩台裝置同時建立、或舊版殘留）：同一個 resetToken 的內容合併進來，上傳成功後刪除；
+        // resetToken 不同代表是重置（刪除所有紀錄）之前的舊資料，不合併，否則被刪除的資料會復活
         const extraDoc = parseCloudDocument(await deps.cloud.download(extra.id));
+        if (extraDoc.resetToken !== undefined && resetToken !== undefined && extraDoc.resetToken !== resetToken) continue;
         applied = addChanges(applied, applyRemote(extraDoc.snapshot));
       }
     }
