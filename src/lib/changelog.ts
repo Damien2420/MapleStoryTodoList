@@ -11,7 +11,7 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     version: '1.5.0',
-    date: '2026-10-01',
+    date: '2026-10-09',
     changes: [
       '新增「帳號」：可把角色放入帳號群組內一起管理，未加入帳號的角色自動歸類為"未歸類"',
       '新增「總覽」頁面：一次看完所有角色的每日/每週/每月/賽季/VIP 進度與討伐收益的首頁，可拖曳排序角色',
