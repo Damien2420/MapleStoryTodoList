@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { ChevronRight, Info } from 'lucide-react';
+import { BossAvatar } from '@/components/BossAvatar';
 import { PickerCategoryStatus } from '@/components/PickerCategorySection';
 import { VipTicketIcon } from '@/components/VipTicketIcon';
 import { Button } from '@/components/ui/button';
@@ -29,7 +30,7 @@ interface VipQuotaDialogProps {
 }
 
 /**
- * 視窗內容:依券等級列出每一格額度,用掉的格子顯示「哪隻角色、哪隻 BOSS、什麼難度」,沒用的格子畫成虛線空格。
+ * 視窗內容:依券等級列出每一格額度,用掉的格子顯示「哪隻角色、哪隻 BOSS(含頭像)、什麼難度」,沒用的格子畫成虛線空格。
  * 只在視窗打開時才 render(Radix 關閉時會卸載內容),所以角色與 BOSS 的 store 訂閱不會拖累看板頁。
  * @param props.account 所屬帳號,決定有哪些券等級與各自的額度
  * @param props.quota 帳號的重置券用量
@@ -109,9 +110,13 @@ function VipQuotaContent({ account, quota }: VipQuotaDialogProps) {
                       key={use.boss.id}
                       className="flex items-center justify-between gap-2.5 rounded-md bg-popover px-3 py-2"
                     >
-                      <div className="flex min-w-0 flex-col gap-0.5">
-                        <span className="text-sm font-semibold">{use.boss.bossName}</span>
-                        <span className="break-words text-xs text-muted-foreground">{use.member.name}</span>
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        {/* 名稱與角色兩行文字，頭像放大到與兩行同高 */}
+                        <BossAvatar bossCatalogId={use.boss.bossCatalogId} name={use.boss.bossName} className="size-8" />
+                        <div className="flex min-w-0 flex-col gap-0.5">
+                          <span className="text-sm font-semibold">{use.boss.bossName}</span>
+                          <span className="break-words text-xs text-muted-foreground">{use.member.name}</span>
+                        </div>
                       </div>
                       <span
                         className={cn(
