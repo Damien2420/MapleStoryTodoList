@@ -1,4 +1,5 @@
 import { stableStringify } from '@/lib/recordMerge';
+import { alignRestoredIds } from '@/lib/sync/restore';
 import { toMillis } from '@/lib/timestamp';
 import type { DataSnapshot } from '@/lib/sync/snapshot';
 import type { WeaponCheckpoint, WeaponSnapshot } from '@/lib/weapon/types';
@@ -68,7 +69,8 @@ export interface OverwriteImpact {
 }
 
 // 修改時間不算內容；lastResetAt 由各裝置自動重置時各自寫入，只差在它不代表使用者的進度不同
-const IGNORED_KEYS = new Set(['updatedAt', 'placementUpdatedAt', 'lastResetAt']);
+// restoredFrom 是還原時記下的來源 id，不是使用者的進度
+const IGNORED_KEYS = new Set(['updatedAt', 'placementUpdatedAt', 'lastResetAt', 'restoredFrom']);
 
 /** 去掉修改時間後的內容，用來判斷兩個版本是否真的不同 */
 function comparableContent(item: object): string {
@@ -100,11 +102,13 @@ function compareItem(before: Comparable | undefined, after: Comparable | undefin
 /**
  * 描述「以 target 取代 current」的影響。只比較內容，修改時間不同不算變更。
  * 武器資料也算進角色的進度；比較前先用兩邊較新的 watermark 過濾，另一台壓縮掉的舊紀錄不算差異。
+ * 還原時換過 id 的資料（restoredFrom）先對齊回同一筆，同一個角色不會顯示成「失去再找回」。
  * @param current 會被取代的資料
- * @param target 取代後的資料
+ * @param rawTarget 取代後的資料
  * @returns 加入、移除、進度不同、較新的角色名稱，以及帳號設定是否不同
  */
-export function describeOverwrite(current: DataSnapshot, target: DataSnapshot): OverwriteImpact {
+export function describeOverwrite(current: DataSnapshot, rawTarget: DataSnapshot): OverwriteImpact {
+  const target = alignRestoredIds(current, rawTarget);
   const currentCharacterIds = new Set(current.characters.map((c) => c.id));
   const targetCharacters = new Map(target.characters.map((c) => [c.id, c]));
 

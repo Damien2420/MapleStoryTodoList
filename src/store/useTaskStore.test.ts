@@ -21,15 +21,18 @@ describe('useTaskStore 墓碑相關行為', () => {
     expect(useTaskStore.getState().deletedIds.map((t) => t.id)).toEqual([id]);
   });
 
-  it('restoreTask(undo)會清掉剛才寫入的墓碑', () => {
+  it('restoreTask(undo)以新 id 與較新的修改時間加回，舊 id 的墓碑保留，避免被其他裝置同步來的墓碑再刪一次', () => {
     useTaskStore.getState().addTask(baseInput);
     const task = useTaskStore.getState().tasks[0];
     useTaskStore.getState().removeTask(task.id);
-    expect(useTaskStore.getState().deletedIds).toHaveLength(1);
 
     useTaskStore.getState().restoreTask(task);
-    expect(useTaskStore.getState().deletedIds).toEqual([]);
-    expect(useTaskStore.getState().tasks).toEqual([task]);
+    const [restored] = useTaskStore.getState().tasks;
+    expect(restored).toMatchObject({ ...task, id: expect.any(String), updatedAt: expect.any(String) });
+    expect(restored.id).not.toBe(task.id);
+    expect(restored.restoredFrom).toBe(task.id);
+    expect(restored.updatedAt > task.updatedAt).toBe(true);
+    expect(useTaskStore.getState().deletedIds.map((t) => t.id)).toEqual([task.id]);
   });
 
   it('removeCategoryTasks 對每一筆被刪除的任務都寫入墓碑', () => {

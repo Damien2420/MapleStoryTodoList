@@ -18,6 +18,8 @@ export type CharacterSource = 'api' | 'manual';
 /** 遊戲角色 */
 export interface Character {
   id: string;
+  /** 還原時因舊 id 已被刪除而換了新 id,記下最原始的 id;之後再還原同一份資料時用來對回這筆 */
+  restoredFrom?: string;
   name: string;
   server: Server;
   level: number;
@@ -37,6 +39,8 @@ export interface Character {
 /** 使用者自訂的角色分組,對應現實中的一個 MapleStory 帳號(一個帳號底下可以有多個角色) */
 export interface Account {
   id: string;
+  /** 還原時因舊 id 已被刪除而換了新 id,記下最原始的 id;之後再還原同一份資料時用來對回這筆 */
+  restoredFrom?: string;
   name: string;
   order: number;
   /** VIP會員等級,未設定代表這個帳號沒有VIP資格;VIP資格屬於整個帳號,而非個別角色 */
@@ -48,6 +52,8 @@ export interface Account {
 /** 角色底下的實際任務(勾選狀態、重置時間都是角色獨立的) */
 export interface CharacterTask {
   id: string;
+  /** 還原時因舊 id 已被刪除而換了新 id,記下最原始的 id;之後再還原同一份資料時用來對回這筆 */
+  restoredFrom?: string;
   characterId: string;
   /** 建立當下對應的預設任務/群組 id,用來之後查目錄判斷是否已下架;上線前建立的舊紀錄或手動新增的任務可能沒有此欄位 */
   presetId?: string;
@@ -87,6 +93,8 @@ export type VipTicketLevel = '下' | '中' | '上' | '終極' | '每月';
 /** 角色底下實際追蹤的 BOSS 討伐記錄,獨立於任務系統之外 */
 export interface CharacterBossTrackList {
   id: string;
+  /** 還原時因舊 id 已被刪除而換了新 id,記下最原始的 id;之後再還原同一份資料時用來對回這筆 */
+  restoredFrom?: string;
   characterId: string;
   bossName: string;
   difficulty: BossDifficulty;
