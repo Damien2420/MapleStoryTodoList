@@ -91,7 +91,7 @@ export const PRESET_TASKS: PresetTask[] = [
     name: 'CROWN升級任務',
     category: 'CROWN活動',
     resetCycle: 'weekly',
-    expiresAt: '2026-10-20',
+    expiresAt: '2026-09-08',
   },
   {
     id: 'challenger-s3-momentum-pass',
