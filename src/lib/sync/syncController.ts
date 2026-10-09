@@ -1,6 +1,7 @@
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import { AuthError, type AuthClient, type AuthUser } from '@/lib/auth/authClient';
 import type { CloudSnapshotInfo, SyncActionDeps } from '@/lib/sync/actionDeps';
+import { CloudError } from '@/lib/sync/cloud/cloudStore';
 import { DAILY_SNAPSHOT_FILE, FormatTooNewError, RESTORE_POINT_FILE } from '@/lib/sync/cloudDocument';
 import { clearLocalDataSignedOut, deleteAllRecords, deleteLocalRecords, resetThisDevice, saveRestorePoint } from '@/lib/sync/deleteActions';
 import { restoreSignedIn, restoreSignedOut } from '@/lib/sync/restoreActions';
@@ -55,6 +56,11 @@ export interface SyncViewState {
   dialog?: SyncDialog;
   /** 登入、對話框選擇、還原、刪除進行中；期間其他動作一律忽略 */
   busy: boolean;
+  /**
+   * 登入（或開網頁恢復登入）後，第一輪同步還沒結束：正在確認雲端並載入資料。
+   * 第一次回報非同步中的狀態、跳出對話框、發生錯誤或登出時解除；之後的定期同步不會再設回 true。
+   */
+  initialSyncPending: boolean;
 }
 
 /** 控制器的外部依賴 */
@@ -117,7 +123,7 @@ const NEED_SYNC_MESSAGE = '需要先與雲端同步才能還原，請確認網�
  * @returns 控制器
  */
 export function createSyncController(deps: SyncControllerDeps): SyncController {
-  const store = createStore<SyncViewState>(() => ({ auth: { kind: 'checking' }, busy: false }));
+  const store = createStore<SyncViewState>(() => ({ auth: { kind: 'checking' }, busy: false, initialSyncPending: false }));
   const set = store.setState;
   let scheduler: SyncScheduler | undefined;
 
@@ -156,6 +162,7 @@ export function createSyncController(deps: SyncControllerDeps): SyncController {
 
   function handleStatus(status: SyncStatus): void {
     set({ status, lastSyncedAt: deps.actions.state.read().lastSyncedAt });
+    if (status.kind !== 'syncing') set({ initialSyncPending: false });
     const { auth } = store.getState();
     if (status.kind === 'synced' && auth.kind === 'signedIn' && !auth.user) {
       deps.auth.getUser().then(
@@ -178,7 +185,7 @@ export function createSyncController(deps: SyncControllerDeps): SyncController {
         return;
       case 'signedOut':
         stop();
-        set({ auth: { kind: 'signedOut' }, status: undefined });
+        set({ auth: { kind: 'signedOut' }, status: undefined, initialSyncPending: false });
         return;
     }
   }
@@ -189,18 +196,32 @@ export function createSyncController(deps: SyncControllerDeps): SyncController {
       const plan = await inspectSignIn(deps.actions);
       if (plan.kind === 'ready') begin();
       else if (plan.kind === 'chooseFirstLogin') {
-        set({ dialog: { kind: 'firstLogin', reason: plan.reason, local: plan.local, cloud: plan.cloud } });
+        set({ dialog: { kind: 'firstLogin', reason: plan.reason, local: plan.local, cloud: plan.cloud }, initialSyncPending: false });
       } else {
-        set({ dialog: { kind: 'confirmOverwrite', restoredAt: plan.restoredAt, local: plan.local, cloud: plan.cloud } });
+        set({
+          dialog: { kind: 'confirmOverwrite', restoredAt: plan.restoredAt, local: plan.local, cloud: plan.cloud },
+          initialSyncPending: false,
+        });
       }
     } catch (error) {
-      if (!(error instanceof FormatTooNewError)) set({ status: { kind: 'offline' } });
+      set({ initialSyncPending: false });
+      // 與同步引擎相同的錯誤對應：授權失效要重新連線、已登出就顯示未登入，其他才當成暫時連不上
+      if (error instanceof AuthError && error.code === 'signedOut') {
+        set({ auth: { kind: 'signedOut' }, status: undefined });
+      } else if (
+        (error instanceof AuthError && error.code === 'reconnectRequired') ||
+        (error instanceof CloudError && error.kind === 'unauthorized')
+      ) {
+        set({ status: { kind: 'reconnectRequired' } });
+      } else if (!(error instanceof FormatTooNewError)) {
+        set({ status: { kind: 'offline' } });
+      }
       handleError(error);
     }
   }
 
   async function afterSignIn(user: AuthUser): Promise<void> {
-    set({ auth: { kind: 'signedIn', user } });
+    set({ auth: { kind: 'signedIn', user }, initialSyncPending: true });
     await inspect();
   }
 
@@ -208,7 +229,7 @@ export function createSyncController(deps: SyncControllerDeps): SyncController {
   async function signOutNow(): Promise<void> {
     await deps.auth.signOut();
     stop();
-    set({ auth: { kind: 'signedOut' }, status: undefined, dialog: undefined });
+    set({ auth: { kind: 'signedOut' }, status: undefined, dialog: undefined, initialSyncPending: false });
   }
 
   /** 等目前這輪同步結束，回傳結束時的狀態 */
@@ -384,7 +405,7 @@ export function createSyncController(deps: SyncControllerDeps): SyncController {
           );
           return false;
         }
-        set({ auth: { kind: 'signedOut' }, status: undefined, lastSyncedAt: undefined });
+        set({ auth: { kind: 'signedOut' }, status: undefined, lastSyncedAt: undefined, initialSyncPending: false });
       });
     },
 

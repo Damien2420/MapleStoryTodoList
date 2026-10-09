@@ -183,7 +183,9 @@ export function describeSyncError(error: unknown): string | undefined {
         return '登入服務暫時無法使用，請稍後再試';
     }
   }
-  if (error instanceof CloudError) return '無法連線到 Google 雲端硬碟，請稍後再試';
+  if (error instanceof CloudError) {
+    return error.kind === 'unauthorized' ? 'Google 雲端硬碟的授權已失效，請重新連線' : '無法連線到 Google 雲端硬碟，請稍後再試';
+  }
   if (isQuotaError(error)) return '瀏覽器儲存空間不足，無法建立還原點，請先下載備份檔案';
   console.error('[sync] unexpected error', error);
   return '發生未預期的錯誤，請稍後再試';

@@ -106,6 +106,53 @@ describe('登入與首次登入對話框', () => {
     expect(h.device.state.read().boundSub).toBeUndefined();
   });
 
+  it('登入後到第一輪同步結束前標記為載入中；之後的定期同步不會再標記', async () => {
+    const cloud = new FakeCloudStore();
+    await seedCloud(cloud, { snapshot: withCharacters('remote'), resetToken: 'R1' });
+    const h = harness({ cloud, signedIn: false, state: UNBOUND });
+    await h.controller.boot();
+    expect(view(h).initialSyncPending).toBe(false);
+
+    const seen = [view(h).initialSyncPending];
+    const unsubscribe = h.controller.store.subscribe((s) => {
+      if (seen.at(-1) !== s.initialSyncPending) seen.push(s.initialSyncPending);
+    });
+    await h.controller.signIn();
+    await vi.waitFor(() => expect(view(h).status).toEqual({ kind: 'synced' }));
+    expect(seen).toEqual([false, true, false]);
+    expect(ids(h.device.repo.read().characters)).toEqual(['remote']);
+
+    await h.controller.syncNow();
+    unsubscribe();
+    expect(seen).toEqual([false, true, false]);
+  });
+
+  it('跳出首次登入對話框或登入後無法連線時解除載入中', async () => {
+    const h = await firstLoginHarness();
+    expect(view(h).initialSyncPending).toBe(false);
+
+    const offline = harness({ signedIn: false, state: UNBOUND });
+    await offline.controller.boot();
+    offline.cloud.failNext('findFiles', new CloudError('network', 'offline'));
+    await offline.controller.signIn();
+    expect(view(offline)).toMatchObject({ auth: { kind: 'signedIn' }, initialSyncPending: false });
+  });
+
+  it('登入後檢查雲端時授權失效：顯示需要重新連線而不是離線；後端已登出時顯示未登入', async () => {
+    const unauthorized = harness({ signedIn: false, state: UNBOUND });
+    await unauthorized.controller.boot();
+    unauthorized.cloud.failNext('findFiles', new CloudError('unauthorized', '401'));
+    await unauthorized.controller.signIn();
+    expect(view(unauthorized)).toMatchObject({ auth: { kind: 'signedIn' }, status: { kind: 'reconnectRequired' } });
+    expect(unauthorized.notify.error).toHaveBeenCalledWith('Google 雲端硬碟的授權已失效，請重新連線');
+
+    const signedOut = harness({ signedIn: false, state: UNBOUND });
+    await signedOut.controller.boot();
+    signedOut.auth.getUser.mockRejectedValueOnce(new AuthError('signedOut', 'x'));
+    await signedOut.controller.signIn();
+    expect(view(signedOut)).toMatchObject({ auth: { kind: 'signedOut' }, status: undefined });
+  });
+
   it('使用者自己關閉 Google 登入視窗：維持未登入，不提示錯誤', async () => {
     const h = harness({ signedIn: false });
     await h.controller.boot();
