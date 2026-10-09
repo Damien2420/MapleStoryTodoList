@@ -1,6 +1,10 @@
+import { useState, type ReactNode } from 'react';
+import { ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { BossAvatar } from '@/components/BossAvatar';
 import { Badge } from '@/components/ui/badge';
-import { Marker, MarkerContent } from '@/components/ui/marker';
+import { Button } from '@/components/ui/button';
+import { PickerCategoryList, PickerCategorySection, PickerCategoryStatus } from '@/components/PickerCategorySection';
 import {
   BOSS_CATALOG,
   countWeeklyBossSelections,
@@ -9,6 +13,7 @@ import {
   type BossCatalogEntry,
   type BossDifficultyOption,
 } from '@/lib/bossCatalog';
+import { DIFFICULTY_BADGE_CLASSES } from '@/lib/difficultyBadge';
 import type { BossDifficulty } from '@/types';
 
 interface BossCatalogPickerProps {
@@ -19,9 +24,11 @@ interface BossCatalogPickerProps {
   trackedGroupKeys: Set<string>;
   /** 該角色已追蹤且計入每週上限的筆數,與對話框內勾選數相加後判斷上限;新增角色流程沒有既有紀錄,省略即為 0 */
   trackedWeeklyCount?: number;
+  /** 工具列右側的內容(例如每週上限徽章),與「全部展開」同一列;省略則工具列只有展開按鈕 */
+  toolbarEnd?: ReactNode;
 }
 
-/** 每週 BOSS 上限提示:固定顯示於描述文字下方,不隨清單捲動;顯示「已追蹤 + 已勾選」的合計,達上限時切換為主色提示已滿 */
+/** 每週 BOSS 上限提示:透過 BossCatalogPicker 的 toolbarEnd 放在「全部展開」同一列右側,不隨清單捲動;顯示「已追蹤 + 已勾選」的合計,達上限時切換為主色提示已滿 */
 export function WeeklyBossLimitHint({
   selections,
   trackedWeeklyCount = 0,
@@ -74,81 +81,158 @@ function buildGroupedBossCatalog(): [string, GroupedBossRow[]][] {
 
 const GROUPED_BOSS_CATALOG = buildGroupedBossCatalog();
 
-/** BOSS 名單勾選清單:依每日/每週/每月/賽季分類顯示,難度按鈕本身即勾選開關;每週區塊(不含賽季)以「已追蹤 + 已勾選」合計不超過 12 筆為上限,上限提示由 WeeklyBossLimitHint 獨立顯示 */
+/**
+ * 這個分類已經沒有可以再追蹤的王:每隻王、每個難度都已在追蹤中;
+ * 每週分類另外在「已追蹤」數達到每週上限時也算(只看已追蹤,對話框內勾到上限還沒真的追蹤,仍顯示 12/12)。
+ */
+function isCategoryFullyTracked(
+  label: string,
+  rows: GroupedBossRow[],
+  trackedGroupKeys: Set<string>,
+  trackedWeeklyCount: number,
+): boolean {
+  if (label === '每週' && trackedWeeklyCount >= WEEKLY_BOSS_LIMIT) return true;
+  return rows.every(({ entry, options }) =>
+    options.every((option) => trackedGroupKeys.has(`${entry.id}|${option.resetCycle}`)),
+  );
+}
+
+/** 這個分類裡有勾選的王數 */
+function countSelectedRows(rows: GroupedBossRow[], selections: Map<string, Set<BossDifficulty>>): number {
+  return rows.filter(({ entry, options }) => options.some((option) => selections.get(entry.id)?.has(option.difficulty)))
+    .length;
+}
+
+/**
+ * BOSS 名單勾選清單:依每日/每週/每月/賽季分類顯示,難度按鈕本身即勾選開關;每週區塊(不含賽季)以「已追蹤 + 已勾選」合計不超過 12 筆為上限,上限提示由 WeeklyBossLimitHint 獨立顯示。
+ * 每個分類可收合,預設全部收合(BOSS 只有 4 個分類,收合時標題上的數量已足夠判斷,要選再展開)。
+ */
 export function BossCatalogPicker({
   selections,
   onToggleDifficulty,
   trackedGroupKeys,
   trackedWeeklyCount = 0,
+  toolbarEnd,
 }: BossCatalogPickerProps) {
   const weeklyCount = trackedWeeklyCount + countWeeklyBossSelections(selections);
   const weeklyFull = weeklyCount >= WEEKLY_BOSS_LIMIT;
 
+  const [openCategories, setOpenCategories] = useState<Set<string>>(() => new Set());
+
+  function toggleCategory(label: string) {
+    setOpenCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) {
+        next.delete(label);
+      } else {
+        next.add(label);
+      }
+      return next;
+    });
+  }
+
+  const allOpen = GROUPED_BOSS_CATALOG.every(([label]) => openCategories.has(label));
+
+  function handleToggleAllCategories() {
+    setOpenCategories(allOpen ? new Set() : new Set(GROUPED_BOSS_CATALOG.map(([label]) => label)));
+  }
+
   return (
-    <div className="flex min-h-0 max-h-[50vh] flex-col gap-4 overflow-y-auto pr-1">
-      {GROUPED_BOSS_CATALOG.map(([label, rows]) => (
-        <div key={label} className="flex flex-col gap-2">
-          <Marker variant="separator">
-            <MarkerContent>{label}</MarkerContent>
-          </Marker>
-          <div className="flex flex-col gap-1.5">
-            {rows.map(({ entry, options }) => {
-              const selectedDifficulties = selections.get(entry.id);
-              const hasSelection = options.some((option) => selectedDifficulties?.has(option.difficulty) ?? false);
-              return (
-                <div
-                  key={entry.id}
-                  className={cn(
-                    'flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 rounded-lg border px-3 py-2',
-                    hasSelection ? 'border-primary bg-primary/5' : 'border-border',
-                  )}
-                >
-                  <span className="shrink-0 text-sm font-medium">{entry.name}</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {options.map((option) => {
-                      const active = selectedDifficulties?.has(option.difficulty) ?? false;
-                      // 已追蹤鎖定:該角色此王在此週期已有追蹤紀錄,整群(含相同難度)鎖住
-                      const trackedLocked = trackedGroupKeys.has(`${entry.id}|${option.resetCycle}`);
-                      // 對話框內互斥:同王同週期已勾了別的難度,鎖住這顆未勾的,需先取消才能改選
-                      const cycleLocked =
-                        !active &&
-                        options.some(
-                          (o) =>
-                            o.difficulty !== option.difficulty &&
-                            o.resetCycle === option.resetCycle &&
-                            (selectedDifficulties?.has(o.difficulty) ?? false),
-                        );
-                      // 每週區塊達上限時,只鎖住尚未勾選的按鈕,已勾選的仍可點擊取消
-                      const weeklyLocked = !active && label === '每週' && weeklyFull;
-                      const disabled = trackedLocked || cycleLocked || weeklyLocked;
-                      return (
-                        <button
-                          key={option.difficulty}
-                          type="button"
-                          disabled={disabled}
-                          title={trackedLocked ? '此週期已在追蹤中' : undefined}
-                          onClick={() => onToggleDifficulty(entry.id, option.difficulty)}
-                          className={cn(
-                            'rounded-md border px-2.5 py-2 text-xs font-medium outline-none transition-all focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
-                            !disabled && 'hover:scale-105 active:scale-95',
-                            active
-                              ? 'border-primary bg-primary text-primary-foreground'
-                              : disabled
-                                ? 'cursor-not-allowed border-input text-muted-foreground opacity-50'
-                                : 'border-input text-muted-foreground hover:border-primary/50 hover:bg-muted/60',
-                          )}
-                        >
-                          {option.difficulty}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      ))}
+    <div className="flex min-h-0 flex-col gap-3">
+      {/* 與 PresetTaskPicker 的工具列同一個位置與樣式;toolbarEnd 靠右放在同一列 */}
+      <div className="flex items-center justify-between gap-2">
+        <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={handleToggleAllCategories}>
+          {allOpen ? <ChevronsDownUp className="size-4" /> : <ChevronsUpDown className="size-4" />}
+          {allOpen ? '全部收合' : '全部展開'}
+        </Button>
+        {toolbarEnd}
+      </div>
+
+      <PickerCategoryList>
+        {GROUPED_BOSS_CATALOG.map(([label, rows]) => {
+          const selectedCount = countSelectedRows(rows, selections);
+          return (
+            <PickerCategorySection
+              key={label}
+              label={label}
+              status={
+                isCategoryFullyTracked(label, rows, trackedGroupKeys, trackedWeeklyCount) ? (
+                  <PickerCategoryStatus tone="muted">已全部追蹤</PickerCategoryStatus>
+                ) : label === '每週' ? (
+                  // 每週上限跟著分類走,收合時也看得到還剩多少名額
+                  <PickerCategoryStatus tone="active">
+                    {weeklyCount}/{WEEKLY_BOSS_LIMIT}
+                  </PickerCategoryStatus>
+                ) : selectedCount > 0 ? (
+                  <PickerCategoryStatus tone="active">已選 {selectedCount}</PickerCategoryStatus>
+                ) : undefined
+              }
+              open={openCategories.has(label)}
+              onToggle={() => toggleCategory(label)}
+            >
+              <div className="flex flex-col gap-1.5">
+                {rows.map(({ entry, options }) => {
+                  const selectedDifficulties = selections.get(entry.id);
+                  const hasSelection = options.some((option) => selectedDifficulties?.has(option.difficulty) ?? false);
+                  return (
+                    <div
+                      key={entry.id}
+                      className={cn(
+                        'flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 rounded-lg border px-3 py-2 transition-colors duration-200 ease-out-quart',
+                        hasSelection ? 'border-primary bg-primary/5' : 'border-border bg-popover',
+                      )}
+                    >
+                      <span className="flex shrink-0 items-center gap-2 text-sm font-medium">
+                        <BossAvatar bossCatalogId={entry.id} name={entry.name} />
+                        {entry.name}
+                      </span>
+                      <div className="ml-auto flex flex-wrap justify-end gap-1.5">
+                        {options.map((option) => {
+                          const active = selectedDifficulties?.has(option.difficulty) ?? false;
+                          // 已追蹤鎖定:該角色此王在此週期已有追蹤紀錄,整群(含相同難度)鎖住
+                          const trackedLocked = trackedGroupKeys.has(`${entry.id}|${option.resetCycle}`);
+                          // 對話框內互斥:同王同週期已勾了別的難度,鎖住這顆未勾的,需先取消才能改選
+                          const cycleLocked =
+                            !active &&
+                            options.some(
+                              (o) =>
+                                o.difficulty !== option.difficulty &&
+                                o.resetCycle === option.resetCycle &&
+                                (selectedDifficulties?.has(o.difficulty) ?? false),
+                            );
+                          // 每週區塊達上限時,只鎖住尚未勾選的按鈕,已勾選的仍可點擊取消
+                          const weeklyLocked = !active && label === '每週' && weeklyFull;
+                          const disabled = trackedLocked || cycleLocked || weeklyLocked;
+                          return (
+                            <button
+                              key={option.difficulty}
+                              type="button"
+                              disabled={disabled}
+                              title={trackedLocked ? '此週期已在追蹤中' : undefined}
+                              onClick={() => onToggleDifficulty(entry.id, option.difficulty)}
+                              className={cn(
+                                'rounded-md border px-2.5 py-2 text-xs font-medium outline-none transition-[color,background-color,border-color,scale] duration-200 ease-out-quart focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
+                                !disabled && 'motion-safe:active:scale-95',
+                                active
+                                  ? cn('border-transparent', DIFFICULTY_BADGE_CLASSES[option.difficulty])
+                                  : disabled
+                                    ? 'cursor-not-allowed border-input text-muted-foreground opacity-50'
+                                    : 'border-input text-muted-foreground hover:border-primary/50 hover:bg-muted/60',
+                              )}
+                            >
+                              {option.difficulty}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </PickerCategorySection>
+          );
+        })}
+      </PickerCategoryList>
     </div>
   );
 }

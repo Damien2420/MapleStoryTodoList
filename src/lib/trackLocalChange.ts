@@ -18,6 +18,10 @@ type PersistedStore<T> = UseBoundStore<StoreApi<T>> & {
 export function trackLocalChange<T, S>(store: PersistedStore<T>, selector: (state: T) => S): void {
   const startWatching = () => {
     store.subscribe((state, prevState) => {
+      // 重新從 localStorage 讀取期間(例如其他分頁改了資料觸發 rehydrate)hasHydrated 為 false,
+      // 這時的變動是別的分頁做的、那個分頁已經自己記錄過,不能算成這個分頁的異動;
+      // 否則其他分頁「刪除全部」清掉的 lastLocalChangeAt 會被這個分頁立刻寫回來
+      if (!store.persist.hasHydrated()) return;
       if (selector(state) !== selector(prevState)) {
         useSettingsStore.getState().setLastLocalChangeAt(new Date().toISOString());
       }

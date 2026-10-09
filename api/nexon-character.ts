@@ -1,5 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import process from 'node:process';
+
+/** Vercel 部署時的獨立型別檢查環境未必能解析到 @types/node,故在此自行宣告，不依賴外部型別套件 */
+declare const process: { env: Record<string, string | undefined> };
 
 const NEXON_BASE_URL = 'https://open.api.nexon.com/maplestorytw/v1';
 
@@ -28,8 +30,8 @@ function errorBody(error: string, message: string): ErrorBody {
 function withImageSize(imageUrl: string): string {
   try {
     const url = new URL(imageUrl);
-    url.searchParams.set('width', '170');
-    url.searchParams.set('height', '170');
+    url.searchParams.set('width', '150');
+    url.searchParams.set('height', '150');
     return url.toString();
   } catch {
     return imageUrl;

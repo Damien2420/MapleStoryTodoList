@@ -1,6 +1,7 @@
 import type { CharacterTask, ResetCycle } from '@/types';
 import { PRESET_TASKS } from '@/data/presetTasks.data';
 import { PRESET_TASK_GROUPS } from '@/data/presetTaskGroups.data';
+import { compareByOrder } from '@/lib/order';
 
 export { PRESET_TASKS, PRESET_TASK_GROUPS };
 
@@ -109,6 +110,26 @@ export function resolveSelectedPresetTasks(selectedIds: Set<string>, characterLe
   return tasks;
 }
 
+/**
+ * 找出角色已經建立過的預設任務 id(含地區群組),用於「新增任務」挑選清單標示已加入並鎖住。
+ * 依任務名稱比對,與套用時跳過重複任務的規則一致;地區群組要所有已解鎖區域都已建立才算,
+ * 角色升級解鎖新區域後群組會變回可選,套用時只會補上新區域。
+ * @param existingTaskNames 角色目前所有任務的名稱
+ * @param characterLevel 角色等級,決定地區群組展開哪些區域
+ * @returns 已全部建立過的預設任務/群組 id
+ */
+export function findAddedPresetIds(existingTaskNames: ReadonlySet<string>, characterLevel: number): Set<string> {
+  const added = new Set<string>();
+  for (const task of PRESET_TASKS) {
+    if (existingTaskNames.has(task.name)) added.add(task.id);
+  }
+  for (const group of PRESET_TASK_GROUPS) {
+    const tasks = expandPresetGroup(group, characterLevel);
+    if (tasks.length > 0 && tasks.every((t) => existingTaskNames.has(t.name))) added.add(group.id);
+  }
+  return added;
+}
+
 /** 計算單一已建立任務在預設任務目錄中的排序權重:一般任務用 PRESET_TASKS 的位置,群組展開出的任務用「群組位置 + 區域位置」;查無來源(手動建立/已被移除)回傳 Infinity */
 function presetTaskRank(task: Pick<CharacterTask, 'presetId' | 'name'>): number {
   if (!task.presetId) return Infinity;
@@ -128,6 +149,18 @@ export function sortTasksByPresetOrder(tasks: CharacterTask[]): CharacterTask[] 
   return [...tasks].sort((a, b) => presetTaskRank(a) - presetTaskRank(b));
 }
 
+/**
+ * 把同一個角色的任務依預設目錄順序重新編號 order;非 preset 的手動任務排最後,彼此維持原本 (order, id) 的相對順序。
+ * order 沒變的任務沿用原物件,呼叫端可以用陣列參照判斷有沒有異動。
+ * @param tasks 同一個角色的所有任務
+ * @returns 依新順序排列、order 為 0 起算連號的任務
+ */
+export function renumberByPresetOrder(tasks: CharacterTask[]): CharacterTask[] {
+  return sortTasksByPresetOrder([...tasks].sort(compareByOrder)).map((task, index) =>
+    task.order === index ? task : { ...task, order: index },
+  );
+}
+
 /** 判斷 expiresAt(YYYY-MM-DD)是否已超過當天結束(23:59:59.999) */
 function isDateExpired(expiresAt: string, now: Date): boolean {
   const end = new Date(expiresAt);
@@ -142,6 +175,11 @@ export function isPresetExpired(presetId: string, now: Date = new Date()): boole
   const group = PRESET_TASK_GROUPS.find((g) => g.id === presetId);
   if (group) return group.active === false || (group.expiresAt !== undefined && isDateExpired(group.expiresAt, now));
   return false;
+}
+
+/** 任務對應的預設範本是否已下架(沒有 presetId 的任務視為未下架) */
+export function isTaskExpired(task: Pick<CharacterTask, 'presetId'>, now: Date = new Date()): boolean {
+  return task.presetId ? isPresetExpired(task.presetId, now) : false;
 }
 
 /** 依 presetId(單筆任務或群組的 id)查找對應來源的 expiresAt;查無來源或未設定回傳 undefined */

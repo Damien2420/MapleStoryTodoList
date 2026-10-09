@@ -14,6 +14,7 @@ import { isPresetExpired } from '@/lib/presetTasks';
 import { CYCLE_BADGE_CLASSES } from '@/lib/cycleBadge';
 import { cn } from '@/lib/utils';
 import type { Character, CharacterTask } from '@/types';
+import { compareByOrder } from '@/lib/order';
 
 /** 任務對應的預設範本是否已下架(沒有 presetId 的任務視為未下架) */
 function isTaskExpired(task: CharacterTask): boolean {
@@ -38,6 +39,14 @@ function hasVisibleItems(grouped: Map<string, CharacterTask[]>, filter: StatusFi
   return Array.from(grouped.values()).some((items) => filterItemsByStatus(items, filter).length > 0);
 }
 
+/** 任務清單各週期對應的跳轉標記(角色頁 Header 跳轉磚用);週末活動與單次任務沒有對應的跳轉磚 */
+const TASK_JUMP_ANCHORS: Partial<Record<string, string>> = {
+  每日: 'task-daily',
+  每週: 'task-weekly',
+  每月: 'task-monthly',
+  賽季: 'task-season',
+};
+
 /** 依分類渲染單一週期(每日/每週)的任務區塊清單 */
 function renderCategoryGroup(
   grouped: Map<string, CharacterTask[]>,
@@ -50,7 +59,7 @@ function renderCategoryGroup(
   onDeleteCategory: (category: string) => void,
 ) {
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex scroll-mt-16 flex-col gap-5" data-jump-anchor={TASK_JUMP_ANCHORS[cycleLabel]}>
       {Array.from(grouped.entries()).map(([category, categoryTasks]) => {
         // 計數與「全部完成」永遠以整個分類為準;完成狀態篩選只影響顯示哪些項目
         const visibleTasks = filterItemsByStatus(categoryTasks, statusFilter);
@@ -138,7 +147,7 @@ export function TaskList({ character }: { character: Character }) {
     () =>
       allTasks
         .filter((t) => t.characterId === character.id && !isTaskExpired(t))
-        .sort((a, b) => a.order - b.order),
+        .sort(compareByOrder),
     [allTasks, character.id],
   );
   const grouped = useMemo(() => groupByCategory(tasks), [tasks]);
@@ -181,7 +190,7 @@ export function TaskList({ character }: { character: Character }) {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6" data-jump-list="task">
       {tasks.length === 0 ? (
         <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed border-border py-16 text-center">
           <ClipboardList className="size-8 text-muted-foreground" strokeWidth={1.5} />
@@ -198,7 +207,7 @@ export function TaskList({ character }: { character: Character }) {
             <StatusFilterControl value={taskStatusFilter} onChange={setTaskStatusFilter} />
             <AddTaskDialog characterId={character.id} existingCategories={existingCategories} />
           </div>
-          <div className="flex flex-col gap-6 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
+          <div className="flex flex-col gap-6 lg:min-h-0 lg:flex-1 lg:overflow-y-auto" data-jump-scroller="task">
             {showDaily &&
               renderCategoryGroup(
                 dailyGrouped,

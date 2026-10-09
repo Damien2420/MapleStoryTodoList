@@ -1,7 +1,7 @@
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { buildCurrentBackupPayloadJson, parseBackupPayload, type DriveBackupPayload } from '@/lib/backupPayload';
 import { mergeBackupPayload, pruneAllTombstones, type MergeResult } from '@/lib/backupMerge';
-import { downloadFile, findFileId, uploadFile } from '@/lib/googleDrive';
+import { deleteFile, downloadFile, findFileId, listAppDataFileIds, uploadFile } from '@/lib/googleDrive';
 import { hasUnsavedLocalChanges } from '@/lib/backupStatus';
 
 const LATEST_FILE_NAME = 'backup-latest.json';
@@ -23,16 +23,29 @@ export async function backupNow(): Promise<void> {
   if (latestFileId) {
     const previousContent = await downloadFile(latestFileId);
     mergeBackupPayload(parseBackupPayload(previousContent));
+    // 過期墓碑要在上傳前清掉:合併會把雲端的過期墓碑帶回本機,若在上傳後才清,
+    // 這些墓碑每次都會被重新上傳,雲端的墓碑清單就永遠不會縮小
+    pruneAllTombstones();
     await Promise.all([
       uploadFile(PREVIOUS_FILE_NAME, previousContent),
       uploadFile(LATEST_FILE_NAME, buildCurrentBackupPayloadJson()),
     ]);
   } else {
+    pruneAllTombstones();
     await uploadFile(LATEST_FILE_NAME, buildCurrentBackupPayloadJson());
   }
 
-  pruneAllTombstones();
   useSettingsStore.getState().setLastBackupAt(new Date().toISOString());
+}
+
+/**
+ * 刪除這個 App 在 Google Drive 上保存的所有檔案(最新與上一版備份,連同其中的墓碑)。
+ * 只動 Drive,不動本機資料;因為雲端已經沒有備份,把 lastBackupAt 清掉,備份狀態改回「尚未備份」。
+ */
+export async function clearDriveBackups(): Promise<void> {
+  const fileIds = await listAppDataFileIds();
+  await Promise.all(fileIds.map(deleteFile));
+  useSettingsStore.setState({ lastBackupAt: undefined });
 }
 
 /** 查詢有沒有備份紀錄,供還原頁面決定要不要停用「從 Drive 還原」按鈕 */

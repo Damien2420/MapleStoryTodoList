@@ -1,5 +1,6 @@
 import type { BossDifficulty, CharacterBossTrackList } from '@/types';
 import { BOSS_CATALOG } from '@/data/bossCatalog.data';
+import { VIP_BOSS_MAPPING } from '@/data/vipBossCatalog.data';
 
 export { BOSS_CATALOG };
 
@@ -68,7 +69,13 @@ export function countWeeklyBossSelections(selections: Map<string, Set<BossDiffic
 export function countTrackedWeeklyBosses(bosses: CharacterBossTrackList[], characterId: string): number {
   let count = 0;
   for (const boss of bosses) {
-    if (boss.characterId !== characterId || boss.resetCycle !== 'weekly' || boss.category === 'season') continue;
+    if (
+      boss.characterId !== characterId ||
+      boss.resetCycle !== 'weekly' ||
+      boss.category === 'season' ||
+      boss.category === 'vip'
+    )
+      continue;
     if (boss.bossCatalogId) {
       const entry = findBossCatalogEntry(boss.bossCatalogId);
       if (entry && isCatalogEntryExpired(entry)) continue;
@@ -86,7 +93,7 @@ export function flattenBossSelections(selections: Map<string, Set<BossDifficulty
 }
 
 /** 計算某隻王+難度在 BOSS_CATALOG 中的排序權重;查無對應目錄項目回傳 Infinity */
-function bossCatalogRank(bossId: string, difficulty: BossDifficulty): number {
+export function bossCatalogRank(bossId: string, difficulty: BossDifficulty): number {
   const entryIndex = BOSS_CATALOG.findIndex((entry) => entry.id === bossId);
   if (entryIndex === -1) return Infinity;
   const difficultyIndex = BOSS_CATALOG[entryIndex].difficulties.findIndex((option) => option.difficulty === difficulty);
@@ -112,6 +119,31 @@ export function sortTrackedBossesByCatalogOrder(bosses: CharacterBossTrackList[]
   });
 }
 
+/**
+ * 查詢已追蹤的 BOSS 可以切換成哪些難度(含目前難度本身),供 BossItem 的難度選單使用。
+ *
+ * 一般 BOSS 只能換成同一隻王、同一重置週期的難度;VIP BOSS 只能換成同一張券對這隻王列出的難度。
+ * 沒有 bossCatalogId 的舊資料、目錄查無對應或已下架的項目無法對照,回傳空陣列。
+ *
+ * @param boss 要查詢的 BOSS 追蹤紀錄
+ * @returns 依目錄順序排列的候選難度;空陣列代表不可編輯
+ */
+export function getEditableDifficulties(
+  boss: Pick<CharacterBossTrackList, 'bossCatalogId' | 'resetCycle' | 'category' | 'vipTicketLevel'>,
+): BossDifficulty[] {
+  if (!boss.bossCatalogId) return [];
+  const entry = findBossCatalogEntry(boss.bossCatalogId);
+  if (!entry || isCatalogEntryExpired(entry)) return [];
+
+  if (boss.category === 'vip') {
+    if (!boss.vipTicketLevel) return [];
+    const mapping = VIP_BOSS_MAPPING[boss.vipTicketLevel].find((m) => m.bossCatalogId === entry.id);
+    return (mapping?.difficulties ?? []).filter((difficulty) => findDifficultyOption(entry, difficulty));
+  }
+
+  return entry.difficulties.filter((option) => option.resetCycle === boss.resetCycle).map((option) => option.difficulty);
+}
+
 /** 依 id 查找 BOSS 名單項目 */
 export function findBossCatalogEntry(bossId: string): BossCatalogEntry | undefined {
   return BOSS_CATALOG.find((entry) => entry.id === bossId);
@@ -128,6 +160,35 @@ export function findDifficultyOption(
 /** 依攻略人數平分後的實際結晶收益(四捨五入到整數);賽季王也可呼叫,但呼叫端目前不會顯示其結果 */
 export function getEffectiveCrystalValue(boss: Pick<CharacterBossTrackList, 'crystalValue' | 'partySize'>): number {
   return Math.round(boss.crystalValue / boss.partySize);
+}
+
+/**
+ * 每週結晶收益上限是「已討伐」的每週王(一般週王 + VIP每週重置券王,不含VIP每月券/賽季王)共用同一個名額,
+ * 依結晶價值由高到低排序,只有前 WEEKLY_BOSS_LIMIT 名算收益,其餘視為賣不掉;未勾選的王不佔名額也不參與排序。
+ *
+ * @param weeklyBosses 一般週王(不含賽季/VIP) + VIP每週重置券王(不含VIP每月券)的合併清單
+ * @returns 計入本週收益上限的 BOSS id 集合
+ */
+export function getWeeklyRevenueCountedIds(
+  weeklyBosses: Pick<CharacterBossTrackList, 'id' | 'checked' | 'crystalValue' | 'partySize'>[],
+): Set<string> {
+  const topRanked = weeklyBosses
+    .filter((b) => b.checked)
+    .sort((a, b) => getEffectiveCrystalValue(b) - getEffectiveCrystalValue(a))
+    .slice(0, WEEKLY_BOSS_LIMIT);
+  return new Set(topRanked.map((b) => b.id));
+}
+
+/**
+ * 判斷單一 BOSS 討伐列在清單上是否該隱藏收益數字。只套用在每週類型 BOSS(一般週王/VIP每週重置王),
+ * 未上榜前 WEEKLY_BOSS_LIMIT 名的「已討伐」王視為賣不掉;未勾選的王不受影響,仍顯示參考價值。
+ */
+export function isWeeklyRevenueExcluded(
+  boss: Pick<CharacterBossTrackList, 'id' | 'resetCycle' | 'category' | 'checked'>,
+  weeklyRevenueCountedIds: Set<string>,
+): boolean {
+  if (boss.resetCycle !== 'weekly' || boss.category === 'season') return false;
+  return boss.checked && !weeklyRevenueCountedIds.has(boss.id);
 }
 
 /** 查詢指定 BOSS 追蹤紀錄可設定的最大攻略人數;查無對應目錄項目(舊資料或已下架)時 fallback 為 6 */
@@ -147,11 +208,19 @@ export function isCatalogEntryExpired(entry: BossCatalogEntry, now: Date = new D
   return now.getTime() > end.getTime();
 }
 
+/** BOSS 討伐記錄對應的目錄項目是否已下架(沒有 bossCatalogId 視為未下架) */
+export function isBossExpired(boss: Pick<CharacterBossTrackList, 'bossCatalogId'>, now: Date = new Date()): boolean {
+  if (!boss.bossCatalogId) return false;
+  const entry = findBossCatalogEntry(boss.bossCatalogId);
+  return entry ? isCatalogEntryExpired(entry, now) : false;
+}
+
 /**
  * 蒐集指定角色「追蹤中且未下架」的 BOSS 互斥群組鍵。
  *
  * 同一隻王在同一個重置週期內只能討伐一個難度,群組鍵用於在新增BOSS對話框中鎖住已追蹤的群組。
  * 沒有 bossCatalogId 的舊紀錄無法對應回目錄,略過不鎖;目錄項目已下架者同樣略過。
+ * VIP重置券的紀錄是另外一次討伐,不佔一般週期的名額,也略過不鎖(與 countTrackedWeeklyBosses 一致)。
  *
  * @param bosses 全部角色的 BOSS 追蹤紀錄(呼叫端不需預先過濾角色)
  * @param characterId 要計算的角色 id
@@ -160,7 +229,7 @@ export function isCatalogEntryExpired(entry: BossCatalogEntry, now: Date = new D
 export function buildTrackedGroupKeys(bosses: CharacterBossTrackList[], characterId: string): Set<string> {
   const keys = new Set<string>();
   for (const boss of bosses) {
-    if (boss.characterId !== characterId || !boss.bossCatalogId) continue;
+    if (boss.characterId !== characterId || !boss.bossCatalogId || boss.category === 'vip') continue;
     const entry = findBossCatalogEntry(boss.bossCatalogId);
     if (!entry || isCatalogEntryExpired(entry)) continue;
     keys.add(`${boss.bossCatalogId}|${boss.resetCycle}`);

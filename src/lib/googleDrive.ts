@@ -155,6 +155,18 @@ export async function findFileId(name: string): Promise<string | undefined> {
   return data.files[0]?.id;
 }
 
+/** 列出 appDataFolder 裡的所有檔案 id(這個 App 專屬的隱藏資料夾,不含使用者自己的其他檔案) */
+export async function listAppDataFileIds(): Promise<string[]> {
+  const res = await driveFetch(`${DRIVE_FILES_URL}?spaces=appDataFolder&fields=files(id)&pageSize=1000`);
+  const data = (await res.json()) as { files: { id: string }[] };
+  return data.files.map((f) => f.id);
+}
+
+/** 永久刪除指定 fileId 的檔案(不經過垃圾桶) */
+export async function deleteFile(fileId: string): Promise<void> {
+  await driveFetch(`${DRIVE_FILES_URL}/${fileId}`, { method: 'DELETE' });
+}
+
 /** 下載指定 fileId 的檔案內容(純文字) */
 export async function downloadFile(fileId: string): Promise<string> {
   const res = await driveFetch(`${DRIVE_FILES_URL}/${fileId}?alt=media`);

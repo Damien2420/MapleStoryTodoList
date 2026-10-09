@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { lazy, Suspense, useMemo, useState } from 'react';
 import { format, parse } from 'date-fns';
-import { ArrowLeft, CalendarIcon, ListPlus, Plus } from 'lucide-react';
+import { ArrowLeft, CalendarIcon, ClipboardList, ListPlus, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ConfirmListSection } from '@/components/ConfirmListSection';
+import { LoadingIndicator } from '@/components/LoadingIndicator';
 import {
   Dialog,
   DialogContent,
@@ -19,11 +20,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { PresetTaskPicker } from '@/components/PresetTaskPicker';
 import { PresetTaskPreview } from '@/components/PresetTaskPreview';
 import { cn } from '@/lib/utils';
-import { resolveSelectedPresetTasks, type PresetTask } from '@/lib/presetTasks';
+import { focusDialogContainer } from '@/lib/dialogFocus';
+import { findAddedPresetIds, resolveSelectedPresetTasks, type PresetTask } from '@/lib/presetTasks';
 import { TASK_NAME_MAX_LENGTH, TASK_CATEGORY_MAX_LENGTH, type ResetCycle } from '@/types';
 import { useCharacterStore } from '@/store/useCharacterStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useTaskStore } from '@/store/useTaskStore';
+
+/** react-day-picker 只有這個對話框的日期選擇會用到,延遲載入以避免拖累首屏與 dev 模式模組數量 */
+const Calendar = lazy(() => import('@/components/ui/calendar').then((m) => ({ default: m.Calendar })));
 
 const DUE_DATE_FORMAT = 'yyyy-MM-dd';
 
@@ -65,6 +70,16 @@ export function AddTaskDialog({ characterId, existingCategories }: AddTaskDialog
   const [selectedPresetIds, setSelectedPresetIds] = useState<Set<string>>(new Set());
   const [resolvedPresetTasks, setResolvedPresetTasks] = useState<PresetTask[]>([]);
   const [skippedPresetTasks, setSkippedPresetTasks] = useState<PresetTask[]>([]);
+
+  // 角色已有的任務名稱:挑選清單用它標示已加入,套用時也用它跳過重複任務(當作保險)
+  const existingTaskNames = useMemo(
+    () => new Set(allTasks.filter((t) => t.characterId === characterId).map((t) => t.name)),
+    [allTasks, characterId],
+  );
+  const addedPresetIds = useMemo(
+    () => findAddedPresetIds(existingTaskNames, characterLevel),
+    [existingTaskNames, characterLevel],
+  );
 
   function resetForm() {
     setView('presets');
@@ -110,11 +125,8 @@ export function AddTaskDialog({ characterId, existingCategories }: AddTaskDialog
   function handleReviewPresets() {
     if (selectedPresetIds.size === 0) return;
     const resolved = resolveSelectedPresetTasks(selectedPresetIds, characterLevel);
-    const existingNames = new Set(
-      allTasks.filter((t) => t.characterId === characterId).map((t) => t.name),
-    );
-    setResolvedPresetTasks(resolved.filter((t) => !existingNames.has(t.name)));
-    setSkippedPresetTasks(resolved.filter((t) => existingNames.has(t.name)));
+    setResolvedPresetTasks(resolved.filter((t) => !existingTaskNames.has(t.name)));
+    setSkippedPresetTasks(resolved.filter((t) => existingTaskNames.has(t.name)));
     setView('confirm');
   }
 
@@ -138,18 +150,22 @@ export function AddTaskDialog({ characterId, existingCategories }: AddTaskDialog
           <span className="max-[400px]:sr-only">新增任務</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-xl sm:max-h-fit">
+      <DialogContent
+        className={cn('sm:max-w-xl', view === 'confirm' && 'flex flex-col')}
+        onOpenAutoFocus={focusDialogContainer}
+      >
         {view === 'presets' ? (
           <div className="space-y-4">
             <DialogHeader>
               <DialogTitle>新增任務</DialogTitle>
-              <DialogDescription>勾選一個或多個預設任務範本,一次建立多筆任務。</DialogDescription>
+              <DialogDescription>點選預設任務範本，可以一次建立多筆任務。</DialogDescription>
             </DialogHeader>
 
             <PresetTaskPicker
               selectedIds={selectedPresetIds}
               onToggle={togglePreset}
               characterLevel={characterLevel}
+              addedIds={addedPresetIds}
             />
 
             <Button
@@ -172,30 +188,35 @@ export function AddTaskDialog({ characterId, existingCategories }: AddTaskDialog
             </Button>
           </div>
         ) : view === 'confirm' ? (
-          <div className="space-y-4">
+          // 與新增角色的確認頁同一套版型:標題與按鈕固定,只有中間清單捲動;
+          // 返回改由分區右上角的「變更」承擔,不再另放返回按鈕
+          <div className="flex min-h-0 flex-1 flex-col gap-4">
             <DialogHeader>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="-ml-2 w-fit gap-1 text-muted-foreground"
-                onClick={() => setView('presets')}
-              >
-                <ArrowLeft className="size-3.5" />
-                返回預設任務
-              </Button>
               <DialogTitle>確認建立以下任務</DialogTitle>
               <DialogDescription>確認無誤後即可建立,建立後可再自行調整。</DialogDescription>
             </DialogHeader>
 
-            {skippedPresetTasks.length > 0 && (
-              <p className="rounded-md border border-border bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
-                以下 {skippedPresetTasks.length} 筆任務已存在於清單中,將略過建立:
-                {skippedPresetTasks.map((t) => t.name).join('、')}
-              </p>
-            )}
-
-            <PresetTaskPreview tasks={resolvedPresetTasks} />
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <ConfirmListSection
+                icon={ClipboardList}
+                label="任務"
+                count={resolvedPresetTasks.length}
+                unit="項"
+                onChange={() => setView('presets')}
+              >
+                {skippedPresetTasks.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    以下 {skippedPresetTasks.length} 筆任務已存在於清單中,將略過建立:
+                    {skippedPresetTasks.map((t) => t.name).join('、')}
+                  </p>
+                )}
+                <PresetTaskPreview
+                  tasks={resolvedPresetTasks}
+                  className="max-h-none overflow-visible pr-0"
+                  itemClassName="border-transparent bg-popover"
+                />
+              </ConfirmListSection>
+            </div>
 
             <Button
               type="button"
@@ -331,11 +352,19 @@ export function AddTaskDialog({ characterId, existingCategories }: AddTaskDialog
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={dueDate ? parse(dueDate, DUE_DATE_FORMAT, new Date()) : undefined}
-                    onSelect={(date) => setDueDate(date ? format(date, DUE_DATE_FORMAT) : '')}
-                  />
+                  <Suspense
+                    fallback={
+                      <div className="flex h-[286px] w-[252px] items-center justify-center">
+                        <LoadingIndicator />
+                      </div>
+                    }
+                  >
+                    <Calendar
+                      mode="single"
+                      selected={dueDate ? parse(dueDate, DUE_DATE_FORMAT, new Date()) : undefined}
+                      onSelect={(date) => setDueDate(date ? format(date, DUE_DATE_FORMAT) : '')}
+                    />
+                  </Suspense>
                   {dueDate && (
                     <div className="border-t border-border p-2">
                       <Button

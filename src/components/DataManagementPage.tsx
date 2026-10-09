@@ -1,11 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
-import { format } from 'date-fns';
-import { AlertTriangle, ArrowLeft, Cloud, CloudUpload, Download, LogIn, LogOut, RotateCcw, Trash2, Upload, UserRound } from 'lucide-react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
+import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '@/lib/routes';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Separator } from '@/components/ui/separator';
-import { Spinner } from '@/components/ui/spinner';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,25 +14,36 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { cn } from '@/lib/utils';
-import { getSignedInEmail, isSignedIn, requestAccessToken, signOut } from '@/lib/googleDrive';
-import {
-  applyRestoredPayload,
-  backupNow,
-  checkBackupAvailability,
-  fetchLatestBackup,
-  type BackupAvailability,
-} from '@/lib/googleDriveBackup';
-import { buildCurrentBackupPayloadJson, parseBackupPayload } from '@/lib/backupPayload';
-import { mergeBackupPayload } from '@/lib/backupMerge';
-import { useBackupStatus } from '@/hooks/useBackupStatus';
-import { useStaleConfirm } from '@/hooks/useStaleConfirm';
+import { buildCurrentBackupPayloadJson } from '@/lib/backupPayload';
+import { parseSavedSnapshot } from '@/lib/sync/restorePoints';
+import type { RestoreSource, RestoreSourceKind } from '@/lib/sync/syncController';
+import { describeSyncStatus, formatDateTime } from '@/lib/sync/syncText';
+import { PendingLabel } from '@/components/PendingLabel';
+import { useNow } from '@/hooks/useNow';
+import { usePendingAction } from '@/hooks/usePendingAction';
+import { useSyncController, useSyncView } from '@/hooks/useSyncController';
 import { useCharacterStore } from '@/store/useCharacterStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { useBossStore } from '@/store/useBossStore';
-import { useSettingsStore } from '@/store/useSettingsStore';
+import { useAccountStore } from '@/store/useAccountStore';
 
-const DELETE_ALL_CONFIRM_TEXT = '刪除';
+type DeleteKind = 'local' | 'all';
+
+// 確認文字與按鈕同名，使用者輸入的就是自己要按的動作
+const DELETE_LABELS: Record<DeleteKind, string> = { local: '刪除本機紀錄', all: '刪除所有紀錄' };
+
+// 還原點每一列的名稱與說明；未登入只有本機還原點，已登入只有雲端的兩份
+type RestoreSlot = Exclude<RestoreSourceKind, 'file'>;
+const RESTORE_SLOTS: Record<RestoreSlot, { name: string; note: string }> = {
+  localRestorePoint: { name: '本機還原點', note: '還原、刪除角色或帳號前自動建立' },
+  cloudRestorePoint: { name: '雲端還原點', note: '還原、刪除角色或帳號前自動建立' },
+  dailySnapshot: { name: '每日快照', note: '今天第一次修改雲端前的內容' },
+};
+const SIGNED_IN_SLOTS: RestoreSlot[] = ['cloudRestorePoint', 'dailySnapshot'];
+const SIGNED_OUT_SLOTS: RestoreSlot[] = ['localRestorePoint'];
+
+const DANGER_LINE_BUTTON = 'border-destructive bg-transparent text-destructive hover:bg-destructive/10 hover:text-destructive dark:bg-transparent';
+const DANGER_SOLID_BUTTON = 'bg-destructive text-(--destructive-foreground) hover:bg-destructive/90 dark:bg-destructive dark:hover:bg-destructive/90';
 
 /** 觸發瀏覽器把一段文字內容當成檔案下載,用完即釋放暫存的 object URL */
 function downloadTextAsFile(content: string, fileName: string) {
@@ -47,44 +56,75 @@ function downloadTextAsFile(content: string, fileName: string) {
   URL.revokeObjectURL(url);
 }
 
-/** 資料管理頁面:本機/Google Drive 備份與還原、清除全部紀錄,取代主畫面內容顯示(非對話框),由 App.tsx 動態載入 */
-export function DataManagementPage({ onBack }: { onBack: () => void }) {
+/** 資料管理頁的一張卡片區塊 */
+function Section({ title, danger = false, children }: { title: string; danger?: boolean; children: ReactNode }) {
+  return (
+    <section
+      className={`flex flex-col gap-3 rounded-xl border bg-card p-4 ${danger ? 'border-destructive/40' : 'border-border'}`}
+    >
+      <h3 className={`text-sm font-semibold ${danger ? 'text-destructive' : 'text-foreground'}`}>{title}</h3>
+      {children}
+    </section>
+  );
+}
+
+/** 卡片內的一列：左邊標題加小字說明，右邊放動作按鈕；列與列之間用分隔線 */
+function Line({ title, detail, children }: { title: ReactNode; detail: ReactNode; children: ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2.5 border-t border-border py-2 first-of-type:border-t-0">
+      <div className="min-w-0">
+        <p className="text-sm text-foreground">{title}</p>
+        <p className="text-xs text-muted-foreground">{detail}</p>
+      </div>
+      <div className="flex w-full gap-2 *:flex-1 sm:w-auto sm:*:flex-none">{children}</div>
+    </div>
+  );
+}
+
+/** 資料管理頁面(路由 /backup):Google 帳號、備份檔案、還原點、清除紀錄;由 App.tsx 動態載入 */
+export function DataManagementPage() {
+  const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [importing, setImporting] = useState(false);
+  const controller = useSyncController();
+  const auth = useSyncView((s) => s.auth);
+  const status = useSyncView((s) => s.status);
+  const lastSyncedAt = useSyncView((s) => s.lastSyncedAt);
+  const busy = useSyncView((s) => s.busy);
+  const dialogOpen = useSyncView((s) => s.dialog !== undefined);
+  const now = useNow(60_000);
+  const signedIn = auth.kind === 'signedIn';
+  const email = auth.kind === 'signedIn' ? auth.user?.email : undefined;
 
-  const [signedIn, setSignedIn] = useState(isSignedIn());
-  const [email, setEmail] = useState(getSignedInEmail());
-  const [signingIn, setSigningIn] = useState(false);
-  const [signingOut, setSigningOut] = useState(false);
-  const [backingUp, setBackingUp] = useState(false);
-  const [restoring, setRestoring] = useState(false);
-  const [availability, setAvailability] = useState<BackupAvailability>();
-  const [deleteAllOpen, setDeleteAllOpen] = useState(false);
-  const [deleteConfirmText, setDeleteConfirmText] = useState('');
-  const [backupEmptyConfirmOpen, setBackupEmptyConfirmOpen] = useState(false);
-  const backupEmptyResolveRef = useRef<((proceed: boolean) => void) | null>(null);
-  const { lastBackupAt, neverBackedUp, hasUnsavedChanges } = useBackupStatus();
-  const { confirmIfStale, staleConfirmDialog } = useStaleConfirm();
+  const [sources, setSources] = useState<RestoreSource[]>();
+  const [sourcesFailed, setSourcesFailed] = useState(false);
+  const [deleteKind, setDeleteKind] = useState<DeleteKind>();
+  const [confirmText, setConfirmText] = useState('');
+  const deleting = usePendingAction();
 
-  // 空資料防護:沒有任何紀錄時,消費資料的操作(下載備份、刪除全部)不開放;產生資料的操作(匯入)不受影響
   const hasCharacters = useCharacterStore((s) => s.characters.length > 0);
   const hasTasks = useTaskStore((s) => s.tasks.length > 0);
   const hasBosses = useBossStore((s) => s.bosses.length > 0);
-  const hasAnyData = hasCharacters || hasTasks || hasBosses;
+  const hasAccounts = useAccountStore((s) => s.accounts.length > 0);
+  const hasAnyData = hasCharacters || hasTasks || hasBosses || hasAccounts;
 
+  // 登入狀態改變、或對話框關閉（還原、刪除可能產生新的還原點）時重新查詢還原點
   useEffect(() => {
-    if (!signedIn) return;
-    checkBackupAvailability()
-      .then(setAvailability)
-      .catch(() => toast.error('無法查詢 Drive 備份狀態，請稍後再試'));
-  }, [signedIn]);
-
-  useEffect(() => {
+    if (auth.kind === 'checking' || dialogOpen) return;
+    let cancelled = false;
+    controller.listRestoreSources().then(
+      (list) => {
+        if (cancelled) return;
+        setSources(list);
+        setSourcesFailed(false);
+      },
+      () => {
+        if (!cancelled) setSourcesFailed(true);
+      },
+    );
     return () => {
-      backupEmptyResolveRef.current?.(false);
-      backupEmptyResolveRef.current = null;
+      cancelled = true;
     };
-  }, []);
+  }, [controller, auth.kind, dialogOpen]);
 
   function handleDownloadToComputer() {
     downloadTextAsFile(
@@ -93,337 +133,181 @@ export function DataManagementPage({ onBack }: { onBack: () => void }) {
     );
   }
 
-  function handleChooseFile() {
-    fileInputRef.current?.click();
-  }
-
   async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-
-    setImporting(true);
-    try {
-      const content = await file.text();
-      const payload = parseBackupPayload(content);
-      const proceed = await confirmIfStale(payload.createdAt, 'import');
-      if (!proceed) return;
-      const result = mergeBackupPayload(payload);
-      toast.success(
-        `已匯入:新增 ${result.addedCharacters} 個角色、${result.addedTasks} 筆任務、${result.addedBosses} 筆 BOSS 紀錄` +
-          (result.removedByTombstone > 0 ? `，同步移除 ${result.removedByTombstone} 筆已刪除的紀錄` : ''),
-      );
-      onBack();
-    } catch (error) {
-      // JSON.parse 失敗會丟出英文的 SyntaxError,不適合直接顯示;只有版本相關的錯誤才顯示原始訊息
-      toast.error(error instanceof Error && !(error instanceof SyntaxError) ? error.message : '檔案格式錯誤，匯入失敗');
-    } finally {
-      setImporting(false);
+    const saved = parseSavedSnapshot(await file.text());
+    if (!saved) {
+      toast.error('檔案格式錯誤，或是由較新版本的網站產生，無法還原');
+      return;
     }
+    await controller.startRestore(saved.snapshot, { kind: 'file', savedAt: saved.savedAt });
   }
 
-  async function handleSignIn() {
-    setSigningIn(true);
-    try {
-      await requestAccessToken();
-      setSignedIn(true);
-      setEmail(getSignedInEmail());
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : '登入失敗');
-    } finally {
-      setSigningIn(false);
-    }
+  function closeDelete() {
+    setDeleteKind(undefined);
+    setConfirmText('');
   }
 
-  async function handleSignOut() {
-    setSigningOut(true);
-    try {
-      await signOut();
-      setSignedIn(false);
-      setEmail(undefined);
-      setAvailability(undefined);
-    } catch {
-      toast.error('登出失敗，請稍後再試');
-    } finally {
-      setSigningOut(false);
-    }
+  async function handleConfirmDelete() {
+    const kind = deleteKind;
+    const done = kind === 'all' ? await controller.deleteAll() : await controller.deleteLocal();
+    if (!done) return;
+    closeDelete();
+    toast.success(kind === 'all' ? '已刪除所有裝置上的紀錄' : '已刪除這台裝置上的紀錄');
+    // 用 replace 取代 /backup 這一筆歷史,避免使用者按返回回到剛執行完破壞性操作的頁面
+    navigate(ROUTES.root, { replace: true });
   }
 
-  async function performBackup() {
-    try {
-      await backupNow();
-      toast.success('備份成功');
-      setAvailability(await checkBackupAvailability());
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : '備份失敗');
-    }
+  /** 還原點一列的小字：時間加建立時機；讀取中、讀取失敗或尚未建立時顯示對應文字 */
+  function restoreDetail(source: RestoreSource | undefined, kind: RestoreSlot): string {
+    if (sourcesFailed) return '無法讀取，請稍後再試';
+    if (sources === undefined) return '讀取中';
+    if (!source) return '尚未建立';
+    return `${formatDateTime(source.savedAt)} · ${RESTORE_SLOTS[kind].note}`;
   }
 
-  /** 跳出「目前沒有任何角色資料,確定要備份嗎」確認對話框,回傳 Promise<boolean> */
-  function confirmBackupEmpty(): Promise<boolean> {
-    return new Promise((resolve) => {
-      backupEmptyResolveRef.current = resolve;
-      setBackupEmptyConfirmOpen(true);
-    });
-  }
-
-  function resolveBackupEmpty(proceed: boolean) {
-    setBackupEmptyConfirmOpen(false);
-    backupEmptyResolveRef.current?.(proceed);
-    backupEmptyResolveRef.current = null;
-  }
-
-  async function handleBackupNow() {
-    setBackingUp(true);
-    try {
-      // 按下備份的當下先關掉任何還顯示中的刪除復原 toast,避免備份完成後使用者再點復原,
-      // 導致一筆已經同步進這次備份的刪除紀錄被無聲復活
-      toast.dismiss();
-      if (!hasAnyData) {
-        const proceed = await confirmBackupEmpty();
-        if (!proceed) return;
-      } else {
-        const proceed = await confirmIfStale(lastBackupAt, 'backup');
-        if (!proceed) return;
-      }
-      await performBackup();
-    } finally {
-      setBackingUp(false);
-    }
-  }
-
-  async function handleRestore() {
-    setRestoring(true);
-    try {
-      const payload = await fetchLatestBackup();
-      const proceed = await confirmIfStale(payload.createdAt, 'import');
-      if (!proceed) return;
-      const result = applyRestoredPayload(payload);
-      toast.success(
-        `已還原：新增 ${result.addedCharacters} 個角色、${result.addedTasks} 筆任務、${result.addedBosses} 筆 BOSS 紀錄` +
-          (result.removedByTombstone > 0 ? `，同步移除 ${result.removedByTombstone} 筆已刪除的紀錄` : ''),
-      );
-      onBack();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : '還原失敗');
-    } finally {
-      setRestoring(false);
-    }
-  }
-
-  function handleDeleteAllOpenChange(open: boolean) {
-    setDeleteAllOpen(open);
-    if (!open) setDeleteConfirmText('');
-  }
-
-  function handleDeleteAll() {
-    useCharacterStore.setState({ characters: [], activeCharacterId: null });
-    useTaskStore.setState({ tasks: [] });
-    useBossStore.setState({ bosses: [] });
-    useSettingsStore.setState({ lastBackupAt: undefined, lastLocalChangeAt: undefined });
-    setDeleteAllOpen(false);
-    setDeleteConfirmText('');
-    toast.success('已刪除全部角色紀錄');
-    onBack();
-  }
+  const statusView = signedIn ? describeSyncStatus(status, lastSyncedAt, now) : undefined;
+  const deleteLabel = deleteKind ? DELETE_LABELS[deleteKind] : '';
+  const deleteDescriptions =
+    deleteKind === 'all'
+      ? ['雲端與這台裝置的資料都會清空，其他裝置下次同步時會被通知並重置。', '刪除前會把目前雲端的資料存成還原點，可以從資料管理頁還原。']
+      : signedIn
+        ? ['這台裝置的所有資料會被清空，並登出 Google。雲端與其他裝置的資料不受影響。', '會先把還沒同步的修改推送上去，推送失敗就不會刪除。']
+        : ['這台裝置的所有帳號、角色、任務與 BOSS 紀錄會被清空，無法復原。'];
 
   return (
-    <div className="relative mx-auto flex w-full max-w-md flex-1 flex-col gap-6 px-4 py-6 sm:max-w-3xl sm:px-6 sm:pt-10">
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        className="absolute top-4 left-2 gap-1 text-muted-foreground sm:left-4"
-        onClick={onBack}
-      >
-        <ArrowLeft className="size-3.5" />
-        返回
-      </Button>
+    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 px-4 py-6 sm:px-6">
+      <h2 className="text-lg font-semibold text-foreground">備份與同步</h2>
 
-      <div className="space-y-2 pt-4 text-center">
-        <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-accent text-accent-foreground">
-          <Cloud className="size-6" strokeWidth={1.5} />
-        </div>
-        <h2 className="text-lg font-semibold text-foreground">備份與還原</h2>
-        <p className="text-sm text-muted-foreground">把角色、任務、BOSS 紀錄備份成檔案或上傳至雲端硬碟中，換裝置或清除瀏覽器資料後也能還原。</p>
-        <span
-          className={cn(
-            'mx-auto inline-flex max-w-full items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium',
-            neverBackedUp || hasUnsavedChanges
-              ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400'
-              : 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
-          )}
-        >
-          {neverBackedUp || hasUnsavedChanges ? (
-            <AlertTriangle className="size-3.5 shrink-0" />
-          ) : (
-            <CloudUpload className="size-3.5 shrink-0" />
-          )}
-          <span className="min-w-0 truncate">
-            {neverBackedUp
-              ? '尚未備份角色資料'
-              : hasUnsavedChanges
-                ? `有異動尚未備份・上次備份於 ${format(new Date(lastBackupAt!), 'yyyy/MM/dd HH:mm')}`
-                : `資料已備份・上次備份於 ${format(new Date(lastBackupAt!), 'yyyy/MM/dd HH:mm')}`}
-          </span>
-        </span>
-      </div>
-
-      <div className="flex flex-col gap-6 sm:flex-row sm:gap-8">
-        <div className="flex flex-col gap-3 sm:flex-1">
-          <div className="flex flex-col gap-1">
-            <h3 className="text-sm font-semibold text-foreground">本機備份檔案</h3>
-            <p className="text-xs text-muted-foreground">直接匯出/匯入檔案儲存在本機上，不需要登入 Google。</p>
-          </div>
-          <div className="flex flex-col gap-2">
+      <Section title="Google 帳號">
+        {!signedIn ? (
+          <>
+            <p className="text-sm text-muted-foreground">
+              登入後，這台裝置的資料會自動同步到你的 Google Drive，在其他裝置登入同一個帳號就能看到。
+            </p>
+            <div>
+              <Button type="button" disabled={busy || auth.kind === 'checking'} onClick={() => void controller.signIn()}>
+                登入 Google
+              </Button>
+            </div>
+          </>
+        ) : (
+          <Line title={email ?? 'Google 帳號'} detail={statusView?.label}>
             <Button
               type="button"
               variant="outline"
-              className="gap-2"
-              disabled={!hasAnyData}
-              onClick={handleDownloadToComputer}
+              size="sm"
+              // 登入後會馬上同步一次，同步中再按沒有意義
+              disabled={status === undefined || status.kind === 'syncing'}
+              onClick={() => void controller.syncNow()}
             >
-              <Download className="size-4" />
-              下載備份檔案到電腦
+              立即同步
             </Button>
-            {!hasAnyData && <p className="text-xs text-muted-foreground">目前沒有可備份的資料</p>}
-            <Button type="button" variant="outline" className="gap-2" disabled={importing} onClick={handleChooseFile}>
-              <Upload className="size-4" />
-              {importing ? '匯入中…' : '從檔案匯入'}
+            <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => void controller.signOut()}>
+              登出
             </Button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="application/json"
-              className="hidden"
-              onChange={handleFileSelected}
-            />
-          </div>
+          </Line>
+        )}
+      </Section>
+
+      <Section title="備份檔案">
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Button type="button" variant="outline" disabled={!hasAnyData} onClick={handleDownloadToComputer}>
+            下載備份檔案到電腦
+          </Button>
+          <Button type="button" variant="outline" disabled={busy} onClick={() => fileInputRef.current?.click()}>
+            從檔案還原
+          </Button>
+          <input ref={fileInputRef} type="file" accept="application/json" className="hidden" onChange={handleFileSelected} />
         </div>
+        <p className="text-xs text-muted-foreground">從檔案還原會完全取代目前的資料，不是合併。選檔後先顯示兩份資料的比較。</p>
+      </Section>
 
-        <Separator className="sm:hidden" />
-        <Separator orientation="vertical" className="hidden sm:block" />
-
-        <div className="flex flex-col gap-3 sm:flex-1">
-          <div className="flex flex-col gap-1">
-            <h3 className="text-sm font-semibold text-foreground">Google Drive 備份</h3>
-            <p className="text-xs text-muted-foreground">備份到你自己的 Google Drive，適合跨裝置同步。</p>
-            {signedIn && email && (
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-foreground">
-                  <UserRound className="size-3.5 text-muted-foreground" />
-                  {email}
-                </span>
+      <Section title="還原點">
+        <div>
+          {(signedIn ? SIGNED_IN_SLOTS : SIGNED_OUT_SLOTS).map((kind) => {
+            const source = sources?.find((s) => s.kind === kind);
+            return (
+              <Line key={kind} title={RESTORE_SLOTS[kind].name} detail={restoreDetail(source, kind)}>
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
-                  className="gap-1.5 text-muted-foreground hover:text-foreground"
-                  disabled={signingOut}
-                  onClick={handleSignOut}
+                  disabled={busy || !source}
+                  onClick={() => source && void controller.startRestore(source.snapshot, source)}
                 >
-                  <LogOut className="size-3.5" />
-                  切換帳號
+                  還原
                 </Button>
-              </div>
-            )}
-          </div>
+              </Line>
+            );
+          })}
+        </div>
+      </Section>
 
-          {!signedIn ? (
-            <Button type="button" className="gap-2" disabled={signingIn} onClick={handleSignIn}>
-              <LogIn className="size-4" />
-              {signingIn ? '登入中…' : '登入 Google'}
+      <Section title="清除紀錄" danger>
+        <div>
+          <Line
+            title="刪除本機紀錄"
+            detail={
+              signedIn
+                ? '先推送未同步的修改，再登出並清空這台裝置。雲端資料保留。'
+                : '清空這台裝置上所有帳號、角色、任務與 BOSS 紀錄。'
+            }
+          >
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className={DANGER_LINE_BUTTON}
+              disabled={busy || (!signedIn && !hasAnyData)}
+              onClick={() => setDeleteKind('local')}
+            >
+              {DELETE_LABELS.local}
             </Button>
-          ) : (
-            <div className="flex flex-col gap-2">
-              <Button type="button" className="gap-2" disabled={backingUp} onClick={handleBackupNow}>
-                {backingUp ? <Spinner className="size-4" /> : <Cloud className="size-4" />}
-                {backingUp ? '備份中…' : '立即備份'}
+          </Line>
+          {signedIn && (
+            <Line title="刪除所有紀錄" detail="清空雲端與這台裝置，其他裝置會被通知重置。刪除前會建立雲端還原點。">
+              <Button type="button" size="sm" className={DANGER_SOLID_BUTTON} disabled={busy} onClick={() => setDeleteKind('all')}>
+                {DELETE_LABELS.all}
               </Button>
-
-              <Button
-                type="button"
-                variant="outline"
-                className="gap-2"
-                disabled={!availability?.latest || restoring}
-                onClick={handleRestore}
-              >
-                <RotateCcw className="size-4" />
-                {restoring ? '匯入中…' : '從 Google Drive 中匯入'}
-              </Button>
-              {availability && !availability.latest && (
-                <p className="text-xs text-muted-foreground">Google Drive 中尚未有備份紀錄</p>
-              )}
-            </div>
+            </Line>
           )}
         </div>
-      </div>
+      </Section>
 
-      <Separator />
-
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-col gap-1">
-          <h3 className="text-sm font-semibold text-destructive">清除紀錄</h3>
-          <p className="text-xs text-muted-foreground">
-            刪除本機所有角色、任務與 BOSS 紀錄,此動作無法復原,建議刪除前先備份。
-          </p>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          className="w-fit gap-2 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
-          disabled={!hasAnyData}
-          onClick={() => setDeleteAllOpen(true)}
-        >
-          <Trash2 className="size-4" />
-          刪除全部紀錄
-        </Button>
-        {!hasAnyData && <p className="text-xs text-muted-foreground">目前沒有任何紀錄可刪除</p>}
-      </div>
-
-      <AlertDialog open={deleteAllOpen} onOpenChange={handleDeleteAllOpenChange}>
+      <AlertDialog open={deleteKind !== undefined} onOpenChange={(open) => !open && closeDelete()}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>刪除全部角色紀錄?</AlertDialogTitle>
-            <AlertDialogDescription>
-              此動作會刪除本機所有角色、任務與 BOSS 進度紀錄,且無法復原。請在下方輸入「{DELETE_ALL_CONFIRM_TEXT}」以確認。
-            </AlertDialogDescription>
+            <AlertDialogTitle className="text-destructive">{deleteLabel}</AlertDialogTitle>
+            {deleteDescriptions.map((text) => (
+              <AlertDialogDescription key={text}>{text}</AlertDialogDescription>
+            ))}
           </AlertDialogHeader>
-          <Input
-            value={deleteConfirmText}
-            onChange={(e) => setDeleteConfirmText(e.target.value)}
-            placeholder={`請輸入「${DELETE_ALL_CONFIRM_TEXT}」`}
-            autoFocus
-          />
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="delete-confirm" className="text-xs font-semibold text-foreground">
+              輸入「{deleteLabel}」以確認
+            </label>
+            <Input id="delete-confirm" value={confirmText} onChange={(e) => setConfirmText(e.target.value)} autoFocus />
+          </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogCancel disabled={busy}>取消</AlertDialogCancel>
             <AlertDialogAction
-              variant="destructive"
-              disabled={deleteConfirmText !== DELETE_ALL_CONFIRM_TEXT}
-              onClick={handleDeleteAll}
+              className={DANGER_SOLID_BUTTON}
+              disabled={confirmText !== deleteLabel || busy || deleting.pending}
+              aria-busy={deleting.pending}
+              onClick={(e) => {
+                // 刪除是非同步的,阻止預設的立即關閉,完成後由 handleConfirmDelete 關閉
+                e.preventDefault();
+                deleting.run(handleConfirmDelete);
+              }}
             >
-              刪除全部紀錄
+              <PendingLabel pending={deleting.pending}>{deleteLabel}</PendingLabel>
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      <AlertDialog open={backupEmptyConfirmOpen} onOpenChange={(open) => !open && resolveBackupEmpty(false)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>目前沒有任何角色資料</AlertDialogTitle>
-            <AlertDialogDescription>
-              目前沒有角色、任務或 BOSS 紀錄，確定要用這份空白資料覆蓋 Google Drive 上原本的備份嗎？
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={() => resolveBackupEmpty(true)}>仍要備份</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {staleConfirmDialog}
     </div>
   );
 }
