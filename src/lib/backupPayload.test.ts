@@ -52,6 +52,16 @@ describe('parseBackupPayload migration v3 -> v4', () => {
     expect(payload.characterTombstones).toEqual([]);
   });
 
+  it.each([1, 2, 3, 4, 5])('v%i 舊備份升版後武器進度為空(未設定)、帳號為空陣列', (version) => {
+    const tombstones = version >= 4 ? { characterTombstones: [], taskTombstones: [], bossTombstones: [] } : {};
+    const payload = parseBackupPayload(
+      JSON.stringify({ version, createdAt: '2026-01-01T00:00:00.000Z', characters: [], tasks: [], bosses: [], ...tombstones }),
+    );
+    expect(payload.version).toBe(CURRENT_VERSION);
+    expect(payload.weapons).toEqual(emptyWeaponSnapshot());
+    expect(payload.accounts).toEqual([]);
+  });
+
   it('v1 舊備份帶 BOSS 資料時,完整走過 v1->v5 每一步遷移:補上 partySize、拿掉 order、其餘欄位不變', () => {
     const v1Json = JSON.stringify({
       version: 1,
