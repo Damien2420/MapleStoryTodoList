@@ -34,13 +34,17 @@ describe('useBossStore 墓碑相關行為', () => {
     expect(useBossStore.getState().bosses).toEqual([]);
   });
 
-  it('restoreBoss(undo)會清掉剛才寫入的墓碑', () => {
+  it('restoreBoss(undo)以新 id 與較新的修改時間加回，舊 id 的墓碑保留，避免被其他裝置同步來的墓碑再刪一次', () => {
     seedBoss();
     const boss = useBossStore.getState().bosses[0];
     useBossStore.getState().removeBoss('b1');
     useBossStore.getState().restoreBoss(boss);
-    expect(useBossStore.getState().deletedIds).toEqual([]);
-    expect(useBossStore.getState().bosses).toEqual([boss]);
+    const [restored] = useBossStore.getState().bosses;
+    expect(restored).toMatchObject({ ...boss, id: expect.any(String), updatedAt: expect.any(String) });
+    expect(restored.id).not.toBe('b1');
+    expect(restored.restoredFrom).toBe('b1');
+    expect(restored.updatedAt > boss.updatedAt).toBe(true);
+    expect(useBossStore.getState().deletedIds.map((t) => t.id)).toEqual(['b1']);
   });
 
   it('removeBossesForCharacter 對每一筆被刪除的 BOSS 都寫入墓碑', () => {

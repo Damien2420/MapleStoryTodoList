@@ -6,6 +6,9 @@ import { SettingsIcon } from '@/components/ui/settings';
 import { SunIcon } from '@/components/ui/sun';
 import { MoonIcon } from '@/components/ui/moon';
 import { useTheme } from '@/components/theme-provider';
+import { AccountButton } from '@/components/sync/AccountButton';
+import { SyncStatusIndicator } from '@/components/sync/SyncStatusIndicator';
+import { useSyncView } from '@/hooks/useSyncController';
 import { ROUTES } from '@/lib/routes';
 
 // 頂欄是深森綠底,ghost 按鈕預設的 hover:bg-muted 會出錯,統一改走 sidebar token
@@ -39,10 +42,22 @@ function ThemeToggle() {
   );
 }
 
+/** 頂欄右側:已登入時是同步狀態與大頭照(主題切換在大頭照選單裡);未登入時是主題切換與登入按鈕 */
+function HeaderActions() {
+  const signedIn = useSyncView((s) => s.auth.kind === 'signedIn');
+  return (
+    <>
+      <SyncStatusIndicator className={HEADER_BUTTON_CLASSES} />
+      {!signedIn && <ThemeToggle />}
+      <AccountButton className={HEADER_BUTTON_CLASSES} />
+    </>
+  );
+}
+
 // NavLink 在目前頁面時會自動加上 aria-current="page",直接拿來當作目前頁的樣式
 const NAV_ACTIVE_CLASSES = 'aria-[current=page]:bg-sidebar-accent aria-[current=page]:text-sidebar-accent-foreground';
 
-/** 全站頂部導覽列:標題、總覽/資料管理連結、主題切換 */
+/** 全站頂部導覽列:標題、總覽/資料管理連結、同步狀態、帳號、主題切換 */
 export function Header() {
   const homeIconRef = useRef<AnimatedIconHandle>(null);
   const settingsIconRef = useRef<AnimatedIconHandle>(null);
@@ -52,7 +67,7 @@ export function Header() {
       <div className="flex items-center justify-between">
         <h1 className="text-base font-semibold tracking-tight">好楓寶進度追蹤</h1>
         <div className="flex items-center gap-1 sm:hidden">
-          <ThemeToggle />
+          <HeaderActions />
         </div>
       </div>
 
@@ -82,7 +97,7 @@ export function Header() {
       </div>
 
       <div className="hidden items-center gap-1 sm:flex sm:justify-self-end">
-        <ThemeToggle />
+        <HeaderActions />
       </div>
     </header>
   );

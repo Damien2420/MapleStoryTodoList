@@ -1,3 +1,4 @@
+import type { Tombstone } from '@/lib/tombstone';
 import type { BossDifficulty } from '@/types';
 
 /** 四把武器的種類 */
@@ -169,4 +170,33 @@ export function emptyWeaponState(): CharacterWeaponState {
 /** 靈魂已單人擊破清單的 key */
 export function soloKey(bossCatalogId: string, difficulty: BossDifficulty): string {
   return `${bossCatalogId}|${difficulty}`;
+}
+
+/** 武器墓碑的種類：設定與存檔點的 id 都是 characterId，墓碑 id 加上種類前綴避免衝突 */
+export type WeaponRecordKind = 'profile' | 'bossClear' | 'dailyClear' | 'event' | 'checkpoint';
+
+/**
+ * 武器墓碑的 id。
+ * @param kind 紀錄種類
+ * @param id 紀錄 id
+ * @returns `${kind}:${id}`
+ */
+export function weaponTombstoneId(kind: WeaponRecordKind, id: string): string {
+  return `${kind}:${id}`;
+}
+
+/** 快照裡的武器進度：武器 store 的五類資料加上武器墓碑 */
+export interface WeaponSnapshot {
+  profiles: WeaponProfile[];
+  bossClears: BossClear[];
+  dailyClears: DailyClear[];
+  events: WeaponEvent[];
+  checkpoints: WeaponCheckpoint[];
+  /** id = weaponTombstoneId(kind, 紀錄 id)；只由還原產生 */
+  tombstones: Tombstone[];
+}
+
+/** 沒有任何武器資料的快照 */
+export function emptyWeaponSnapshot(): WeaponSnapshot {
+  return { profiles: [], bossClears: [], dailyClears: [], events: [], checkpoints: [], tombstones: [] };
 }

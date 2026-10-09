@@ -6,6 +6,7 @@ import { useTaskStore } from '@/store/useTaskStore';
 import { useBossStore } from '@/store/useBossStore';
 import { useAccountStore } from '@/store/useAccountStore';
 import type { Account, Character, CharacterTask } from '@/types';
+import { emptyWeaponSnapshot } from '@/lib/weapon/types';
 
 const OLD = '2026-01-01T00:00:00.000Z';
 const NEW = '2026-02-01T00:00:00.000Z';
@@ -56,6 +57,7 @@ function emptyPayload(overrides: Partial<DriveBackupPayload> = {}): DriveBackupP
     bossTombstones: [],
     accounts: [],
     accountTombstones: [],
+    weapons: emptyWeaponSnapshot(),
     ...overrides,
   };
 }
@@ -240,6 +242,18 @@ describe('mergeBackupPayload', () => {
     const task = useTaskStore.getState().tasks[0];
     expect(task.checked).toBe(false);
     expect(task.updatedAt).toBe(NEW);
+  });
+
+  it('合併內容與本機完全相同時，store 裡的資料陣列維持原本的參照（不會被誤判成本機異動）', () => {
+    const characters = [makeCharacter('C1', null, 0)];
+    const tasks = [makeTask('t1', 'C1')];
+    useCharacterStore.setState({ characters, activeCharacterId: 'C1', deletedIds: [] });
+    useTaskStore.setState({ tasks, deletedIds: [] });
+
+    mergeBackupPayload(emptyPayload({ characters: [makeCharacter('C1', null, 0)], tasks: [makeTask('t1', 'C1')] }));
+
+    expect(useCharacterStore.getState().characters).toBe(characters);
+    expect(useTaskStore.getState().tasks).toBe(tasks);
   });
 });
 

@@ -6,7 +6,7 @@ import { renumberByPresetOrder, type PresetTask } from '@/lib/presetTasks';
 import { nextOrder } from '@/lib/order';
 import { trackLocalChange } from '@/lib/trackLocalChange';
 import { syncAcrossTabs } from '@/lib/crossTabSync';
-import { clearTombstone, recordTombstone, type Tombstone } from '@/lib/tombstone';
+import { recordTombstone, type Tombstone } from '@/lib/tombstone';
 import { migrateTaskAddUpdatedAt, type TaskBeforeUpdatedAt } from '@/lib/schemaMigrations';
 import { nextTimestamp } from '@/lib/timestamp';
 
@@ -28,7 +28,7 @@ interface TaskState {
   /** 將指定角色底下某分類的所有任務一次設為同一個勾選狀態 */
   toggleCategoryTasks: (characterId: string, category: string, checked: boolean) => void;
   removeTask: (id: string) => void;
-  /** 還原被刪除的任務(用於刪除後的 toast 還原按鈕) */
+  /** 還原被刪除的任務(用於刪除後的 toast 還原按鈕);以新 id 加回,舊 id 的墓碑保留 */
   restoreTask: (task: CharacterTask) => void;
   /** 刪除指定角色底下某分類的所有任務,回傳被刪除的任務清單以供還原 */
   removeCategoryTasks: (characterId: string, category: string) => CharacterTask[];
@@ -122,10 +122,17 @@ export const useTaskStore = create<TaskState>()(
         }));
       },
       restoreTask: (task) => {
+        // 刪除可能已經同步到其他裝置，而合併規則是刪除優先：沿用舊 id 會被其他裝置的墓碑再刪一次。
+        // 因此改用新 id 加回來，舊 id 的墓碑保留，restoredFrom 記下最原始的 id（與還原備份的做法相同）
         set((state) =>
           state.tasks.some((t) => t.id === task.id)
             ? state
-            : { tasks: [...state.tasks, task], deletedIds: clearTombstone(state.deletedIds, task.id) },
+            : {
+                tasks: [
+                  ...state.tasks,
+                  { ...task, id: crypto.randomUUID(), restoredFrom: task.restoredFrom ?? task.id, updatedAt: nextTimestamp(task.updatedAt) },
+                ],
+              },
         );
       },
       removeCategoryTasks: (characterId, category) => {

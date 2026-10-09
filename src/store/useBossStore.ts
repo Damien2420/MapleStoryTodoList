@@ -19,7 +19,7 @@ import {
   migrateBossAddPartySize,
   migrateBossRemoveOrder,
 } from '@/lib/schemaMigrations';
-import { clearTombstone, recordTombstone, type Tombstone } from '@/lib/tombstone';
+import { recordTombstone, type Tombstone } from '@/lib/tombstone';
 import { nextTimestamp } from '@/lib/timestamp';
 
 /** 使用者在新增BOSS對話框中勾選的單筆VIP重置券選取項目 */
@@ -44,7 +44,7 @@ interface BossState {
   setBossPartySize: (id: string, partySize: number) => void;
   /** 將已追蹤 BOSS 換成同週期(VIP 為同券)的另一個難度,收益與人數上限隨新難度調整,勾選狀態保留 */
   changeBossDifficulty: (id: string, difficulty: BossDifficulty) => void;
-  /** 還原被刪除的 BOSS(用於刪除後的 toast 還原按鈕) */
+  /** 還原被刪除的 BOSS(用於刪除後的 toast 還原按鈕);以新 id 加回,舊 id 的墓碑保留 */
   restoreBoss: (boss: CharacterBossTrackList) => void;
   removeBossesForCharacter: (characterId: string) => void;
   runResetCheck: (settings: Settings) => void;
@@ -201,10 +201,17 @@ export const useBossStore = create<BossState>()(
         });
       },
       restoreBoss: (boss) => {
+        // 刪除可能已經同步到其他裝置，而合併規則是刪除優先：沿用舊 id 會被其他裝置的墓碑再刪一次。
+        // 因此改用新 id 加回來，舊 id 的墓碑保留，restoredFrom 記下最原始的 id（與還原備份的做法相同）
         set((state) =>
           state.bosses.some((b) => b.id === boss.id)
             ? state
-            : { bosses: [...state.bosses, boss], deletedIds: clearTombstone(state.deletedIds, boss.id) },
+            : {
+                bosses: [
+                  ...state.bosses,
+                  { ...boss, id: crypto.randomUUID(), restoredFrom: boss.restoredFrom ?? boss.id, updatedAt: nextTimestamp(boss.updatedAt) },
+                ],
+              },
         );
       },
       removeBossesForCharacter: (characterId) => {

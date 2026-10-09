@@ -5,7 +5,7 @@ import { CharacterTabs } from '@/components/CharacterTabs';
 import { CharacterHeader } from '@/components/CharacterHeader';
 import { TaskList } from '@/components/TaskList';
 import { BossList } from '@/components/BossList';
-import { BackupStatusBar } from '@/components/BackupStatusBar';
+import { SyncNotice } from '@/components/sync/SyncNotice';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { scrollToCycle, type JumpList } from '@/lib/listJump';
 import { matchesMedia, WIDE_LIST_LAYOUT_QUERY } from '@/lib/media';
@@ -14,7 +14,7 @@ import { useCharacterStore } from '@/store/useCharacterStore';
 import type { BossCycleKey } from '@/store/useListFilterStore';
 import { useActiveCharacter } from '@/hooks/useActiveCharacter';
 
-/** 角色頁(路由 /character):角色分頁列、角色摘要、備份狀態列,以及任務/BOSS 清單;顯示哪隻角色由 useCharacterStore 的 activeCharacterId 決定 */
+/** 角色頁(路由 /character):角色分頁列、角色摘要、同步提示列,以及任務/BOSS 清單;顯示哪隻角色由 useCharacterStore 的 activeCharacterId 決定 */
 export function CharacterPage() {
   const activeCharacter = useActiveCharacter();
   const setActiveCharacter = useCharacterStore((s) => s.setActiveCharacter);
@@ -55,7 +55,7 @@ export function CharacterPage() {
         </div>
         <TabsContent value={activeCharacter.id} id={`character-panel-${activeCharacter.id}`} className="contents">
           <CharacterHeader character={activeCharacter} onJump={handleJump} />
-          <BackupStatusBar />
+          <SyncNotice />
           <Tabs value={listTab} onValueChange={(value) => setListTab(value as 'tasks' | 'bosses')} className="gap-4">
             <TabsList className="mx-auto lg:hidden" aria-label="清單類型切換">
               <TabsTrigger value="tasks">任務清單</TabsTrigger>

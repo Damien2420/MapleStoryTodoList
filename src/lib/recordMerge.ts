@@ -96,7 +96,7 @@ export function mergeRecords<T extends { id: string }>(
 }
 
 /** 把物件依 key 排序後序列化,讓欄位順序不同但內容相同的兩筆資料得到同一個字串 */
-function stableStringify(value: unknown): string {
+export function stableStringify(value: unknown): string {
   return JSON.stringify(value, (_key, v: unknown) =>
     v && typeof v === 'object' && !Array.isArray(v)
       ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)))

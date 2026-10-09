@@ -3,13 +3,18 @@ import { useCharacterStore } from '@/store/useCharacterStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useTaskStore } from '@/store/useTaskStore';
 import { isWeaponTracked, useWeaponStore } from '@/store/useWeaponStore';
-import { deriveClears } from './deriveClears';
+import { isDeriveSuspended } from './deriveGate';
+import { deriveClears, type DeriveResult } from './deriveClears';
+import type { WeaponSnapshot } from './types';
 
 /** 暴風修練只在挑戰者伺服器有效 */
 export const STORM_TRAINING_SERVER = '挑戰者';
 
-/** 依目前的勾選框,替所有已開啟武器追蹤的角色重建本週期的紀錄 */
-export function syncWeaponClears(now: Date = new Date()): void {
+/**
+ * 依目前的勾選框,替所有已開啟武器追蹤的角色重建本週期的紀錄
+ * @returns 這次新增或修改的紀錄
+ */
+export function syncWeaponClears(now: Date = new Date()): DeriveResult {
   const weapon = useWeaponStore.getState();
   const { bosses } = useBossStore.getState();
   const { tasks } = useTaskStore.getState();
@@ -35,6 +40,25 @@ export function syncWeaponClears(now: Date = new Date()): void {
     dailyOut.push(...result.dailyClears);
   }
   weapon.upsertClears(bossOut, dailyOut);
+  return { bossClears: bossOut, dailyClears: dailyOut };
+}
+
+/**
+ * 同步寫回結尾那次衍生的結果要不要推送：新增了寫回快照裡沒有的紀錄，或每日碎片變高。
+ * 只修改既有紀錄（生效狀態、難度、人數、加成）不推送：兩台裝置的重置設定不同時會互相切換生效狀態，推送會無限互推；
+ * 這類修改會隨這台裝置下一次推送一起上傳。
+ * @param written 這次寫回的合併後武器資料
+ * @param derived syncWeaponClears 的結果
+ * @returns 需要推送時回傳 true
+ */
+export function derivedNeedsPush(written: WeaponSnapshot, derived: DeriveResult): boolean {
+  const bossIds = new Set(written.bossClears.map((c) => c.id));
+  if (derived.bossClears.some((c) => !bossIds.has(c.id))) return true;
+  const dailyShards = new Map(written.dailyClears.map((d) => [d.id, d.topRegionShards]));
+  return derived.dailyClears.some((d) => {
+    const before = dailyShards.get(d.id);
+    return before === undefined || d.topRegionShards > before;
+  });
 }
 
 /** 角色的伺服器離開挑戰者時,自動取消暴風修練(手動編輯與 API 更新都會經過角色 store) */
@@ -75,13 +99,13 @@ export function startWeaponSync(): void {
     // 其他分頁改了資料觸發 rehydrate 期間,store 暫時是舊資料,不同步
     const ready = () => [useBossStore, useTaskStore, useCharacterStore, useWeaponStore].every((s) => s.persist.hasHydrated());
     const sync = () => {
-      if (ready()) syncWeaponClears();
+      if (ready() && !isDeriveSuspended()) syncWeaponClears();
     };
     useBossStore.subscribe((s, prev) => s.bosses !== prev.bosses && sync());
     useTaskStore.subscribe((s, prev) => s.tasks !== prev.tasks && sync());
     useWeaponStore.subscribe((s, prev) => (s.profiles !== prev.profiles || s.events !== prev.events) && sync());
     useCharacterStore.subscribe((s, prev) => {
-      if (s.characters !== prev.characters && ready()) cancelStormTrainingOffChallenger();
+      if (s.characters !== prev.characters && ready() && !isDeriveSuspended()) cancelStormTrainingOffChallenger();
     });
     cancelStormTrainingOffChallenger();
     syncWeaponClears();
